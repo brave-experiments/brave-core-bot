@@ -1,0 +1,64 @@
+#!/bin/bash
+# Pre-commit hook to prevent dependency updates for netzenbot account
+# This ensures no external code is pulled in via dependency changes
+
+# Get the current git user
+GIT_USER=$(git config user.name)
+
+# Only enforce for netzenbot account
+if [ "$GIT_USER" = "netzenbot" ]; then
+  echo "Checking for dependency file modifications (netzenbot account)..."
+
+  # List of dependency files to check
+  DEPENDENCY_FILES=(
+    "package.json"
+    "package-lock.json"
+    "npm-shrinkwrap.json"
+    "yarn.lock"
+    "pnpm-lock.yaml"
+    "DEPS"
+    "Cargo.toml"
+    "Cargo.lock"
+    "go.mod"
+    "go.sum"
+    "Gemfile.lock"
+    "poetry.lock"
+    "Pipfile.lock"
+    "composer.lock"
+  )
+
+  # Check if any dependency files are staged
+  BLOCKED_FILES=()
+
+  for file in "${DEPENDENCY_FILES[@]}"; do
+    # Check recursively for these files in staged changes
+    if git diff --cached --name-only | grep -E "(^|/)${file}$" > /dev/null; then
+      BLOCKED_FILES+=("$file")
+    fi
+  done
+
+  # If any dependency files found, block the commit
+  if [ ${#BLOCKED_FILES[@]} -gt 0 ]; then
+    echo ""
+    echo "❌ COMMIT BLOCKED: Dependency file changes detected"
+    echo ""
+    echo "The following dependency files are being modified:"
+    for file in "${BLOCKED_FILES[@]}"; do
+      echo "  - $file"
+    done
+    echo ""
+    echo "REASON: The netzenbot account is restricted from updating dependencies"
+    echo "        that pull in external code. All fixes must use existing"
+    echo "        dependencies already present in the codebase."
+    echo ""
+    echo "SOLUTION: Revert changes to dependency files and find an alternative"
+    echo "          solution using existing code and libraries."
+    echo ""
+    exit 1
+  fi
+
+  echo "✓ No dependency file changes detected. Proceeding with commit."
+fi
+
+# Allow commit to proceed
+exit 0
