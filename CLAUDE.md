@@ -4,6 +4,18 @@ You are an autonomous coding agent working on a software project.
 
 ## Your Task - State Machine Workflow
 
+**CRITICAL: One Story Per Iteration**
+
+Each iteration follows this model:
+1. Pick ONE story based on priority (see below)
+2. Execute the workflow for that story
+3. Update the PRD and progress.txt
+4. **END THE ITERATION** - Stop processing
+
+The next iteration will pick the next highest-priority story. Never continue to multiple stories in a single iteration.
+
+### Iteration Steps:
+
 1. Read the PRD at `./brave-core-bot/prd.json` (in the brave-core-bot directory)
 2. Read the progress log at `./brave-core-bot/progress.txt` (check Codebase Patterns section first)
 3. Pick the **highest priority** user story using this selection order:
@@ -51,6 +63,15 @@ You are an autonomous coding agent working on a software project.
    **NEVER create a new branch if one already exists for this story!**
 
 3. Implement the user story
+
+   **IMPORTANT: Where to Make Fixes**
+
+   When fixing test failures, the fix can be in:
+   - **Production code** (the code being tested) - if the implementation is wrong
+   - **Test code** (the test itself) - if the test has bugs, incorrect assumptions, or is testing the wrong thing
+   - **Both** - sometimes both the implementation and test need corrections
+
+   Analyze the failure carefully to determine where the actual problem lies. Don't assume the production code is always wrong - tests can have bugs too.
 
 4. **CRITICAL**: Run **ALL** acceptance criteria tests - **YOU MUST NOT SKIP ANY**
 
@@ -208,9 +229,10 @@ Before merging, verify ALL of the following:
 
 **If who_went_last: "bot" (WAITING for reviewer):**
 - No new comments since our last push
-- Update `lastActivityBy: "bot"` in prd.json
-- **SKIP**: Move to the next story (we're waiting for reviewer feedback)
-- This story will be checked again in the next iteration for merge readiness
+- Confirm `lastActivityBy: "bot"` is already set in prd.json (or set it if not)
+- Append to `./brave-core-bot/progress.txt` documenting the status check (no new comments)
+- **END THE ITERATION** - Stop processing, don't continue to the next story
+- This story will be checked again in the next iteration for merge readiness or new review comments
 
 **Review Response Workflow (when there are new reviewer comments):**
 
@@ -233,6 +255,7 @@ When review comments need to be addressed, you enter a full development cycle:
    - Make the requested code changes
    - Apply the same coding standards as initial development
    - Keep changes focused on the feedback
+   - **Note**: Changes may be needed in production code, test code, or both - analyze the feedback to determine where fixes are required
 
 4. **Run ALL Acceptance Criteria Tests** ⚠️ CRITICAL
    - Re-run EVERY test from the original story's acceptance criteria
@@ -278,7 +301,7 @@ In this case, the reviewer should be notified via a PR comment that automated fi
 
 **Goal: None - story is complete**
 
-Skip this story and move to the next one.
+This story is complete. During task selection, merged stories should not be picked (they're in the SKIP priority category). If you encounter a merged story, simply move to the next story in priority order during task selection.
 
 ## Task Selection Priority Summary
 
@@ -290,7 +313,10 @@ When picking the next story, use this priority order:
 
 2. **HIGH (Check Reviews)**: `status: "pushed"` AND `lastActivityBy: "bot"`
    - **Why**: Check if reviewer responded or PR is ready to merge
-   - **Action**: Check merge status, or if new comments, escalate to URGENT
+   - **Action**: Check merge status:
+     - If ready to merge → merge and end iteration
+     - If new comments from reviewer → treat as URGENT (address feedback in this iteration)
+     - If still waiting for reviewer → log status check and END iteration
 
 3. **MEDIUM (Create PRs)**: `status: "committed"`
    - **Why**: Code is ready, make it public for review
@@ -476,6 +502,17 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 ---
 ```
 
+**For status: "pushed" (status check - waiting for reviewer):**
+```
+## [Date/Time] - [Story ID] - Status: pushed (checked - waiting for reviewer)
+- Checked PR #[pr-number]
+- Review Decision: [APPROVED/REVIEW_REQUIRED/etc]
+- CI Status: [summary of checks]
+- Latest activity: Bot went last (no new comments from reviewers)
+- Action: Waiting for reviewer feedback - ending iteration
+---
+```
+
 **For status: "pushed" → "merged":**
 ```
 ## [Date/Time] - [Story ID] - Status: pushed → merged
@@ -542,6 +579,7 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
   - Read relevant code thoroughly
   - Understand the data flow and control flow
   - Identify the actual root cause, not just symptoms
+  - **Determine whether the issue is in production code, test code, or both** - don't assume the production code is always at fault
 - **Fixes must be high-confidence solutions** that address the core issue
 - If you cannot understand the root cause with high confidence, keep the story as `status: "pending"` and document why
 - Temporary hacks or arbitrary timing adjustments are NOT acceptable solutions
