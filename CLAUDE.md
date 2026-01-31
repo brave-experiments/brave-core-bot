@@ -26,8 +26,8 @@ The next iteration will pick the next highest-priority story. Never continue to 
    - Otherwise, use the existing run state
 4. Pick the **highest priority** user story using this selection order:
    - **FIRST (URGENT)**: Stories with `status: "pushed"` AND `lastActivityBy: "reviewer"` (reviewer is waiting for our response!)
-   - **SECOND (HIGH)**: Stories with `status: "pushed"` AND `lastActivityBy: "bot"` (check if reviewer responded or ready to merge)
-   - **THIRD (MEDIUM)**: Stories with `status: "committed"` (need PR creation)
+   - **SECOND (HIGH)**: Stories with `status: "committed"` (need PR creation - push ASAP)
+   - **THIRD (MEDIUM)**: Stories with `status: "pushed"` AND `lastActivityBy: "bot"` (check if reviewer responded or ready to merge)
    - **FOURTH (NORMAL)**: Stories with `status: "pending"` (new development work)
    - **SKIP**: Stories with `status: "merged"` (complete)
 
@@ -370,16 +370,16 @@ When picking the next story, use this priority order:
    - **Why**: Reviewer is waiting for us - respond immediately
    - **Action**: Enter implementation sub-cycle to address feedback
 
-2. **HIGH (Check Reviews)**: `status: "pushed"` AND `lastActivityBy: "bot"`
+2. **HIGH (Create PRs)**: `status: "committed"`
+   - **Why**: Code is ready, make it public for review ASAP
+   - **Action**: Push branch and create PR (happens in same iteration as pending → committed)
+
+3. **MEDIUM (Check Reviews)**: `status: "pushed"` AND `lastActivityBy: "bot"`
    - **Why**: Check if reviewer responded or PR is ready to merge
    - **Action**: Check merge status:
      - If ready to merge → merge and end iteration
      - If new comments from reviewer → treat as URGENT (address feedback in this iteration)
      - If still waiting for reviewer → log status check and END iteration
-
-3. **MEDIUM (Create PRs)**: `status: "committed"`
-   - **Why**: Code is ready, make it public for review
-   - **Action**: Push branch and create PR
 
 4. **NORMAL (New Work)**: `status: "pending"`
    - **Why**: Start new development work
