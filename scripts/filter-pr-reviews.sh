@@ -6,9 +6,11 @@ set -e
 
 PR_NUMBER="$1"
 OUTPUT_FORMAT="${2:-markdown}"  # markdown or json
+PR_REPO="${3:-brave/brave-core}"  # Default to brave-core where PRs are created
 
 if [ -z "$PR_NUMBER" ]; then
-  echo "Usage: $0 <pr-number> [markdown|json]"
+  echo "Usage: $0 <pr-number> [markdown|json] [repo]"
+  echo "  repo defaults to: brave/brave-core"
   exit 1
 fi
 
@@ -59,7 +61,7 @@ is_org_member() {
 }
 
 # Fetch PR data with error handling
-PR_DATA=$(gh api "repos/brave/brave-browser/pulls/$PR_NUMBER" 2>&1)
+PR_DATA=$(gh api "repos/$PR_REPO/pulls/$PR_NUMBER" 2>&1)
 
 # Check if PR fetch was successful
 if [ $? -ne 0 ]; then
@@ -68,7 +70,7 @@ if [ $? -ne 0 ]; then
     echo "Check rate limit: gh api rate_limit" >&2
     exit 1
   elif echo "$PR_DATA" | grep -q "404"; then
-    echo "Error: PR #$PR_NUMBER not found in brave/brave-browser" >&2
+    echo "Error: PR #$PR_NUMBER not found in $PR_REPO" >&2
     exit 1
   elif echo "$PR_DATA" | grep -q "403"; then
     echo "Error: Access forbidden. Check repository permissions." >&2
@@ -93,7 +95,7 @@ PR_MERGEABLE=$(echo "$PR_DATA" | jq -r '.mergeable')
 PR_MERGED=$(echo "$PR_DATA" | jq -r '.merged')
 
 # Fetch reviews with error handling
-REVIEWS=$(gh api "repos/brave/brave-browser/pulls/$PR_NUMBER/reviews" --paginate 2>&1)
+REVIEWS=$(gh api "repos/$PR_REPO/pulls/$PR_NUMBER/reviews" --paginate 2>&1)
 if [ $? -ne 0 ]; then
   if echo "$REVIEWS" | grep -q "rate limit"; then
     echo "Error: GitHub API rate limit exceeded while fetching reviews" >&2
@@ -105,7 +107,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Fetch review comments with error handling
-REVIEW_COMMENTS=$(gh api "repos/brave/brave-browser/pulls/$PR_NUMBER/comments" --paginate 2>&1)
+REVIEW_COMMENTS=$(gh api "repos/$PR_REPO/pulls/$PR_NUMBER/comments" --paginate 2>&1)
 if [ $? -ne 0 ]; then
   if echo "$REVIEW_COMMENTS" | grep -q "rate limit"; then
     echo "Error: GitHub API rate limit exceeded while fetching review comments" >&2
@@ -117,7 +119,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Fetch general PR comments with error handling
-ISSUE_COMMENTS=$(gh api "repos/brave/brave-browser/issues/$PR_NUMBER/comments" --paginate 2>&1)
+ISSUE_COMMENTS=$(gh api "repos/$PR_REPO/issues/$PR_NUMBER/comments" --paginate 2>&1)
 if [ $? -ne 0 ]; then
   if echo "$ISSUE_COMMENTS" | grep -q "rate limit"; then
     echo "Error: GitHub API rate limit exceeded while fetching discussion comments" >&2
@@ -129,7 +131,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Get latest push timestamp from PR data
-LATEST_PUSH_TIMESTAMP=$(echo "$PR_DATA" | jq -r '.head.sha' | xargs -I {} gh api "repos/brave/brave-browser/commits/{}" --jq '.commit.committer.date')
+LATEST_PUSH_TIMESTAMP=$(echo "$PR_DATA" | jq -r '.head.sha' | xargs -I {} gh api "repos/$PR_REPO/commits/{}" --jq '.commit.committer.date')
 
 # Find latest reviewer activity timestamp (from Brave org members only)
 LATEST_REVIEWER_TIMESTAMP=""
