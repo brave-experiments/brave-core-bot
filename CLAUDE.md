@@ -98,7 +98,7 @@ The next iteration will pick the next highest-priority story. Never continue to 
      - Set `lastActivityBy: null` (not yet public)
      - Ensure `branchName` field contains the branch name
    - Append your progress to `./brave-core-bot/progress.txt`
-   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
+   - **Continue in same iteration:** Do NOT mark story as checked yet - proceed immediately to push and create PR (see "Status: committed" section below)
 
 7. **If ANY tests fail:**
    - DO NOT commit changes
@@ -132,6 +132,8 @@ The goal is to avoid infinite loops on impossible tasks while still giving suffi
 
 **IMPORTANT: This is the ONLY state where you should create a new PR. If status is "pushed", the PR already exists - NEVER create a duplicate PR.**
 
+**NOTE: This step happens in the SAME iteration as "pending" → "committed" when all tests pass. Only proceed here if you just transitioned to "committed" in this iteration, OR if you're picking up a story that's already in "committed" status.**
+
 1. Change to git repo: `cd [workingDirectory from prd.json config]`
 
 2. Get branch name from story's `branchName` field
@@ -144,15 +146,21 @@ The goal is to avoid infinite loops on impossible tasks while still giving suffi
    ```
    Capture the PR number from the output
 
-5. Update the PRD at `./brave-core-bot/prd.json`:
-   - Store PR number in `prNumber` field
-   - Store PR URL in `prUrl` field (format: `https://github.com/brave/brave-core/pull/<number>`)
-   - Set `status: "pushed"`
-   - Set `lastActivityBy: "bot"` (we just created the PR)
+5. **If push or PR creation succeeds:**
+   - Update the PRD at `./brave-core-bot/prd.json`:
+     - Store PR number in `prNumber` field
+     - Store PR URL in `prUrl` field (format: `https://github.com/brave/brave-core/pull/<number>`)
+     - Set `status: "pushed"`
+     - Set `lastActivityBy: "bot"` (we just created the PR)
+   - Append to `./brave-core-bot/progress.txt`
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
+   - **END THE ITERATION** - Stop processing
 
-6. Append to `./brave-core-bot/progress.txt`
-
-7. **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
+6. **If push or PR creation fails:**
+   - DO NOT update status in prd.json (keep as "committed")
+   - Document failure in `./brave-core-bot/progress.txt`
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (don't retry endlessly)
+   - **END THE ITERATION** - Stop processing
 
 ### Status: "pushed" (Handle Review or Merge)
 
