@@ -82,6 +82,10 @@ fi
 
 echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
 
+# Reset run state at the start of each run
+echo "Resetting run state for fresh start..."
+"$SCRIPT_DIR/reset-run-state.sh"
+
 for i in $(seq 1 $MAX_ITERATIONS); do
   echo ""
   echo "==============================================================="
