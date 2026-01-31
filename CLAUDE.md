@@ -18,18 +18,32 @@ The next iteration will pick the next highest-priority story. Never continue to 
 
 1. Read the PRD at `./brave-core-bot/prd.json` (in the brave-core-bot directory)
 2. Read the progress log at `./brave-core-bot/progress.txt` (check Codebase Patterns section first)
-3. Pick the **highest priority** user story using this selection order:
+3. **Load run state** from `./brave-core-bot/run-state.json`:
+   - If `runId` is `null`, initialize a new run:
+     - Set `runId` to current timestamp (e.g., `"2026-01-31T10:30:00Z"`)
+     - Set `storiesCheckedThisRun` to empty array `[]`
+     - Write the updated run-state.json
+   - Otherwise, use the existing run state
+4. Pick the **highest priority** user story using this selection order:
    - **FIRST (URGENT)**: Stories with `status: "pushed"` AND `lastActivityBy: "reviewer"` (reviewer is waiting for our response!)
    - **SECOND (HIGH)**: Stories with `status: "pushed"` AND `lastActivityBy: "bot"` (check if reviewer responded or ready to merge)
    - **THIRD (MEDIUM)**: Stories with `status: "committed"` (need PR creation)
    - **FOURTH (NORMAL)**: Stories with `status: "pending"` (new development work)
    - **SKIP**: Stories with `status: "merged"` (complete)
 
+   **Run State Filtering (CRITICAL - prevents infinite loops):**
+   - **SKIP any story whose ID is in `run-state.json`'s `storiesCheckedThisRun` array** - already checked this run
+   - If `run-state.json`'s `skipPushedTasks` is `true`, **SKIP all stories with `status: "pushed"`** (only work on new development)
+   - If ALL remaining stories are either merged or already checked:
+     - Reset run state: Set `runId: null`, `storiesCheckedThisRun: []` in run-state.json
+     - Log in progress.txt: "Run complete - all available stories processed"
+     - **END THE ITERATION**
+
 **CRITICAL**: Always prioritize responding to reviewers over starting new work. This ensures reviewers aren't kept waiting.
 
 **Story Priority Within Each Level**: Within each status priority level above, pick stories by their `priority` field value. **Lower numbers = higher priority** (priority 1 is picked before priority 2, which is picked before priority 3, etc.).
 
-4. Execute the workflow based on the story's current status:
+5. Execute the workflow based on the story's current status:
 
 ### Status: "pending" (Development)
 
@@ -84,13 +98,15 @@ The next iteration will pick the next highest-priority story. Never continue to 
      - Set `lastActivityBy: null` (not yet public)
      - Ensure `branchName` field contains the branch name
    - Append your progress to `./brave-core-bot/progress.txt`
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
 7. **If ANY tests fail:**
    - DO NOT commit changes
    - Keep `status: "pending"`
    - Keep `branchName` (so we can continue on same branch next iteration)
    - Document failure in `./brave-core-bot/progress.txt`
-   - Move to next story
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (don't retry same story endlessly)
+   - **END THE ITERATION** - Stop processing
 
 **Retry Policy for Persistent Test Failures:**
 
@@ -135,6 +151,8 @@ The goal is to avoid infinite loops on impossible tasks while still giving suffi
    - Set `lastActivityBy: "bot"` (we just created the PR)
 
 6. Append to `./brave-core-bot/progress.txt`
+
+7. **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
 ### Status: "pushed" (Handle Review or Merge)
 
@@ -205,6 +223,7 @@ Before merging, verify ALL of the following:
 5. **Update State:**
    - Update the PRD at `./brave-core-bot/prd.json` to set `status: "merged"`
    - Append to `./brave-core-bot/progress.txt`
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
 **IMPORTANT**: Always use `--squash` merge strategy to keep git history clean.
 - **DONE** - Story complete
@@ -231,6 +250,7 @@ Before merging, verify ALL of the following:
 - No new comments since our last push
 - Confirm `lastActivityBy: "bot"` is already set in prd.json (or set it if not)
 - Append to `./brave-core-bot/progress.txt` documenting the status check (no new comments)
+- **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (prevents checking same story repeatedly)
 - **END THE ITERATION** - Stop processing, don't continue to the next story
 - This story will be checked again in the next iteration for merge readiness or new review comments
 
@@ -269,13 +289,15 @@ When review comments need to be addressed, you enter a full development cycle:
    - Update the PRD: Set `lastActivityBy: "bot"` (we just responded)
    - Update `./brave-core-bot/progress.txt` with what was changed
    - Keep `status: "pushed"` (stay in this state)
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
 6. **If ANY tests fail:**
    - DO NOT commit or push
    - Keep `status: "pushed"` (stays in review state)
    - Keep `lastActivityBy: "reviewer"` (still needs our response)
    - Document failure in `./brave-core-bot/progress.txt`
-   - Try to fix the issue or move to next story
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (don't retry endlessly)
+   - **END THE ITERATION** - Stop processing
 
 **Retry Policy for Review Response Failures:**
 
@@ -302,6 +324,35 @@ In this case, the reviewer should be notified via a PR comment that automated fi
 **Goal: None - story is complete**
 
 This story is complete. During task selection, merged stories should not be picked (they're in the SKIP priority category). If you encounter a merged story, simply move to the next story in priority order during task selection.
+
+## Run State Management
+
+### When run-state.json Gets Reset
+
+The `run-state.json` file tracks which stories have been checked in the current run. It gets reset automatically in these situations:
+
+1. **First iteration ever**: When `runId` is `null`, a new run is initialized
+2. **All stories processed**: When all remaining stories are either merged or already checked in `storiesCheckedThisRun`, the run state resets automatically
+3. **Manual reset**: You can manually reset by setting `runId: null` and `storiesCheckedThisRun: []` in the file
+
+### Manual Reset Script
+
+To manually start a fresh run (useful when you want to re-check all pushed PRs or start over):
+
+```bash
+./brave-core-bot/reset-run-state.sh
+```
+
+This resets the run state and allows all stories to be checked again.
+
+### Skip Pushed Tasks Mode
+
+Set `skipPushedTasks: true` in `run-state.json` when you want to:
+- Only work on new development (`status: "pending"`)
+- Skip checking all `status: "pushed"` PRs (useful when you know reviewers haven't responded)
+- Focus on implementing new features rather than monitoring reviews
+
+Remember to set it back to `false` when you want to resume checking pushed PRs.
 
 ## Task Selection Priority Summary
 
