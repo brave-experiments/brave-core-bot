@@ -22,6 +22,7 @@ The next iteration will pick the next highest-priority story. Never continue to 
    - If `runId` is `null`, initialize a new run:
      - Set `runId` to current timestamp (e.g., `"2026-01-31T10:30:00Z"`)
      - Set `storiesCheckedThisRun` to empty array `[]`
+     - Set `lastIterationHadStateChange` to `true`
      - Write the updated run-state.json
    - Otherwise, use the existing run state
 4. Pick the **highest priority** user story using this selection order:
@@ -36,10 +37,20 @@ The next iteration will pick the next highest-priority story. Never continue to 
    - If `run-state.json`'s `skipPushedTasks` is `true`, **SKIP all stories with `status: "pushed"`** (only work on new development)
    - If ALL remaining stories are either merged or already checked:
      - Reset run state: Set `runId: null`, `storiesCheckedThisRun: []` in run-state.json
+     - Set `lastIterationHadStateChange: false` in run-state.json (run completed without state change)
      - Log in progress.txt: "Run complete - all available stories processed"
      - **END THE ITERATION**
 
 **CRITICAL**: Always prioritize responding to reviewers over starting new work. This ensures reviewers aren't kept waiting.
+
+**State Change Tracking:**
+
+The `lastIterationHadStateChange` field in run-state.json controls whether the work iteration counter increments. This keeps the iteration count meaningful (representing actual work done) while allowing rapid checking of multiple stories without inflating the count.
+
+- **Set to `true`** when a story's status changes (pending→committed, committed→pushed, pushed→merged, or review response with push)
+- **Set to `false`** when checking a story but making no changes (test failures, waiting for reviewer, blocked states)
+
+This allows the system to check multiple pushed PRs rapidly without incrementing the work iteration counter for each one, while still using a fresh context for each check.
 
 **Story Priority Within Each Level**: Within each status priority level above, pick stories by their `priority` field value. **Lower numbers = higher priority** (priority 1 is picked before priority 2, which is picked before priority 3, etc.).
 

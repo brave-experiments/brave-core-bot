@@ -86,11 +86,31 @@ echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
 echo "Resetting run state for fresh start..."
 "$SCRIPT_DIR/reset-run-state.sh"
 
-for i in $(seq 1 $MAX_ITERATIONS); do
-  echo ""
-  echo "==============================================================="
-  echo "  Iteration $i of $MAX_ITERATIONS"
-  echo "==============================================================="
+# Track both loop count (for max iterations) and work iterations (actual state changes)
+loop_count=0
+work_iteration=0
+
+while [ $loop_count -lt $MAX_ITERATIONS ]; do
+  ((loop_count++))
+
+  # Check if last iteration had state change (default to true for first iteration)
+  RUN_STATE_FILE="$SCRIPT_DIR/run-state.json"
+  HAD_STATE_CHANGE=$(jq -r '.lastIterationHadStateChange // true' "$RUN_STATE_FILE" 2>/dev/null || echo "true")
+
+  # Only increment work iteration counter if there was actual state change
+  if [ "$HAD_STATE_CHANGE" = "true" ]; then
+    ((work_iteration++))
+    echo ""
+    echo "==============================================================="
+    echo "  Work Iteration $work_iteration (loop $loop_count of $MAX_ITERATIONS)"
+    echo "==============================================================="
+  else
+    echo ""
+    echo "==============================================================="
+    echo "  Checking next task (work iteration $work_iteration, loop $loop_count of $MAX_ITERATIONS)"
+    echo "  Previous check had no state change - continuing without incrementing work iteration"
+    echo "==============================================================="
+  fi
 
   # Run Claude Code with the agent prompt
   # Use a temp file to capture output while allowing real-time streaming
@@ -104,18 +124,19 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   if grep -q "<promise>COMPLETE</promise>" "$TEMP_OUTPUT"; then
     echo ""
     echo "Agent completed all tasks!"
-    echo "Completed at iteration $i of $MAX_ITERATIONS"
+    echo "Completed at work iteration $work_iteration (loop $loop_count of $MAX_ITERATIONS)"
     rm -f "$TEMP_OUTPUT"
     exit 0
   fi
 
   rm -f "$TEMP_OUTPUT"
-  
-  echo "Iteration $i complete. Continuing..."
+
+  echo "Loop $loop_count complete. Starting fresh context..."
   sleep 2
 done
 
 echo ""
-echo "Agent reached max iterations ($MAX_ITERATIONS) without completing all tasks."
+echo "Agent reached max loop iterations ($MAX_ITERATIONS) without completing all tasks."
+echo "Work iterations completed: $work_iteration"
 echo "Check $PROGRESS_FILE for status."
 exit 1
