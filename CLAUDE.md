@@ -25,6 +25,7 @@ The next iteration will pick the next highest-priority story. Never continue to 
      - Set `lastIterationHadStateChange` to `true`
      - Write the updated run-state.json
    - Otherwise, use the existing run state
+   - **Read the `currentIterationLogPath`** from run-state.json - this is the log file for this iteration
 4. Pick the **highest priority** user story using this selection order:
    - **FIRST (URGENT)**: Stories with `status: "pushed"` AND `lastActivityBy: "reviewer"` (reviewer is waiting for our response!)
    - **SECOND (HIGH)**: Stories with `status: "committed"` (need PR creation - push ASAP)
@@ -54,7 +55,15 @@ This allows the system to check multiple pushed PRs rapidly without incrementing
 
 **Story Priority Within Each Level**: Within each status priority level above, pick stories by their `priority` field value. **Lower numbers = higher priority** (priority 1 is picked before priority 2, which is picked before priority 3, etc.).
 
-5. Execute the workflow based on the story's current status:
+5. **Record iteration log path** in the selected story:
+   - Get the `currentIterationLogPath` from run-state.json
+   - In prd.json, add this path to the selected story's `iterationLogs` array field:
+     - If the story doesn't have `iterationLogs`, create it as an array: `"iterationLogs": []`
+     - Append the current log path to the array
+     - This creates an audit trail of all iterations that worked on this story
+   - Write the updated prd.json
+
+6. Execute the workflow based on the story's current status:
 
 ### Status: "pending" (Development)
 

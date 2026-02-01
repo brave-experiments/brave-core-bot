@@ -9,6 +9,7 @@ progress.txt
 
 # Log files
 *.log
+logs/
 
 # Temporary files
 *.tmp

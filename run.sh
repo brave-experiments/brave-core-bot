@@ -14,7 +14,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRD_FILE="$SCRIPT_DIR/prd.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 ARCHIVE_DIR="$SCRIPT_DIR/archive"
+LOGS_DIR="$SCRIPT_DIR/logs"
 LAST_BRANCH_FILE="$SCRIPT_DIR/.last-branch"
+RUN_STATE_FILE="$SCRIPT_DIR/run-state.json"
 
 # Function to switch back to master branch on exit
 cleanup_and_return_to_master() {
@@ -80,7 +82,11 @@ if [ ! -f "$PROGRESS_FILE" ]; then
   echo "---" >> "$PROGRESS_FILE"
 fi
 
+# Create logs directory if it doesn't exist
+mkdir -p "$LOGS_DIR"
+
 echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
+echo "Logs will be saved to: $LOGS_DIR"
 
 # Reset run state at the start of each run
 echo "Resetting run state for fresh start..."
@@ -94,7 +100,6 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   ((loop_count++))
 
   # Check if last iteration had state change (default to true for first iteration)
-  RUN_STATE_FILE="$SCRIPT_DIR/run-state.json"
   HAD_STATE_CHANGE=$(jq -r '.lastIterationHadStateChange // true' "$RUN_STATE_FILE" 2>/dev/null || echo "true")
 
   # Only increment work iteration counter if there was actual state change
@@ -112,13 +117,26 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
     echo "==============================================================="
   fi
 
+  # Generate log file path for this iteration
+  RUN_ID=$(jq -r '.runId // "unknown"' "$RUN_STATE_FILE" 2>/dev/null || echo "unknown")
+  # Create a filename-safe version of runId (replace colons and other special chars)
+  RUN_ID_SAFE=$(echo "$RUN_ID" | sed 's/[^a-zA-Z0-9-]/-/g')
+  ITERATION_LOG="$LOGS_DIR/iteration-${RUN_ID_SAFE}-loop-${loop_count}.log"
+
+  # Store the current iteration log path in run-state.json
+  TMP_RUN_STATE=$(mktemp)
+  jq --arg logPath "$ITERATION_LOG" '.currentIterationLogPath = $logPath' "$RUN_STATE_FILE" > "$TMP_RUN_STATE" && mv "$TMP_RUN_STATE" "$RUN_STATE_FILE"
+
+  echo "Logging to: $ITERATION_LOG"
+
   # Run Claude Code with the agent prompt
   # Use a temp file to capture output while allowing real-time streaming
   TEMP_OUTPUT=$(mktemp)
 
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
   # Always use opus model (which has extended thinking built-in)
-  claude --dangerously-skip-permissions --print --model opus < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee "$TEMP_OUTPUT" || true
+  # Tee output to both the temp file (for completion check) and the iteration log file
+  claude --dangerously-skip-permissions --print --model opus < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee "$TEMP_OUTPUT" "$ITERATION_LOG" || true
 
   # Check for completion signal
   if grep -q "<promise>COMPLETE</promise>" "$TEMP_OUTPUT"; then
