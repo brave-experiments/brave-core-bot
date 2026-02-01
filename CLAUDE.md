@@ -351,7 +351,7 @@ To manually start a fresh run (useful when you want to re-check all pushed PRs o
 ./brave-core-bot/reset-run-state.sh
 ```
 
-This resets the run state and allows all stories to be checked again.
+This resets the iteration state (`runId` and `storiesCheckedThisRun`) while **preserving** the `skipPushedTasks` configuration setting. This allows all stories to be checked again without losing your skip preference.
 
 ### Skip Pushed Tasks Mode
 
@@ -360,7 +360,16 @@ Set `skipPushedTasks: true` in `run-state.json` when you want to:
 - Skip checking all `status: "pushed"` PRs (useful when you know reviewers haven't responded)
 - Focus on implementing new features rather than monitoring reviews
 
-Remember to set it back to `false` when you want to resume checking pushed PRs.
+**This setting is preserved across run resets** - it's a configuration preference, not iteration state.
+
+To toggle this setting:
+```bash
+# Skip pushed tasks (focus on new development only)
+jq '.skipPushedTasks = true' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Resume checking pushed tasks (normal mode)
+jq '.skipPushedTasks = false' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+```
 
 ## Task Selection Priority Summary
 
