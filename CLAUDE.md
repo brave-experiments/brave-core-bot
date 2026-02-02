@@ -18,10 +18,12 @@ The next iteration will pick the next highest-priority story. Never continue to 
 
 **CRITICAL UNDERSTANDING: What "Next Story" Means**
 
-You work on the NEXT NON-MERGED STORY by priority number, REGARDLESS of its status. That story could be:
+You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. That story could be:
 - `status: "pending"` - you implement it
 - `status: "committed"` - you push it and create PR
 - `status: "pushed"` - you check for review comments or merge it
+
+**Active stories** are those with status other than "merged" or "skipped".
 
 **DO NOT filter to only "pending" stories!** If US-006 has priority 6 and US-008 has priority 8, you work on US-006 first, even though US-008 is "pending" and US-006 is "pushed". The status determines WHAT YOU DO with the story, not WHETHER you work on it.
 
@@ -39,9 +41,9 @@ You work on the NEXT NON-MERGED STORY by priority number, REGARDLESS of its stat
 
    **⚠️ CRITICAL: DO NOT filter by status at this step!**
 
-   Do NOT think "what's the next pending story?" - think "what's the next NON-MERGED story by priority number?"
+   Do NOT think "what's the next pending story?" - think "what's the next ACTIVE story by priority number?"
 
-   Example: If US-006 (priority 6, status "pushed") and US-008 (priority 8, status "pending") are both non-merged, you pick US-006 because 6 < 8, even though US-008 is "pending". The status tells you WHAT TO DO, not WHETHER to pick it.
+   Example: If US-006 (priority 6, status "pushed") and US-008 (priority 8, status "pending") are both active, you pick US-006 because 6 < 8, even though US-008 is "pending". The status tells you WHAT TO DO, not WHETHER to pick it.
 
    **Step 1: Load run state filters**
    - Read `run-state.json` to get `storiesCheckedThisRun` array and `skipPushedTasks` flag
@@ -49,6 +51,7 @@ You work on the NEXT NON-MERGED STORY by priority number, REGARDLESS of its stat
    **Step 2: Apply filters to get candidate stories**
    - Start with all stories from prd.json
    - EXCLUDE stories with `status: "merged"` (already complete)
+   - EXCLUDE stories with `status: "skipped"` (intentionally skipped)
    - EXCLUDE stories whose ID is in `storiesCheckedThisRun` array (already checked this run)
    - If `skipPushedTasks` is `true`, EXCLUDE all stories with `status: "pushed"`
    - **DO NOT** exclude stories based on status being "pushed" or "committed" (unless skipPushedTasks is true)
@@ -413,6 +416,18 @@ In this case, the reviewer should be notified via a PR comment that automated fi
 
 This story is complete. During task selection, merged stories should not be picked (they're in the SKIP priority category). If you encounter a merged story, simply move to the next story in priority order during task selection.
 
+### Status: "skipped" (Intentionally Skipped)
+
+**Goal: None - story is intentionally skipped**
+
+This story has been intentionally skipped and will not be worked on. During task selection, skipped stories should not be picked (they're in the SKIP priority category). If you encounter a skipped story, simply move to the next story in priority order during task selection.
+
+Stories can be manually set to "skipped" status when:
+- The story is no longer relevant
+- The story has been superseded by other work
+- The story is blocked indefinitely and should be skipped
+- The story is intentionally deferred
+
 ## Run State Management
 
 ### When run-state.json Gets Reset
@@ -420,7 +435,7 @@ This story is complete. During task selection, merged stories should not be pick
 The `run-state.json` file tracks which stories have been checked in the current run. It gets reset automatically in these situations:
 
 1. **First iteration ever**: When `runId` is `null`, a new run is initialized
-2. **All stories processed**: When all remaining stories are either merged or already checked in `storiesCheckedThisRun`, the run state resets automatically
+2. **All stories processed**: When all remaining stories are either merged, skipped, or already checked in `storiesCheckedThisRun`, the run state resets automatically
 3. **Manual reset**: You can manually reset by setting `runId: null` and `storiesCheckedThisRun: []` in the file
 
 ### Manual Reset Script
@@ -474,8 +489,8 @@ When picking the next story, use this priority order:
    - **Why**: Start new development work
    - **Action**: Implement and test new stories
 
-5. **SKIP**: `status: "merged"`
-   - **Why**: Already complete
+5. **SKIP**: `status: "merged"` or `status: "skipped"`
+   - **Why**: Already complete or intentionally skipped
 
 **CRITICAL PRINCIPLE**: Always prioritize reviewer responsiveness over starting new work. Reviewers' time is valuable - respond to them before picking up new stories.
 
@@ -861,12 +876,12 @@ If no browser tools are available, note in your progress report that manual brow
 
 ## Stop Condition
 
-After completing a user story, check if ALL stories in ./brave-core-bot/prd.json have `status: "merged"`.
+After completing a user story, check if ALL stories in ./brave-core-bot/prd.json have `status: "merged"` or `status: "skipped"`.
 
-If ALL stories are merged, reply with:
+If ALL stories are merged or skipped (no active stories remain), reply with:
 <promise>COMPLETE</promise>
 
-If there are still stories with status other than "merged", end your response normally (another iteration will pick up the next story).
+If there are still stories with status other than "merged" or "skipped", end your response normally (another iteration will pick up the next story).
 
 ## Error Handling
 
