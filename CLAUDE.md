@@ -23,7 +23,7 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
 - `status: "committed"` - you push it and create PR
 - `status: "pushed"` - you check for review comments or merge it
 
-**Active stories** are those with status other than "merged" or "skipped".
+**Active stories** are those with status other than "merged", "skipped", or "invalid".
 
 **DO NOT filter to only "pending" stories!** If US-006 has priority 6 and US-008 has priority 8, you work on US-006 first, even though US-008 is "pending" and US-006 is "pushed". The status determines WHAT YOU DO with the story, not WHETHER you work on it.
 
@@ -52,6 +52,7 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
    - Start with all stories from prd.json
    - EXCLUDE stories with `status: "merged"` (already complete)
    - EXCLUDE stories with `status: "skipped"` (intentionally skipped)
+   - EXCLUDE stories with `status: "invalid"` (invalid stories that won't be worked on)
    - EXCLUDE stories whose ID is in `storiesCheckedThisRun` array (already checked this run)
    - If `skipPushedTasks` is `true`, EXCLUDE all stories with `status: "pushed"`
    - **DO NOT** exclude stories based on status being "pushed" or "committed" (unless skipPushedTasks is true)
@@ -495,6 +496,54 @@ When you change a story's status to "skipped" (from any status), you MUST check 
 
 This ensures stakeholders who filed or are watching the issue aren't left wondering why the bot didn't work on it.
 
+### Status: "invalid" (Invalid Story)
+
+**Goal: None - story is invalid**
+
+This story has been marked as invalid and will not be worked on. During task selection, invalid stories should not be picked (they're in the SKIP priority category). If you encounter an invalid story, simply move to the next story in priority order during task selection.
+
+Stories can be manually set to "invalid" status when:
+- The story is based on incorrect information or misunderstanding
+- The story is a duplicate of another story
+- The reported issue is not actually a bug (working as intended)
+- The story requirements are contradictory or impossible
+- The story is not applicable to the current codebase
+
+**IMPORTANT: Notify GitHub Issue When Marking Invalid**
+
+When you change a story's status to "invalid" (from any status), you MUST check if there's a GitHub issue associated with it and notify stakeholders:
+
+1. **Check if story has GitHub issue reference:**
+   - Look for issue number in story's `description` or `issueUrl` field
+   - If no issue is referenced, skip notification step
+
+2. **Check for existing bot comment:**
+   - Use `gh issue view <issue-number> --json comments` to check if we've already commented
+   - Look for a comment from the bot account explaining the invalid reason
+   - If our comment already exists, skip notification step
+
+3. **Post notification comment if needed:**
+   ```bash
+   gh issue comment <issue-number> --body "$(cat <<'EOF'
+   This issue has been marked as invalid by the bot because:
+   [Brief explanation of why - e.g., "duplicate of #XXXX", "not reproducible - working as intended", "based on incorrect assumptions"]
+
+   [Additional context if relevant - e.g., link to duplicate issue, explanation of expected behavior, etc.]
+   EOF
+   )"
+   ```
+
+4. **Document in progress.txt:**
+   - Note that you posted the GitHub comment
+   - Include the reason for marking invalid
+
+**Example scenarios requiring notification:**
+- Story invalid because it's a duplicate → Comment on issue with link to original issue
+- Story invalid because behavior is working as intended → Comment explaining expected behavior
+- Story invalid because requirements are contradictory → Comment explaining the contradiction
+
+This ensures stakeholders understand why the issue was marked invalid.
+
 ## Run State Management
 
 ### When run-state.json Gets Reset
@@ -556,8 +605,8 @@ When picking the next story, use this priority order:
    - **Why**: Start new development work
    - **Action**: Implement and test new stories
 
-5. **SKIP**: `status: "merged"` or `status: "skipped"`
-   - **Why**: Already complete or intentionally skipped
+5. **SKIP**: `status: "merged"`, `status: "skipped"`, or `status: "invalid"`
+   - **Why**: Already complete, intentionally skipped, or invalid
 
 **CRITICAL PRINCIPLE**: Always prioritize reviewer responsiveness over starting new work. Reviewers' time is valuable - respond to them before picking up new stories.
 
@@ -783,6 +832,16 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 ---
 ```
 
+**For status: [any] → "invalid":**
+```
+## [Date/Time] - [Story ID] - Status: [previous-status] → invalid
+- **Reason for invalid:** [Brief explanation - e.g., "duplicate of #XXXX", "not a bug - working as intended", "contradictory requirements"]
+- **Analysis:** [What you discovered about why this story is invalid]
+- **GitHub Notification:** [Posted comment on issue #XXXX / No issue referenced / Comment already exists]
+- **Note:** [Any additional context for future reference]
+---
+```
+
 ## Consolidate Patterns
 
 If you discover a **reusable pattern** that future iterations should know, add it to the `## Codebase Patterns` section at the TOP of ./brave-core-bot/progress.txt (create it if it doesn't exist):
@@ -987,12 +1046,12 @@ If no browser tools are available, note in your progress report that manual brow
 
 ## Stop Condition
 
-After completing a user story, check if ALL stories in ./brave-core-bot/prd.json have `status: "merged"` or `status: "skipped"`.
+After completing a user story, check if ALL stories in ./brave-core-bot/prd.json have `status: "merged"`, `status: "skipped"`, or `status: "invalid"`.
 
-If ALL stories are merged or skipped (no active stories remain), reply with:
+If ALL stories are merged, skipped, or invalid (no active stories remain), reply with:
 <promise>COMPLETE</promise>
 
-If there are still stories with status other than "merged" or "skipped", end your response normally (another iteration will pick up the next story).
+If there are still stories with status other than "merged", "skipped", or "invalid", end your response normally (another iteration will pick up the next story).
 
 ## Error Handling
 
