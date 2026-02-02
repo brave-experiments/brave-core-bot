@@ -46,12 +46,12 @@ Before picking active stories, check for merged stories that need rechecking:
 
 2. If any merged stories need rechecking, pick the one with the OLDEST `nextMergedCheck` timestamp
 
-3. This has priority BELOW active PRs but ABOVE pending work:
+3. This has priority BELOW all active work (pushed PRs, committed code, and pending development):
    - URGENT: `status: "pushed"` + `lastActivityBy: "reviewer"`
    - HIGH: `status: "committed"`
    - MEDIUM: `status: "pushed"` + `lastActivityBy: "bot"`
-   - **POST-MERGE CHECK**: `status: "merged"` + needs recheck
    - NORMAL: `status: "pending"`
+   - **LOW (Post-Merge Monitoring)**: `status: "merged"` + needs recheck (only when enabled via run-state.json)
 
 ## Workflow for Rechecking Merged Story
 

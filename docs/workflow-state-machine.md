@@ -133,14 +133,15 @@ When picking the next story, use this priority order:
      - If new comments from reviewer → treat as URGENT (address feedback in this iteration)
      - If still waiting for reviewer → log status check and END iteration
 
-4. **POST-MERGE CHECK**: `status: "merged"` AND `mergedCheckFinalState: false` AND `nextMergedCheck` in the past
-   - **Why**: Monitor merged PRs for post-merge follow-up requests
-   - **Action**: Check for new comments since merge, create follow-up stories if needed, update recheck schedule
-   - **Selection**: Pick merged story with OLDEST `nextMergedCheck` timestamp
-
-5. **NORMAL (New Work)**: `status: "pending"`
+4. **NORMAL (New Work)**: `status: "pending"`
    - **Why**: Start new development work
    - **Action**: Implement and test new stories
+
+5. **LOW (Post-Merge Monitoring)**: `status: "merged"` AND `mergedCheckFinalState: false` AND `nextMergedCheck` in the past
+   - **Why**: Monitor merged PRs for post-merge follow-up requests (background task)
+   - **Action**: Check for new comments since merge, create follow-up stories if needed, update recheck schedule
+   - **Selection**: Pick merged story with OLDEST `nextMergedCheck` timestamp
+   - **Note**: Only runs when enabled via `run-state.json` (`enableMergeBackoff: true`)
 
 6. **SKIP**: `status: "merged"` with `mergedCheckFinalState: true`, `status: "skipped"`, or `status: "invalid"`
    - **Why**: Completely done (all monitoring complete), intentionally skipped, or invalid
