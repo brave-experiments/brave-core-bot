@@ -332,9 +332,22 @@ When review comments need to be addressed, you enter a full development cycle wi
    - ALL tests MUST pass before proceeding
 
 6. **If ALL tests pass:**
-   - Create a new commit addressing the review comments
-   - Use clear commit message describing what feedback was addressed
-   - Push to remote: `git push` (updates existing PR)
+   - **Check if branch has existing commits:**
+     ```bash
+     # Check if there are commits on this branch beyond master
+     git log master..HEAD --oneline
+     ```
+   - **If there ARE existing commits on the branch:**
+     - Amend the last commit: `git amendlast` (updates the previous commit with review changes)
+     - Force push: `git push -f` (updates PR with amended commit)
+   - **If there are NO commits yet (empty branch):**
+     - Create a new commit addressing the review comments
+     - Use clear commit message describing what feedback was addressed
+     - Push normally: `git push` (updates existing PR)
+   - Post a reply to the review comment on GitHub using gh CLI:
+     ```bash
+     gh pr comment <pr-number> --body "Fixed: [brief description of what was changed]"
+     ```
    - Update the PRD: Set `lastActivityBy: "bot"` (we just responded)
    - Update `./brave-core-bot/progress.txt` with what was changed
    - Keep `status: "pushed"` (stay in this state)
@@ -607,6 +620,8 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - **Test Results** (REQUIRED):
   - [Re-ran all acceptance criteria tests]
   - All tests MUST pass before pushing review changes
+- Commit strategy: [Amended last commit / Created new commit]
+- Posted reply to PR #[pr-number] explaining fixes
 - Pushed changes to PR #[pr-number]
 ---
 ```
