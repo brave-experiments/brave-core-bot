@@ -612,6 +612,29 @@ When a merged story is picked for rechecking:
 
    Write the updated prd.json with the new story added to the `stories` array.
 
+   **c. Reply to requester on PR:**
+
+   Post a comment on the original PR acknowledging the follow-up request and linking to the new issue:
+   ```bash
+   gh pr comment <pr-number> --body "$(cat <<'EOF'
+   @[username] Thank you for the follow-up request. I've created a tracking issue for this work:
+
+   🔗 [Issue #[issue-number]: [issue-title]]([issue-url])
+
+   This has been added to the work queue as story US-XXX and will be prioritized accordingly.
+   EOF
+   )"
+   ```
+
+   Replace:
+   - `[username]`: The GitHub username who requested the follow-up (without @)
+   - `[issue-number]`: The issue number from step a
+   - `[issue-title]`: The issue title
+   - `[issue-url]`: Full URL to the issue
+   - `US-XXX`: The story ID from step b
+
+   This notifies the requester that their request was received and tracked.
+
 5. **Update the recheck schedule:**
    - Increment `mergedCheckCount` by 1
    - Calculate next interval:
@@ -630,7 +653,9 @@ When a merged story is picked for rechecking:
    - Follow-up work needed: [Yes/No]
    - [If yes: Created follow-up work:
      - Story US-XXX: "[title]" (GitHub issue #YYYY)
+       - Replied to @[username] on PR with issue link
      - Story US-ZZZ: "[title]" (GitHub issue #WWWW)
+       - Replied to @[username] on PR with issue link
    ]
    - [If no: No follow-up action required]
    - Next check scheduled: [timestamp] ([interval] from now)
@@ -1086,7 +1111,9 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - Follow-up work needed: [Yes/No]
 - [If yes: Created follow-up work:
   - Story US-XXX: "[title]" (GitHub issue #YYYY - [issue URL])
+    - Replied to @[username] on PR with issue link
   - Story US-ZZZ: "[title]" (GitHub issue #WWWW - [issue URL])
+    - Replied to @[username] on PR with issue link
 ]
 - [If no: No follow-up action required]
 - Next check scheduled: [timestamp] ([interval] from now)
