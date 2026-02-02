@@ -16,6 +16,15 @@ The next iteration will pick the next highest-priority story. Never continue to 
 
 ### Iteration Steps:
 
+**CRITICAL UNDERSTANDING: What "Next Story" Means**
+
+You work on the NEXT NON-MERGED STORY by priority number, REGARDLESS of its status. That story could be:
+- `status: "pending"` - you implement it
+- `status: "committed"` - you push it and create PR
+- `status: "pushed"` - you check for review comments or merge it
+
+**DO NOT filter to only "pending" stories!** If US-006 has priority 6 and US-008 has priority 8, you work on US-006 first, even though US-008 is "pending" and US-006 is "pushed". The status determines WHAT YOU DO with the story, not WHETHER you work on it.
+
 1. Read the PRD at `./brave-core-bot/prd.json` (in the brave-core-bot directory)
 2. Read the progress log at `./brave-core-bot/progress.txt` (check Codebase Patterns section first)
 3. **Load run state** from `./brave-core-bot/run-state.json`:
@@ -28,6 +37,12 @@ The next iteration will pick the next highest-priority story. Never continue to 
    - **Read the `currentIterationLogPath`** from run-state.json - this is the log file for this iteration
 4. **Pick the next user story** using this simple algorithm:
 
+   **⚠️ CRITICAL: DO NOT filter by status at this step!**
+
+   Do NOT think "what's the next pending story?" - think "what's the next NON-MERGED story by priority number?"
+
+   Example: If US-006 (priority 6, status "pushed") and US-008 (priority 8, status "pending") are both non-merged, you pick US-006 because 6 < 8, even though US-008 is "pending". The status tells you WHAT TO DO, not WHETHER to pick it.
+
    **Step 1: Load run state filters**
    - Read `run-state.json` to get `storiesCheckedThisRun` array and `skipPushedTasks` flag
 
@@ -36,6 +51,7 @@ The next iteration will pick the next highest-priority story. Never continue to 
    - EXCLUDE stories with `status: "merged"` (already complete)
    - EXCLUDE stories whose ID is in `storiesCheckedThisRun` array (already checked this run)
    - If `skipPushedTasks` is `true`, EXCLUDE all stories with `status: "pushed"`
+   - **DO NOT** exclude stories based on status being "pushed" or "committed" (unless skipPushedTasks is true)
 
    **Step 3: If NO candidates remain after filtering**
    - Reset run state: Set `runId: null`, `storiesCheckedThisRun: []` in run-state.json
@@ -46,6 +62,7 @@ The next iteration will pick the next highest-priority story. Never continue to 
    **Step 4: Select the story with the LOWEST `priority` number**
    - From the remaining candidates, pick the story with the lowest `priority` field value
    - Lower numbers = higher priority (priority 1 comes before priority 2, etc.)
+   - **REMEMBER**: The story could have ANY status (pending, committed, pushed) - you pick by priority number ONLY
 
    **Step 5: Work on the selected story**
    - Proceed with the workflow for the selected story's status (see sections below)
