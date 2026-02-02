@@ -147,8 +147,9 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
 
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
   # Always use opus model (which has extended thinking built-in)
+  # Use stream-json output format with verbose flag to capture detailed execution logs
   # Capture output to temp file and log file
-  claude --dangerously-skip-permissions --print --model opus "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+  claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
 
   # Check for completion signal
   if grep -q "<promise>COMPLETE</promise>" "$TEMP_OUTPUT"; then
