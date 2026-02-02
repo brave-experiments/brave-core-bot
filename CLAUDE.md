@@ -531,9 +531,86 @@ When a merged story is picked for rechecking:
    - Look for requests to file tracking issues
 
 4. **If follow-up work is needed:**
-   - Create new stories in prd.json for the follow-up work
-   - Reference the original story and PR in the new story description
-   - Set appropriate priority for new stories
+
+   For each follow-up task requested in post-merge comments:
+
+   **a. Create GitHub Issue:**
+
+   Get the issue repository from `prd.json` config:
+   ```bash
+   # Read issueRepository from prd.json ralphConfig
+   ISSUE_REPO=$(jq -r '.ralphConfig.issueRepository' ./brave-core-bot/prd.json)
+   ```
+
+   Create a detailed GitHub issue:
+   ```bash
+   gh issue create --repo "$ISSUE_REPO" \
+     --title "[Follow-up] Brief description of the follow-up task" \
+     --body "$(cat <<'EOF'
+   ## Context
+   This is a follow-up task from PR #[original-pr-number] which fixed [original-story-title].
+
+   ## Post-Merge Request
+   [Quote the relevant comment from the reviewer/stakeholder requesting this work]
+   - Requested by: @[username]
+   - Comment timestamp: [timestamp]
+   - Original PR: [PR URL]
+
+   ## What Needs to Be Done
+   [Detailed description of the follow-up work requested]
+
+   [If applicable: Why this follow-up is necessary]
+
+   ## Acceptance Criteria
+   - [ ] [Specific requirement 1]
+   - [ ] [Specific requirement 2]
+   - [ ] [Test to verify the fix]
+
+   ## Related
+   - Original Story: [original-story-id]
+   - Original PR: #[pr-number]
+   - Post-merge comment: [link to specific comment]
+   EOF
+   )"
+   ```
+
+   Capture the issue number from the output.
+
+   **b. Add Story to prd.json:**
+
+   Create a new story entry following the same format as existing stories:
+   ```json
+   {
+     "id": "US-XXX",
+     "title": "Brief title matching the GitHub issue",
+     "description": "Follow-up from US-[original] PR #[pr-number]: [Description of what needs to be done]",
+     "acceptanceCriteria": [
+       "Read ./brave-core-bot/BEST-PRACTICES.md",
+       "[Specific test or verification step]",
+       "[Additional requirements]"
+     ],
+     "status": "pending",
+     "priority": [appropriate-number],
+     "issueUrl": "https://github.com/[issue-repo]/issues/[issue-number]",
+     "issueNumber": [issue-number],
+     "relatedStories": ["US-[original-story-id]"],
+     "relatedPRs": ["#[original-pr-number]"]
+   }
+   ```
+
+   **Key fields:**
+   - `id`: Next available US-XXX number in sequence
+   - `title`: Clear, concise title matching the GitHub issue
+   - `description`: Include context from original story and PR
+   - `acceptanceCriteria`: Start with BEST-PRACTICES.md, then specific requirements from the post-merge request
+   - `status`: Always `"pending"` for new stories
+   - `priority`: Set based on urgency (if blocker/critical: low number, if enhancement: higher number)
+   - `issueUrl`: Full URL to the GitHub issue you just created
+   - `issueNumber`: The issue number as an integer
+   - `relatedStories`: Array with original story ID
+   - `relatedPRs`: Array with original PR number
+
+   Write the updated prd.json with the new story added to the `stories` array.
 
 5. **Update the recheck schedule:**
    - Increment `mergedCheckCount` by 1
@@ -549,10 +626,15 @@ When a merged story is picked for rechecking:
    ## [Date/Time] - [Story ID] - Status: merged (post-merge check #N)
    - Checked PR #[pr-number] for post-merge follow-up comments
    - Comments found since merge: [count]
+   - New comments from Brave org members: [list usernames or "none"]
    - Follow-up work needed: [Yes/No]
-   - [If yes: Created new stories: US-XXX, US-YYY]
-   - [If no: No action required]
-   - Next check scheduled: [timestamp or "Final state reached"]
+   - [If yes: Created follow-up work:
+     - Story US-XXX: "[title]" (GitHub issue #YYYY)
+     - Story US-ZZZ: "[title]" (GitHub issue #WWWW)
+   ]
+   - [If no: No follow-up action required]
+   - Next check scheduled: [timestamp] ([interval] from now)
+   - [Or if final: "Post-merge monitoring complete - reached final state"]
    ---
    ```
 
@@ -1000,9 +1082,12 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 ## [Date/Time] - [Story ID] - Status: merged (post-merge check #[N])
 - Checked PR #[pr-number] for post-merge follow-up comments
 - Comments found since merge: [count]
-- New comments from Brave org members: [list or "none"]
+- New comments from Brave org members: [list usernames or "none"]
 - Follow-up work needed: [Yes/No]
-- [If yes: Created new stories: US-XXX (description), US-YYY (description)]
+- [If yes: Created follow-up work:
+  - Story US-XXX: "[title]" (GitHub issue #YYYY - [issue URL])
+  - Story US-ZZZ: "[title]" (GitHub issue #WWWW - [issue URL])
+]
 - [If no: No follow-up action required]
 - Next check scheduled: [timestamp] ([interval] from now)
 - [Or if final: "Post-merge monitoring complete - reached final state"]
