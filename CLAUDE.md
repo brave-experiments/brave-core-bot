@@ -26,7 +26,7 @@ The next iteration will pick the next highest-priority story. Never continue to 
      - Write the updated run-state.json
    - Otherwise, use the existing run state
    - **Read the `currentIterationLogPath`** from run-state.json - this is the log file for this iteration
-4. Pick the **highest priority** user story using this **MANDATORY SELECTION ALGORITHM**:
+4. **Pick the next user story** using this simple algorithm:
 
    **Step 1: Load run state filters**
    - Read `run-state.json` to get `storiesCheckedThisRun` array and `skipPushedTasks` flag
@@ -43,34 +43,13 @@ The next iteration will pick the next highest-priority story. Never continue to 
    - Log in progress.txt: "Run complete - all available stories processed"
    - **END THE ITERATION**
 
-   **Step 4: Select from candidates using STRICT PRIORITY ORDER**
-
-   **CRITICAL: You MUST check EACH priority level IN ORDER. Do NOT skip levels!**
-
-   **PRIORITY LEVEL 1 (URGENT)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "reviewer"`
-   - Filter candidates to only those matching this criteria
-   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
-   - If NONE found: Continue to Priority Level 2
-
-   **PRIORITY LEVEL 2 (HIGH)**: Look for stories with `status: "committed"`
-   - Filter candidates to only those matching this criteria
-   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
-   - If NONE found: Continue to Priority Level 3
-
-   **PRIORITY LEVEL 3 (MEDIUM - CHECK PUSHED PRs)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "bot"`
-   - Filter candidates to only those matching this criteria
-   - **IMPORTANT**: US-006 and US-007 currently have this status - DO NOT SKIP THEM!
-   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
-   - If NONE found: Continue to Priority Level 4
-
-   **PRIORITY LEVEL 4 (NORMAL - NEW WORK)**: Look for stories with `status: "pending"`
-   - **WARNING**: Only reach this level if NO pushed or committed stories need attention!
-   - Filter candidates to only those matching this criteria
-   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
-   - If NONE found: This should not happen (would have been caught in Step 3)
+   **Step 4: Select the story with the LOWEST `priority` number**
+   - From the remaining candidates, pick the story with the lowest `priority` field value
+   - Lower numbers = higher priority (priority 1 comes before priority 2, etc.)
 
    **Step 5: Work on the selected story**
-   - Proceed with the workflow for the selected story's status
+   - Proceed with the workflow for the selected story's status (see sections below)
+   - The status workflow will determine what actions to take (check reviews, merge, implement, etc.)
 
 **CRITICAL**: Always prioritize responding to reviewers over starting new work. This ensures reviewers aren't kept waiting.
 
