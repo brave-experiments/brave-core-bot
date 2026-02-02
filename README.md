@@ -135,6 +135,7 @@ This will:
 **Installed Skills:**
 - `/brave_core_prd` - Generate Product Requirements Documents
 - `/brave_core_prd_json` - Convert PRDs to prd.json format
+- `/prd_bc_add_intermittent_tests` - Fetch intermittent test issues from brave/brave-browser and add missing ones to PRD
 
 ### 5. Create Your PRD
 
@@ -214,6 +215,23 @@ claude
 ```
 
 Or manually create/edit `prd.json` following the structure shown in the Configuration section.
+
+### Updating PRD with Intermittent Test Issues
+
+To automatically fetch open test failure issues from brave/brave-browser and add missing ones to your PRD:
+
+```bash
+claude
+> /prd_bc_add_intermittent_tests
+```
+
+This will:
+1. Fetch all open issues with the `bot/type/test` label from brave/brave-browser
+2. Compare with existing issues in your PRD
+3. Add any missing issues as new user stories with proper acceptance criteria
+4. Provide a detailed recap of what was added
+
+**Note:** The skill will be available after restarting your Claude Code session following the setup.
 
 ## Usage
 
@@ -417,8 +435,9 @@ brave-core-bot/
 │   ├── filter-issue-json.sh  # Filter GitHub issues to org members only
 │   └── filter-pr-reviews.sh  # Filter PR reviews to org members only
 ├── skills/
-│   ├── brave_core_prd.md          # PRD generation skill
-│   └── brave_core_prd_json.md     # PRD to JSON converter skill
+│   ├── brave_core_prd.md                   # PRD generation skill
+│   ├── brave_core_prd_json.md              # PRD to JSON converter skill
+│   └── prd_bc_add_intermittent_tests.md    # Fetch and add bot/type/test issues to PRD
 └── tests/
     ├── test-suite.sh      # Automated test suite
     └── README.md          # Test documentation

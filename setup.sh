@@ -98,6 +98,13 @@ if [ -f "$SCRIPT_DIR/skills/brave_core_prd_json.md" ]; then
   echo "  ✓ /brave_core_prd_json skill installed"
 fi
 
+# Install prd_bc_add_intermittent_tests (Add intermittent test issues to PRD) skill
+if [ -f "$SCRIPT_DIR/skills/prd_bc_add_intermittent_tests.md" ]; then
+  echo "  Installing /prd_bc_add_intermittent_tests skill..."
+  cp "$SCRIPT_DIR/skills/prd_bc_add_intermittent_tests.md" "$CLAUDE_SKILLS_DIR/"
+  echo "  ✓ /prd_bc_add_intermittent_tests skill installed"
+fi
+
 echo ""
 
 # Check git config
