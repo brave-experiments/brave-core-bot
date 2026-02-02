@@ -1,7 +1,11 @@
 # Runtime files - user-specific state
 prd.json
 progress.txt
+run-state.json
 .last-branch
+
+# Claude settings - user-specific
+.claude/
 
 # Backup files
 *.backup

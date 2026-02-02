@@ -1,0 +1,23 @@
+# Progress Log
+Started: [Date/Time]
+---
+
+## Codebase Patterns
+- Add reusable patterns discovered during development here
+- Example: Use specific template for certain operations
+- Example: Follow particular conventions for API calls
+
+---
+
+## [Date/Time] - [Story ID] - Status: [from] → [to]
+- What was implemented
+- Files changed
+- Branch created: [branch-name]
+- **Test Results** (REQUIRED):
+  - [List all acceptance criteria tests and their results]
+  - All tests MUST pass before transitioning states
+- **Learnings for future iterations:**
+  - Patterns discovered
+  - Gotchas encountered
+  - Useful context
+---

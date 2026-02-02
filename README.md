@@ -98,7 +98,26 @@ git config user.email "netzenbot@brave.com"
 
 **Important:** These settings are repository-specific (stored in `.git/config`), not global.
 
-### 3. Run Setup Script
+### 3. Create Configuration Files
+
+The repository includes example templates that you need to copy and customize:
+
+```bash
+cd brave-core-bot
+
+# Copy example files to create your configuration
+cp prd.example.json prd.json
+cp run-state.example.json run-state.json
+cp progress.example.txt progress.txt
+
+# Edit prd.json to set your working directory
+# Replace "/absolute/path/to/your/working/directory" with your actual path
+# Example: "/home/username/projects/brave-browser/src/brave"
+```
+
+**Important:** These files contain user-specific paths and runtime state, so they're gitignored. Never commit your actual `prd.json`, `progress.txt`, or `run-state.json` files.
+
+### 4. Run Setup Script
 
 The setup script installs the pre-commit hook and Claude Code skills:
 
@@ -117,7 +136,7 @@ This will:
 - `/brave_core_prd` - Generate Product Requirements Documents
 - `/brave_core_prd_json` - Convert PRDs to prd.json format
 
-### 4. Create Your PRD
+### 5. Create Your PRD
 
 You can create a PRD in two ways:
 
