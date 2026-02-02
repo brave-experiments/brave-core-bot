@@ -189,11 +189,34 @@ The goal is to avoid infinite loops on impossible tasks while still giving suffi
 
 3. Push the branch: `git push -u origin <branch-name>`
 
-4. Create PR using gh CLI:
+4. Create PR using gh CLI with structured format:
    ```bash
-   gh pr create --title "Story title" --body "Description and test plan"
+   gh pr create --title "Story title" --body "$(cat <<'EOF'
+## Summary
+[Brief description of what this PR does and why]
+
+## Root Cause
+[Description of the underlying issue that needed to be fixed]
+
+## Fix
+[Description of how the fix addresses the root cause]
+
+## Test Plan
+- [x] Ran npm run format - passed
+- [x] Ran npm run presubmit - passed
+- [x] Ran npm run gn_check - passed
+- [x] Ran npm run build - passed
+- [x] Ran npm run test -- [test-name] - passed [N/N times]
+- [ ] CI passes cleanly
+EOF
+)"
    ```
-   Capture the PR number from the output
+
+   **IMPORTANT**:
+   - Fill in actual test commands and results from acceptance criteria
+   - Keep the last checkbox "CI passes cleanly" unchecked
+   - Do NOT add "Generated with Claude Code" or similar attribution
+   - Capture the PR number from the output
 
 5. **If push or PR creation succeeds:**
    - Update the PRD at `./brave-core-bot/prd.json`:
