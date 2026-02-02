@@ -1,0 +1,90 @@
+# Run State Management
+
+## When run-state.json Gets Reset
+
+The `run-state.json` file tracks which stories have been checked in the current run. It gets reset automatically in these situations:
+
+1. **First iteration ever**: When `runId` is `null`, a new run is initialized
+2. **All stories processed**: When all remaining stories are either merged, skipped, or already checked in `storiesCheckedThisRun`, the run state resets automatically
+3. **Manual reset**: You can manually reset by setting `runId: null` and `storiesCheckedThisRun: []` in the file
+
+## Manual Reset Script
+
+To manually start a fresh run (useful when you want to re-check all pushed PRs or start over):
+
+```bash
+./brave-core-bot/reset-run-state.sh
+```
+
+This resets the iteration state (`runId` and `storiesCheckedThisRun`) while **preserving** configuration settings (`skipPushedTasks`, `enableMergeBackoff`, `mergeBackoffStoryIds`). This allows all stories to be checked again without losing your configuration preferences.
+
+## Skip Pushed Tasks Mode
+
+Set `skipPushedTasks: true` in `run-state.json` when you want to:
+- Only work on new development (`status: "pending"`)
+- Skip checking all `status: "pushed"` PRs (useful when you know reviewers haven't responded)
+- Focus on implementing new features rather than monitoring reviews
+
+**This setting is preserved across run resets** - it's a configuration preference, not iteration state.
+
+To toggle this setting:
+```bash
+# Skip pushed tasks (focus on new development only)
+jq '.skipPushedTasks = true' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Resume checking pushed tasks (normal mode)
+jq '.skipPushedTasks = false' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+```
+
+## Post-Merge Checking Configuration
+
+Control whether the bot performs post-merge monitoring with exponential backoff using configuration in `run-state.json`:
+
+**Configuration Fields (PRESERVED across run resets):**
+
+```json
+{
+  "runId": "...",
+  "storiesCheckedThisRun": [...],
+  "skipPushedTasks": false,
+  "enableMergeBackoff": true,
+  "mergeBackoffStoryIds": null
+}
+```
+
+**Fields:**
+- `enableMergeBackoff` (boolean): Enable/disable post-merge monitoring for all merged stories
+  - `true` (default): Bot will check merged PRs on exponential backoff schedule
+  - `false`: Skip all post-merge checking, treat merged stories as final immediately
+- `mergeBackoffStoryIds` (array of strings or null): Restrict post-merge checking to specific stories
+  - `null` (default): Check all merged stories that need rechecking
+  - `["US-012"]`: Only check this specific story, skip all other merged stories
+  - `["US-012", "US-013"]`: Only check these specific stories, skip all others
+
+**Important:** These configuration values are NOT reset when `runId` becomes `null` or when `storiesCheckedThisRun` is cleared. They persist across runs as configuration preferences.
+
+**Usage Examples:**
+
+```bash
+# Disable all post-merge checking temporarily
+jq '.enableMergeBackoff = false' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Re-enable post-merge checking
+jq '.enableMergeBackoff = true' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Only check specific merged stories (useful for debugging)
+jq '.mergeBackoffStoryIds = ["US-012"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+jq '.mergeBackoffStoryIds = ["US-012", "US-013"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Resume checking all merged stories
+jq '.mergeBackoffStoryIds = null' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+```
+
+**During Task Selection:**
+
+When selecting merged stories for post-merge checking, apply these filters:
+1. If `enableMergeBackoff` is `false`, skip all post-merge checking entirely
+2. If `mergeBackoffStoryIds` is an array (not `null`), only check stories whose IDs are in that array
+3. Otherwise (if `mergeBackoffStoryIds` is `null`), check all merged stories that have `nextMergedCheck` in the past
+
+This allows fine-grained control over post-merge monitoring without affecting the main workflow.
