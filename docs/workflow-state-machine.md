@@ -46,6 +46,8 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
 
    Example: If US-006 (priority 6, status "pushed") and US-008 (priority 8, status "pending") are both active, you pick US-006 because 6 < 8, even though US-008 is "pending". The status tells you WHAT TO DO, not WHETHER to pick it.
 
+   **⚠️ IMPORTANT: Merged stories can still be candidates!** Stories with `status: "merged"` may need post-merge monitoring. They are NOT automatically excluded - they go through special filtering logic (merge backoff). A merged story in the `mergeBackoffStoryIds` array is an active candidate for selection!
+
    **Step 1: Load run state filters**
    - Read `run-state.json` to get:
      - `storiesCheckedThisRun` array
@@ -54,18 +56,28 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
      - `mergeBackoffStoryIds` (array of strings or null)
 
    **Step 2: Apply filters to get candidate stories**
-   - Start with all stories from prd.json
-   - EXCLUDE stories with `status: "merged"` AND `mergedCheckFinalState: true` (completely done, no more monitoring)
-   - For stories with `status: "merged"` where `mergedCheckFinalState: false`:
-     - If `enableMergeBackoff` is `false`: EXCLUDE (post-merge checking disabled)
-     - If `mergeBackoffStoryIds` is an array AND story ID is NOT in the array: EXCLUDE (only checking specific stories)
-     - If `nextMergedCheck` is in the future: EXCLUDE (not time to check yet)
-     - Otherwise: INCLUDE (needs post-merge recheck)
+
+   Start with all stories from prd.json. Then apply these filters in order:
+
+   **2.1: Filter by completion status**
    - EXCLUDE stories with `status: "skipped"` (intentionally skipped)
    - EXCLUDE stories with `status: "invalid"` (invalid stories that won't be worked on)
+   - EXCLUDE stories with `status: "merged"` AND `mergedCheckFinalState: true` (completely done, no more monitoring)
+   - **IMPORTANT**: Stories with `status: "merged"` but NO `mergedCheckFinalState` field or `mergedCheckFinalState: false` are NOT automatically excluded - they go through merge backoff filtering below
+
+   **2.2: Filter merged stories (post-merge monitoring)**
+   - For stories with `status: "merged"` where `mergedCheckFinalState` is `false` or not present:
+     - If `enableMergeBackoff` is `false`: EXCLUDE (post-merge checking disabled globally)
+     - If `mergeBackoffStoryIds` is an array AND story ID is NOT in the array: EXCLUDE (only checking specific stories)
+     - If `nextMergedCheck` exists and is in the future: EXCLUDE (not time to check yet)
+     - Otherwise: **INCLUDE** (needs post-merge recheck)
+
+   **2.3: Filter by run state**
    - EXCLUDE stories whose ID is in `storiesCheckedThisRun` array (already checked this run)
    - If `skipPushedTasks` is `true`, EXCLUDE all stories with `status: "pushed"`
-   - **DO NOT** exclude stories based on status being "pushed" or "committed" (unless skipPushedTasks is true)
+
+   **2.4: Keep all other statuses**
+   - **DO NOT** exclude stories based on status being "pending", "committed", or "pushed" (unless skipPushedTasks is true)
 
    **Step 3: If NO candidates remain after filtering**
    - Reset run state: Set `runId: null`, `storiesCheckedThisRun: []` in run-state.json
@@ -137,11 +149,11 @@ When picking the next story, use this priority order:
    - **Why**: Start new development work
    - **Action**: Implement and test new stories
 
-5. **LOW (Post-Merge Monitoring)**: `status: "merged"` AND `mergedCheckFinalState: false` AND `nextMergedCheck` in the past
+5. **LOW (Post-Merge Monitoring)**: `status: "merged"` AND `mergedCheckFinalState: false` AND (`nextMergedCheck` missing OR in the past)
    - **Why**: Monitor merged PRs for post-merge follow-up requests (background task)
    - **Action**: Check for new comments since merge, create follow-up stories if needed, update recheck schedule
-   - **Selection**: Pick merged story with OLDEST `nextMergedCheck` timestamp
-   - **Note**: Only runs when enabled via `run-state.json` (`enableMergeBackoff: true`)
+   - **Selection**: Pick merged story with OLDEST `nextMergedCheck` timestamp (or missing `nextMergedCheck` if none have timestamps)
+   - **Note**: Only runs when enabled via `run-state.json` (`enableMergeBackoff: true`) and filtered by `mergeBackoffStoryIds` if that array exists
 
 6. **SKIP**: `status: "merged"` with `mergedCheckFinalState: true`, `status: "skipped"`, or `status: "invalid"`
    - **Why**: Completely done (all monitoring complete), intentionally skipped, or invalid
