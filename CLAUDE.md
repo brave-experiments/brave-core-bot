@@ -534,6 +534,25 @@ When picking the next story, use this priority order:
 - DO NOT commit code unless ALL acceptance criteria tests pass
 - DO NOT rationalize skipping tests for any reason
 
+### Test Scope: Run ALL Tests in File
+
+**CRITICAL: When running tests, run ALL tests within the entire test file, not just a single test fixture.**
+
+- If you modify or work with a test file, identify ALL test fixtures in that file
+- Use `--gtest_filter` with colon-separated patterns to run ALL fixtures
+- A single test file often contains multiple test fixtures (e.g., `FooTest`, `FooTestWithFeature`, `FooTestDisabled`)
+- Running all fixtures in the file catches test interactions, shared state issues, and side effects
+- Examples:
+  - ❌ WRONG: `--gtest_filter=AdBlockServiceTest.OneCase` (single test case)
+  - ❌ WRONG: `--gtest_filter=AdBlockServiceTest.*` (only one fixture)
+  - ✅ CORRECT: `--gtest_filter=AdBlockServiceTest.*:AdBlockServiceTestWithFeature.*` (all fixtures in file)
+
+**Process:**
+1. Identify which test file(s) you're working with
+2. Examine the file to find ALL test fixture names (all `TEST_F(FixtureName, ...)` declarations)
+3. Build a gtest_filter that includes all fixtures: `Fixture1.*:Fixture2.*:Fixture3.*`
+4. Run all fixtures together to ensure comprehensive testing
+
 ### Build Failure Recovery
 
 **If `npm run build` fails**, run these steps in order from `[workingDirectory from prd.json config]`:
