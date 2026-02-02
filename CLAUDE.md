@@ -791,6 +791,14 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 
 - **NEVER use workarounds** - Every fix must address the root cause
 - **NEVER add arbitrary waits or sleep statements** - If you think you need a wait, you don't understand the problem
+- **NEVER make changes that "fix" the test by altering execution timing** - This is the most common type of fake fix. The problem disappears locally but the race condition still exists and will inevitably return. Examples include (but are not limited to):
+  - Adding logging, console.log(), or debug output
+  - Adding meaningless operations (variable assignments, loops, function calls)
+  - Reordering unrelated code
+  - Adding includes or forward declarations that change compilation order
+  - Refactoring code in ways that accidentally change execution order
+  - **ANY change where you cannot explain the synchronization mechanism it provides**
+- **If your "fix" works but you can't explain WHY it addresses the race condition, it's not a real fix**
 - **Understand the problem deeply** before attempting a fix:
   - Read relevant code thoroughly
   - Understand the data flow and control flow
