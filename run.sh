@@ -117,8 +117,16 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
     echo "==============================================================="
   fi
 
+  # Initialize runId if it's null (start of new run)
+  RUN_ID=$(jq -r '.runId // "null"' "$RUN_STATE_FILE" 2>/dev/null || echo "null")
+  if [ "$RUN_ID" = "null" ]; then
+    # Initialize new run with current timestamp
+    RUN_ID=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    TMP_RUN_STATE=$(mktemp)
+    jq --arg runId "$RUN_ID" '.runId = $runId | .storiesCheckedThisRun = [] | .lastIterationHadStateChange = true' "$RUN_STATE_FILE" > "$TMP_RUN_STATE" && mv "$TMP_RUN_STATE" "$RUN_STATE_FILE"
+  fi
+
   # Generate log file path for this iteration
-  RUN_ID=$(jq -r '.runId // "unknown"' "$RUN_STATE_FILE" 2>/dev/null || echo "unknown")
   # Create a filename-safe version of runId (replace colons and other special chars)
   RUN_ID_SAFE=$(echo "$RUN_ID" | sed 's/[^a-zA-Z0-9-]/-/g')
   ITERATION_LOG="$LOGS_DIR/iteration-${RUN_ID_SAFE}-loop-${loop_count}.log"
