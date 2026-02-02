@@ -26,6 +26,10 @@ CACHE_DIR="/tmp/brave-core-bot-cache"
 CACHE_FILE="$CACHE_DIR/org-members.txt"
 CACHE_MAX_AGE=3600  # 1 hour in seconds
 
+# Allowlist for trusted reviewers (for when running with external account)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALLOWLIST_FILE="$SCRIPT_DIR/trusted-reviewers.txt"
+
 mkdir -p "$CACHE_DIR"
 
 # Refresh org member cache if needed
@@ -44,11 +48,29 @@ if [ ! -f "$CACHE_FILE" ] || [ $(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/de
   fi
 fi
 
-# Check if user is an org member (using cache)
+# Check if user is an org member (using cache and allowlist)
 is_org_member() {
   local username="$1"
-  grep -q "^${username}$" "$CACHE_FILE"
-  return $?
+
+  # First check allowlist (for trusted reviewers when using external account)
+  if [ -f "$ALLOWLIST_FILE" ] && grep -q "^${username}$" "$ALLOWLIST_FILE"; then
+    return 0
+  fi
+
+  # Check cache (fast path)
+  if grep -q "^${username}$" "$CACHE_FILE"; then
+    return 0
+  fi
+
+  # Fallback: Direct API check for private members
+  # Returns 204 for members, 404 for non-members
+  if gh api "orgs/$ORG/members/$username" --silent 2>/dev/null; then
+    # Add to cache for future lookups
+    echo "$username" >> "$CACHE_FILE"
+    return 0
+  fi
+
+  return 1
 }
 
 # Fetch issue data with error handling
