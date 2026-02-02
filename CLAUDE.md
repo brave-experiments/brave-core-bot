@@ -286,31 +286,52 @@ Before merging, verify ALL of the following:
 
 **IMPLEMENTATION SUB-CYCLE** (same rigor as initial development):
 
-When review comments need to be addressed, you enter a full development cycle:
+When review comments need to be addressed, you enter a full development cycle with FULL CONTEXT:
 
-1. **Read & Understand Feedback**
+1. **Gather Complete Context (CRITICAL - same context as original implementation)**
+   - **Re-read the story from prd.json:**
+     - Read the story's `title`, `description`, and `acceptanceCriteria`
+     - Understand the original requirements
+   - **If the story has a GitHub issue reference, fetch it:**
+     ```bash
+     ./scripts/filter-issue-json.sh <issue-number> markdown
+     ```
+     This gives you the original issue context, callstack, and requirements
+   - **Fetch the PR review comments** (already fetched earlier, but re-read):
+     ```bash
+     ./scripts/filter-pr-reviews.sh <pr-number> markdown <pr-repository>
+     ```
+     This gives you the reviewer feedback from Brave org members
+   - **Now you have COMPLETE context:**
+     - Original requirements (story + issue)
+     - What you implemented
+     - What the reviewer is asking to change
+     - How to reconcile the feedback with the original requirements
+
+2. **Understand Feedback & Plan Changes**
    - Parse all review comments from Brave org members
    - Understand what changes are requested
-   - Plan the implementation approach
+   - Identify which files and code sections need changes
+   - Plan the implementation approach that satisfies BOTH the original requirements AND the review feedback
 
-2. **Checkout Correct Branch**
+3. **Checkout Correct Branch**
    - Get branch name from story's `branchName` field
    - `cd [workingDirectory from prd.json config]`
    - `git checkout <branchName>`
    - Ensure you're on the story's existing branch
 
-3. **Implement Changes**
+4. **Implement Changes**
    - Make the requested code changes
    - Apply the same coding standards as initial development
    - Keep changes focused on the feedback
    - **Note**: Changes may be needed in production code, test code, or both - analyze the feedback to determine where fixes are required
 
-4. **Run ALL Acceptance Criteria Tests** ⚠️ CRITICAL
+5. **Run ALL Acceptance Criteria Tests** ⚠️ CRITICAL
    - Re-run EVERY test from the original story's acceptance criteria
    - Use same timeout and background settings as initial development
    - ALL tests MUST pass before proceeding
 
-5. **If ALL tests pass:**
+6. **If ALL tests pass:**
    - Create a new commit addressing the review comments
    - Use clear commit message describing what feedback was addressed
    - Push to remote: `git push` (updates existing PR)
@@ -319,7 +340,7 @@ When review comments need to be addressed, you enter a full development cycle:
    - Keep `status: "pushed"` (stay in this state)
    - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
-6. **If ANY tests fail:**
+7. **If ANY tests fail:**
    - DO NOT commit or push
    - Keep `status: "pushed"` (stays in review state)
    - Keep `lastActivityBy: "reviewer"` (still needs our response)
