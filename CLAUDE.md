@@ -353,7 +353,38 @@ Before merging, verify ALL of the following:
 **If who_went_last: "bot" (WAITING for reviewer):**
 - No new comments since our last push
 - Confirm `lastActivityBy: "bot"` is already set in prd.json (or set it if not)
-- Append to `./brave-core-bot/progress.txt` documenting the status check (no new comments)
+
+**Check if reviewer reminder is needed (24 hour rule):**
+
+1. **Get the timestamp of when we last pushed** from the filtered PR data (`timestamp_analysis.latest_push_timestamp`)
+
+2. **Check if we've already sent a reminder recently:**
+   - Look for `lastReviewerPing` field in the story's prd.json data
+   - If `lastReviewerPing` exists and was less than 24 hours ago, skip the reminder
+
+3. **If more than 24 hours have passed since our last push (or since lastReviewerPing if it exists):**
+   - Get the list of requested reviewers:
+     ```bash
+     gh pr view <pr-number> --json reviewRequests -q '.reviewRequests[].login'
+     ```
+   - If there are reviewers assigned, post a polite reminder:
+     ```bash
+     gh pr comment <pr-number> --body "$(cat <<'EOF'
+     👋 Friendly reminder: This PR has been waiting for review for over 24 hours.
+
+     @reviewer1 @reviewer2 When you have a moment, could you please take a look? Thank you!
+
+     (I was asked to send reminders for PRs waiting more than a day)
+     EOF
+     )"
+     ```
+   - Update the story in prd.json: Set `lastReviewerPing` to current ISO timestamp
+   - Document the ping in progress.txt
+
+4. **If less than 24 hours have passed OR no reviewers are assigned:**
+   - Skip the reminder (normal status check)
+
+- Append to `./brave-core-bot/progress.txt` documenting the status check (no new comments, and whether reminder was sent)
 - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (prevents checking same story repeatedly)
 - **END THE ITERATION** - Stop processing, don't continue to the next story
 - This story will be checked again in the next iteration for merge readiness or new review comments
@@ -1106,6 +1137,8 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - Review Decision: [APPROVED/REVIEW_REQUIRED/etc]
 - CI Status: [summary of checks]
 - Latest activity: Bot went last (no new comments from reviewers)
+- Time waiting: [X hours/days since last push]
+- Reviewer reminder: [Sent ping to @reviewer1, @reviewer2 / Not needed yet (< 24hrs) / Already pinged recently / No reviewers assigned]
 - Action: Waiting for reviewer feedback - ending iteration
 ---
 ```
