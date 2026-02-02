@@ -74,7 +74,94 @@ When a merged story is picked for rechecking:
 - Look for reports of problems introduced by the merged PR
 - Look for requests to file tracking issues
 
-### 4. If Follow-Up Work is Needed
+### 4. If Follow-Up Work is Suggested But Not Needed
+
+When a post-merge comment suggests follow-up work, but you determine it's not necessary for a valid reason:
+
+1. **Evaluate the suggestion**: Determine if it's:
+   - A minor optional style improvement (not a bug or functional issue)
+   - Already addressed or not applicable
+   - A reasonable enhancement but not critical
+
+2. **Post an explanatory comment**: Reply to the comment thread explaining your decision.
+
+**Finding comment IDs in filtered PR data:**
+
+The filtered PR reviews script returns JSON with three comment types:
+- `review_comments[]` - Inline code review comments (have `id` field)
+- `issue_comments[]` - General PR discussion comments (have `id` field)
+- `reviews[]` - Review summaries (use review ID, different API endpoint)
+
+To extract comment IDs from JSON output:
+```bash
+# Get review comments (inline code comments)
+REVIEW_COMMENT_IDS=$(echo "$FILTERED_DATA" | jq -r '.review_comments[].id')
+
+# Get discussion comment IDs
+ISSUE_COMMENT_IDS=$(echo "$FILTERED_DATA" | jq -r '.issue_comments[].id')
+
+# Get specific comment ID for a user (e.g., @goodov)
+COMMENT_ID=$(echo "$FILTERED_DATA" | jq -r '.issue_comments[] | select(.user.login == "goodov") | .id')
+```
+
+**Posting the reply:**
+
+```bash
+# Get PR repository from prd.json
+PR_REPO=$(jq -r '.ralphConfig.prRepository' ./brave-core-bot/prd.json)
+
+# Calculate next check timespan based on current mergedCheckCount
+# mergedCheckCount 0 (just did first check): next in 2 days
+# mergedCheckCount 1 (just did second check): next in 4 days
+# mergedCheckCount 2 (just did third check): next in 8 days
+CURRENT_CHECK_COUNT=$(jq -r '.mergedCheckCount' <<< "$STORY_JSON")
+case $CURRENT_CHECK_COUNT in
+  0) NEXT_CHECK_DAYS="2 days";;
+  1) NEXT_CHECK_DAYS="4 days";;
+  2) NEXT_CHECK_DAYS="8 days";;
+  *) NEXT_CHECK_DAYS="the final check period";;
+esac
+
+# For review comments (inline code comments), use the pull request comment replies API:
+gh api \
+  --method POST \
+  "/repos/$PR_REPO/pulls/comments/<comment-id>/replies" \
+  -f body="$(cat <<'EOF'
+@[username] Thank you for the suggestion. I've evaluated this and determined it's not necessary to create a follow-up task because:
+
+[Your specific reasoning - e.g., "This is a minor optional style improvement that doesn't affect functionality or correctness"]
+
+If you believe this change is important and should be prioritized, please let me know within the next [timespan] and I'll create a follow-up task for it.
+
+I'll continue monitoring this PR for [timespan] as part of the post-merge review process.
+EOF
+)"
+
+# For discussion comments (issue comments), reply using the issue comment API:
+gh api \
+  --method POST \
+  "/repos/$PR_REPO/issues/comments/<comment-id>/replies" \
+  -f body="[same body as above]"
+```
+
+Replace:
+- `<comment-id>`: The GitHub comment ID from the filtered PR reviews
+- `[username]`: The GitHub username who made the suggestion (without @)
+- `[Your specific reasoning]`: Clear explanation of why follow-up work isn't needed
+- `[timespan]`: The time until next check (e.g., "2 days", "4 days", "8 days")
+
+**Important notes:**
+- Always provide a clear, specific reason for declining the follow-up
+- Be respectful and acknowledge the reviewer's input
+- If it's a borderline case or reasonable suggestion, explicitly invite them to indicate importance
+- Try the appropriate reply API first (review comment vs issue comment)
+- If the reply API fails (not all comment types support threaded replies), fall back to a top-level comment:
+
+```bash
+gh pr comment <pr-number> --body "[same body as above]"
+```
+
+### 5. If Follow-Up Work is Needed
 
 For each follow-up task requested in post-merge comments:
 
@@ -194,7 +281,7 @@ If the comment type doesn't support replies (e.g., review comments vs PR comment
 gh pr comment <pr-number> --body "[same body as above]"
 ```
 
-### 5. Update the Recheck Schedule
+### 6. Update the Recheck Schedule
 
 - Increment `mergedCheckCount` by 1
 - Calculate next interval:
@@ -204,11 +291,11 @@ gh pr comment <pr-number> --body "[same body as above]"
   - `mergedCheckCount == 3` (just did fourth check): set `mergedCheckFinalState: true`, no more checks
 - Set `nextMergedCheck` to current time + interval (or null if final state)
 
-### 6. Update progress.txt
+### 7. Update progress.txt
 
 See [progress-reporting.md](./progress-reporting.md) for the post-merge check format.
 
-### 7. Mark Story as Checked
+### 8. Mark Story as Checked
 
 - Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
