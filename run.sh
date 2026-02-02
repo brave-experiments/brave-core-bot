@@ -97,14 +97,14 @@ loop_count=0
 work_iteration=0
 
 while [ $loop_count -lt $MAX_ITERATIONS ]; do
-  ((loop_count++))
+  ((++loop_count))
 
   # Check if last iteration had state change (default to true for first iteration)
   HAD_STATE_CHANGE=$(jq -r '.lastIterationHadStateChange // true' "$RUN_STATE_FILE" 2>/dev/null || echo "true")
 
   # Only increment work iteration counter if there was actual state change
   if [ "$HAD_STATE_CHANGE" = "true" ]; then
-    ((work_iteration++))
+    ((++work_iteration))
     echo ""
     echo "==============================================================="
     echo "  Work Iteration $work_iteration (loop $loop_count of $MAX_ITERATIONS)"
@@ -136,7 +136,7 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
   # Always use opus model (which has extended thinking built-in)
   # Tee output to both the temp file (for completion check) and the iteration log file
-  claude --dangerously-skip-permissions --print --model opus < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee "$TEMP_OUTPUT" "$ITERATION_LOG" || true
+  echo "Please execute one iteration of the autonomous agent workflow." | claude --dangerously-skip-permissions --print --model opus 2>&1 | tee "$TEMP_OUTPUT" "$ITERATION_LOG" || true
 
   # Check for completion signal
   if grep -q "<promise>COMPLETE</promise>" "$TEMP_OUTPUT"; then
