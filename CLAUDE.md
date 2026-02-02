@@ -45,23 +45,29 @@ The next iteration will pick the next highest-priority story. Never continue to 
 
    **Step 4: Select from candidates using STRICT PRIORITY ORDER**
 
-   Check EACH priority level IN ORDER. Pick the first story found at each level:
+   **CRITICAL: You MUST check EACH priority level IN ORDER. Do NOT skip levels!**
 
-   1. **FIRST (URGENT)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "reviewer"`
-      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
-      - If none found: Continue to next priority level
+   **PRIORITY LEVEL 1 (URGENT)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "reviewer"`
+   - Filter candidates to only those matching this criteria
+   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
+   - If NONE found: Continue to Priority Level 2
 
-   2. **SECOND (HIGH)**: Look for stories with `status: "committed"`
-      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
-      - If none found: Continue to next priority level
+   **PRIORITY LEVEL 2 (HIGH)**: Look for stories with `status: "committed"`
+   - Filter candidates to only those matching this criteria
+   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
+   - If NONE found: Continue to Priority Level 3
 
-   3. **THIRD (MEDIUM)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "bot"`
-      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
-      - If none found: Continue to next priority level
+   **PRIORITY LEVEL 3 (MEDIUM - CHECK PUSHED PRs)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "bot"`
+   - Filter candidates to only those matching this criteria
+   - **IMPORTANT**: US-006 and US-007 currently have this status - DO NOT SKIP THEM!
+   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
+   - If NONE found: Continue to Priority Level 4
 
-   4. **FOURTH (NORMAL)**: Look for stories with `status: "pending"`
-      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
-      - If none found: This should not happen (would have been caught in Step 3)
+   **PRIORITY LEVEL 4 (NORMAL - NEW WORK)**: Look for stories with `status: "pending"`
+   - **WARNING**: Only reach this level if NO pushed or committed stories need attention!
+   - Filter candidates to only those matching this criteria
+   - If ANY found: Pick the one with LOWEST `priority` number → **GO TO STEP 5 IMMEDIATELY**
+   - If NONE found: This should not happen (would have been caught in Step 3)
 
    **Step 5: Work on the selected story**
    - Proceed with the workflow for the selected story's status

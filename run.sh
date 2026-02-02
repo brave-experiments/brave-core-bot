@@ -147,8 +147,8 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
 
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
   # Always use opus model (which has extended thinking built-in)
-  # Tee output to both the temp file (for completion check) and the iteration log file
-  claude --dangerously-skip-permissions --print --model opus "Execute one iteration of the autonomous agent workflow. Read the prd.json file at ./brave-core-bot/prd.json" 2>&1 | tee "$TEMP_OUTPUT" "$ITERATION_LOG" || true
+  # Capture output to temp file and log file
+  claude --dangerously-skip-permissions --print --model opus "Execute one iteration of the autonomous agent workflow. Read the prd.json file at ./brave-core-bot/prd.json" 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
 
   # Check for completion signal
   if grep -q "<promise>COMPLETE</promise>" "$TEMP_OUTPUT"; then
