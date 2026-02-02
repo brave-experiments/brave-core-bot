@@ -26,21 +26,45 @@ The next iteration will pick the next highest-priority story. Never continue to 
      - Write the updated run-state.json
    - Otherwise, use the existing run state
    - **Read the `currentIterationLogPath`** from run-state.json - this is the log file for this iteration
-4. Pick the **highest priority** user story using this selection order:
-   - **FIRST (URGENT)**: Stories with `status: "pushed"` AND `lastActivityBy: "reviewer"` (reviewer is waiting for our response!)
-   - **SECOND (HIGH)**: Stories with `status: "committed"` (need PR creation - push ASAP)
-   - **THIRD (MEDIUM)**: Stories with `status: "pushed"` AND `lastActivityBy: "bot"` (check if reviewer responded or ready to merge)
-   - **FOURTH (NORMAL)**: Stories with `status: "pending"` (new development work)
-   - **SKIP**: Stories with `status: "merged"` (complete)
+4. Pick the **highest priority** user story using this **MANDATORY SELECTION ALGORITHM**:
 
-   **Run State Filtering (CRITICAL - prevents infinite loops):**
-   - **SKIP any story whose ID is in `run-state.json`'s `storiesCheckedThisRun` array** - already checked this run
-   - If `run-state.json`'s `skipPushedTasks` is `true`, **SKIP all stories with `status: "pushed"`** (only work on new development)
-   - If ALL remaining stories are either merged or already checked:
-     - Reset run state: Set `runId: null`, `storiesCheckedThisRun: []` in run-state.json
-     - Set `lastIterationHadStateChange: false` in run-state.json (run completed without state change)
-     - Log in progress.txt: "Run complete - all available stories processed"
-     - **END THE ITERATION**
+   **Step 1: Load run state filters**
+   - Read `run-state.json` to get `storiesCheckedThisRun` array and `skipPushedTasks` flag
+
+   **Step 2: Apply filters to get candidate stories**
+   - Start with all stories from prd.json
+   - EXCLUDE stories with `status: "merged"` (already complete)
+   - EXCLUDE stories whose ID is in `storiesCheckedThisRun` array (already checked this run)
+   - If `skipPushedTasks` is `true`, EXCLUDE all stories with `status: "pushed"`
+
+   **Step 3: If NO candidates remain after filtering**
+   - Reset run state: Set `runId: null`, `storiesCheckedThisRun: []` in run-state.json
+   - Set `lastIterationHadStateChange: false` in run-state.json (run completed without state change)
+   - Log in progress.txt: "Run complete - all available stories processed"
+   - **END THE ITERATION**
+
+   **Step 4: Select from candidates using STRICT PRIORITY ORDER**
+
+   Check EACH priority level IN ORDER. Pick the first story found at each level:
+
+   1. **FIRST (URGENT)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "reviewer"`
+      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
+      - If none found: Continue to next priority level
+
+   2. **SECOND (HIGH)**: Look for stories with `status: "committed"`
+      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
+      - If none found: Continue to next priority level
+
+   3. **THIRD (MEDIUM)**: Look for stories with `status: "pushed"` AND `lastActivityBy: "bot"`
+      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
+      - If none found: Continue to next priority level
+
+   4. **FOURTH (NORMAL)**: Look for stories with `status: "pending"`
+      - If found: Pick the one with LOWEST `priority` number → GO TO STEP 5
+      - If none found: This should not happen (would have been caught in Step 3)
+
+   **Step 5: Work on the selected story**
+   - Proceed with the workflow for the selected story's status
 
 **CRITICAL**: Always prioritize responding to reviewers over starting new work. This ensures reviewers aren't kept waiting.
 
