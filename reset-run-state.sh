@@ -7,14 +7,18 @@ RUN_STATE_FILE="$SCRIPT_DIR/run-state.json"
 
 echo "Resetting run state..."
 
-# Preserve the current skipPushedTasks value (it's a configuration setting, not iteration state)
+# Preserve configuration settings (not iteration state)
 SKIP_PUSHED=$(jq -r '.skipPushedTasks // false' "$RUN_STATE_FILE" 2>/dev/null || echo "false")
+ENABLE_MERGE_BACKOFF=$(jq -r '.enableMergeBackoff // true' "$RUN_STATE_FILE" 2>/dev/null || echo "true")
+MERGE_BACKOFF_STORY_IDS=$(jq -c '.mergeBackoffStoryIds // null' "$RUN_STATE_FILE" 2>/dev/null || echo "null")
 
 cat > "$RUN_STATE_FILE" << EOF
 {
   "runId": null,
   "storiesCheckedThisRun": [],
   "skipPushedTasks": $SKIP_PUSHED,
+  "enableMergeBackoff": $ENABLE_MERGE_BACKOFF,
+  "mergeBackoffStoryIds": $MERGE_BACKOFF_STORY_IDS,
   "notes": [
     "This file tracks iteration state within a single run",
     "runId: Timestamp when this run started (null = needs initialization)",
@@ -28,5 +32,7 @@ echo "✓ Run state reset successfully"
 echo "  - runId: null (will be initialized on next iteration)"
 echo "  - storiesCheckedThisRun: [] (empty)"
 echo "  - skipPushedTasks: $SKIP_PUSHED (preserved from previous state)"
+echo "  - enableMergeBackoff: $ENABLE_MERGE_BACKOFF (preserved from previous state)"
+echo "  - mergeBackoffStoryIds: $MERGE_BACKOFF_STORY_IDS (preserved from previous state)"
 echo ""
 echo "Next iteration will start a fresh run and can check all stories again."
