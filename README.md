@@ -447,6 +447,30 @@ The bot includes protection against prompt injection attacks from external GitHu
 
 **Why:** External users can post comments on public issues attempting to manipulate bot behavior, bypass security policies, or introduce malicious code.
 
+### Trusted Reviewers Allowlist
+
+When running the bot with an **external GitHub account** (not a Brave org member), you cannot see private org members through the API. To handle this:
+
+1. **Create an allowlist** at `scripts/trusted-reviewers.txt` (already gitignored):
+   ```bash
+   cd brave-core-bot/scripts
+   cp trusted-reviewers.txt.example trusted-reviewers.txt
+   ```
+
+2. **Add trusted reviewers** (one username per line):
+   ```
+   bbondy
+   reviewer2
+   reviewer3
+   ```
+
+3. The filter scripts will check this allowlist first, treating these users as trusted Brave org members.
+
+**When to use:**
+- You're running the bot with an external GitHub account
+- Reviewers have private org membership (not visible to external accounts)
+- You trust specific reviewers and want their feedback processed
+
 See `SECURITY.md` for complete security guidelines.
 
 ### Other Security Notes
