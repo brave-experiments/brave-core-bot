@@ -1,0 +1,9 @@
+# Trusted reviewers allowlist
+# Add one GitHub username per line
+# This is useful when running the bot with an external GitHub account
+# that cannot see private Brave org members
+#
+# Example:
+# fallaciousreasoning
+# username2
+# username3

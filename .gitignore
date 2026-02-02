@@ -4,6 +4,9 @@ progress.txt
 run-state.json
 .last-branch
 
+# Trusted reviewers allowlist - user-specific
+scripts/trusted-reviewers.txt
+
 # Claude settings - user-specific
 .claude/
 

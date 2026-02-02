@@ -25,6 +25,10 @@ CACHE_DIR="/tmp/brave-core-bot-cache"
 CACHE_FILE="$CACHE_DIR/org-members.txt"
 CACHE_TTL=3600  # 1 hour
 
+# Allowlist for trusted reviewers (for when running with external account)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALLOWLIST_FILE="$SCRIPT_DIR/trusted-reviewers.txt"
+
 mkdir -p "$CACHE_DIR"
 
 # Function to fetch org members list
@@ -58,7 +62,12 @@ fi
 is_org_member() {
   local username="$1"
 
-  # First check cache (fast path)
+  # First check allowlist (for trusted reviewers when using external account)
+  if [ -f "$ALLOWLIST_FILE" ] && grep -q "^${username}$" "$ALLOWLIST_FILE"; then
+    return 0
+  fi
+
+  # Check cache (fast path)
   if grep -q "^${username}$" "$CACHE_FILE"; then
     return 0
   fi
