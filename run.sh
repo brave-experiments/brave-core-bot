@@ -133,6 +133,10 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # Use a temp file to capture output while allowing real-time streaming
   TEMP_OUTPUT=$(mktemp)
 
+  # Change to the parent directory (brave-browser) so relative paths in CLAUDE.md work
+  BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  cd "$BRAVE_ROOT"
+
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
   # Always use opus model (which has extended thinking built-in)
   # Tee output to both the temp file (for completion check) and the iteration log file
