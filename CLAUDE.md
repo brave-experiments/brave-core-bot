@@ -50,14 +50,14 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
      - `storiesCheckedThisRun` array
      - `skipPushedTasks` flag
      - `enableMergeBackoff` flag (defaults to `true` if not present)
-     - `mergeBackoffStoryId` (string or null)
+     - `mergeBackoffStoryIds` (array of strings or null)
 
    **Step 2: Apply filters to get candidate stories**
    - Start with all stories from prd.json
    - EXCLUDE stories with `status: "merged"` AND `mergedCheckFinalState: true` (completely done, no more monitoring)
    - For stories with `status: "merged"` where `mergedCheckFinalState: false`:
      - If `enableMergeBackoff` is `false`: EXCLUDE (post-merge checking disabled)
-     - If `mergeBackoffStoryId` is set AND story ID doesn't match: EXCLUDE (only checking specific story)
+     - If `mergeBackoffStoryIds` is an array AND story ID is NOT in the array: EXCLUDE (only checking specific stories)
      - If `nextMergedCheck` is in the future: EXCLUDE (not time to check yet)
      - Otherwise: INCLUDE (needs post-merge recheck)
    - EXCLUDE stories with `status: "skipped"` (intentionally skipped)
@@ -612,11 +612,20 @@ When a merged story is picked for rechecking:
 
    Write the updated prd.json with the new story added to the `stories` array.
 
-   **c. Reply to requester on PR:**
+   **c. Reply to requester on PR (in same thread):**
 
-   Post a comment on the original PR acknowledging the follow-up request and linking to the new issue:
+   From the filtered PR reviews data, you have the comment ID of the post-merge comment requesting follow-up work.
+
+   Reply directly to that comment using the GitHub API:
    ```bash
-   gh pr comment <pr-number> --body "$(cat <<'EOF'
+   # Get PR repository from prd.json
+   PR_REPO=$(jq -r '.ralphConfig.prRepository' ./brave-core-bot/prd.json)
+
+   # Reply to the specific comment (creates a threaded reply)
+   gh api \
+     --method POST \
+     "/repos/$PR_REPO/pulls/comments/<comment-id>/replies" \
+     -f body="$(cat <<'EOF'
    @[username] Thank you for the follow-up request. I've created a tracking issue for this work:
 
    🔗 [Issue #[issue-number]: [issue-title]]([issue-url])
@@ -627,13 +636,19 @@ When a merged story is picked for rechecking:
    ```
 
    Replace:
+   - `<comment-id>`: The GitHub comment ID from the filtered PR reviews (the comment that requested follow-up)
    - `[username]`: The GitHub username who requested the follow-up (without @)
    - `[issue-number]`: The issue number from step a
    - `[issue-title]`: The issue title
    - `[issue-url]`: Full URL to the issue
    - `US-XXX`: The story ID from step b
 
-   This notifies the requester that their request was received and tracked.
+   **Important:** The filtered PR reviews data includes comment IDs. Use the ID of the specific comment requesting the follow-up so your reply appears in the same thread as their request.
+
+   If the comment type doesn't support replies (e.g., review comments vs PR comments), fall back to a top-level comment:
+   ```bash
+   gh pr comment <pr-number> --body "[same body as above]"
+   ```
 
 5. **Update the recheck schedule:**
    - Increment `mergedCheckCount` by 1
@@ -786,7 +801,7 @@ To manually start a fresh run (useful when you want to re-check all pushed PRs o
 ./brave-core-bot/reset-run-state.sh
 ```
 
-This resets the iteration state (`runId` and `storiesCheckedThisRun`) while **preserving** configuration settings (`skipPushedTasks`, `enableMergeBackoff`, `mergeBackoffStoryId`). This allows all stories to be checked again without losing your configuration preferences.
+This resets the iteration state (`runId` and `storiesCheckedThisRun`) while **preserving** configuration settings (`skipPushedTasks`, `enableMergeBackoff`, `mergeBackoffStoryIds`). This allows all stories to be checked again without losing your configuration preferences.
 
 ### Skip Pushed Tasks Mode
 
@@ -818,7 +833,7 @@ Control whether the bot performs post-merge monitoring with exponential backoff 
   "storiesCheckedThisRun": [...],
   "skipPushedTasks": false,
   "enableMergeBackoff": true,
-  "mergeBackoffStoryId": null
+  "mergeBackoffStoryIds": null
 }
 ```
 
@@ -826,9 +841,10 @@ Control whether the bot performs post-merge monitoring with exponential backoff 
 - `enableMergeBackoff` (boolean): Enable/disable post-merge monitoring for all merged stories
   - `true` (default): Bot will check merged PRs on exponential backoff schedule
   - `false`: Skip all post-merge checking, treat merged stories as final immediately
-- `mergeBackoffStoryId` (string or null): Restrict post-merge checking to specific story
+- `mergeBackoffStoryIds` (array of strings or null): Restrict post-merge checking to specific stories
   - `null` (default): Check all merged stories that need rechecking
-  - `"US-XXX"`: Only check this specific story, skip all other merged stories
+  - `["US-012"]`: Only check this specific story, skip all other merged stories
+  - `["US-012", "US-013"]`: Only check these specific stories, skip all others
 
 **Important:** These configuration values are NOT reset when `runId` becomes `null` or when `storiesCheckedThisRun` is cleared. They persist across runs as configuration preferences.
 
@@ -841,19 +857,20 @@ jq '.enableMergeBackoff = false' run-state.json > tmp.$$.json && mv tmp.$$.json 
 # Re-enable post-merge checking
 jq '.enableMergeBackoff = true' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
 
-# Only check a specific merged story (useful for debugging)
-jq '.mergeBackoffStoryId = "US-012"' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+# Only check specific merged stories (useful for debugging)
+jq '.mergeBackoffStoryIds = ["US-012"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+jq '.mergeBackoffStoryIds = ["US-012", "US-013"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
 
 # Resume checking all merged stories
-jq '.mergeBackoffStoryId = null' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+jq '.mergeBackoffStoryIds = null' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
 ```
 
 **During Task Selection:**
 
 When selecting merged stories for post-merge checking, apply these filters:
 1. If `enableMergeBackoff` is `false`, skip all post-merge checking entirely
-2. If `mergeBackoffStoryId` is not `null`, only check that specific story ID
-3. Otherwise, check all merged stories that have `nextMergedCheck` in the past
+2. If `mergeBackoffStoryIds` is an array (not `null`), only check stories whose IDs are in that array
+3. Otherwise (if `mergeBackoffStoryIds` is `null`), check all merged stories that have `nextMergedCheck` in the past
 
 This allows fine-grained control over post-merge monitoring without affecting the main workflow.
 
