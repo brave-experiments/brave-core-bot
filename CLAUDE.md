@@ -98,6 +98,15 @@ This allows the system to check multiple pushed PRs rapidly without incrementing
 
 **Goal: Implement and test the story**
 
+**📖 FIRST STEP**: All acceptance criteria begin with "Read ./brave-core-bot/BEST-PRACTICES.md" - this contains critical async testing patterns including:
+- Never use EvalJs inside RunUntil() lambdas (causes DCHECK on macOS arm64)
+- Never use RunUntilIdle()
+- Proper patterns for JavaScript evaluation in tests
+- Navigation timing and same-document navigation handling
+- Test isolation principles
+
+Read this document BEFORE analyzing the issue or implementing fixes.
+
 1. **IMPORTANT**: All git operations must be done in `[workingDirectory from prd.json config]` directory
 
 2. **CRITICAL BRANCH MANAGEMENT**:
@@ -794,6 +803,12 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 ## C++ Testing Best Practices (Chromium/Brave)
 
 **CRITICAL: Follow these guidelines when writing C++ tests for Chromium/Brave codebase.**
+
+**📖 READ FIRST:** Before implementing any test fixes, read [BEST-PRACTICES.md](./BEST-PRACTICES.md) for comprehensive async testing patterns, including:
+- Avoiding nested run loops (EvalJs inside RunUntil)
+- JavaScript evaluation patterns
+- Navigation and timing issues
+- Test isolation principles
 
 ### ❌ NEVER Use RunUntilIdle() - YOU MUST REPLACE IT
 
