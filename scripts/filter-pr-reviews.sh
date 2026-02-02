@@ -57,7 +57,21 @@ fi
 # Function to check if user is org member
 is_org_member() {
   local username="$1"
-  grep -q "^${username}$" "$CACHE_FILE"
+
+  # First check cache (fast path)
+  if grep -q "^${username}$" "$CACHE_FILE"; then
+    return 0
+  fi
+
+  # Fallback: Direct API check for private members
+  # Returns 204 for members, 404 for non-members
+  if gh api "orgs/brave/members/$username" --silent 2>/dev/null; then
+    # Add to cache for future lookups
+    echo "$username" >> "$CACHE_FILE"
+    return 0
+  fi
+
+  return 1
 }
 
 # Fetch PR data with error handling
