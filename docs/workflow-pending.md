@@ -40,7 +40,53 @@ Read this document BEFORE analyzing the issue or implementing fixes.
 
    **NEVER create a new branch if one already exists for this story!**
 
-3. Implement the user story
+3. **Check for existing pull requests**
+
+   Before starting implementation, verify that no one else (including other bots) has already put up a PR for this issue:
+
+   **Extract issue number from story:**
+   - Look at the story's `description` field for the issue number (e.g., "issue #50022")
+   - Look at the first item in `acceptanceCriteria` (usually "Fetch issue #XXXXX details...")
+   - Extract the numeric issue number
+
+   **Check for linked or related pull requests:**
+   ```bash
+   # Search for PRs that reference this issue number
+   gh pr list --repo brave/brave-browser --search "<issue-number>" --json number,title,state,url,author
+   ```
+
+   **Also check the brave-core repository (where PRs are created):**
+   ```bash
+   gh pr list --repo brave/brave-core --search "<issue-number>" --json number,title,state,url,author
+   ```
+
+   **Analyze the results:**
+   - If an **open** PR exists that clearly addresses this issue:
+     - Check the PR author and description to confirm it's for the same issue
+     - Update the story in `./brave-core-bot/prd.json`:
+       - Set `status: "skipped"`
+       - Add or update a `skipReason` field explaining why (e.g., "PR #XXXXX already exists for this issue")
+     - Document in `./brave-core-bot/progress.txt` that you found an existing PR
+     - **Post a comment on the GitHub issue** (if not already commented):
+       ```bash
+       gh issue comment <issue-number> --repo brave/brave-browser --body "$(cat <<'EOF'
+       This issue is already being addressed by PR #XXXXX (in brave-core repository).
+
+       Skipping duplicate work.
+       EOF
+       )"
+       ```
+     - **END THE ITERATION** - Move to next story
+
+   - If a **closed/merged** PR exists:
+     - The issue might already be fixed
+     - Verify if the issue is still open or if it was properly closed
+     - If the issue is still open despite a merged PR, proceed with investigation
+
+   - If **no PR exists** or only unrelated PRs were found:
+     - Proceed with implementation (continue to step 4)
+
+4. Implement the user story
 
    **IMPORTANT: Where to Make Fixes**
 
@@ -51,13 +97,13 @@ Read this document BEFORE analyzing the issue or implementing fixes.
 
    Analyze the failure carefully to determine where the actual problem lies. Don't assume the production code is always wrong - tests can have bugs too.
 
-4. **CRITICAL**: Run **ALL** acceptance criteria tests - **YOU MUST NOT SKIP ANY**
+5. **CRITICAL**: Run **ALL** acceptance criteria tests - **YOU MUST NOT SKIP ANY**
 
    See [testing-requirements.md](./testing-requirements.md) for complete test execution requirements.
 
-5. Update CLAUDE.md files if you discover reusable patterns (see below)
+6. Update CLAUDE.md files if you discover reusable patterns (see below)
 
-6. **If ALL tests pass:**
+7. **If ALL tests pass:**
    - Commit ALL changes (must be in `[workingDirectory from prd.json config]`)
    - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
    - Update the PRD at `./brave-core-bot/prd.json`:
@@ -67,7 +113,7 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - Append your progress to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
    - **Continue in same iteration:** Do NOT mark story as checked yet - proceed immediately to push and create PR (see [workflow-committed.md](./workflow-committed.md))
 
-7. **If ANY tests fail:**
+8. **If ANY tests fail:**
    - DO NOT commit changes
    - Keep `status: "pending"`
    - Keep `branchName` (so we can continue on same branch next iteration)
