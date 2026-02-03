@@ -101,11 +101,56 @@ Read this document BEFORE analyzing the issue or implementing fixes.
 
    See [testing-requirements.md](./testing-requirements.md) for complete test execution requirements.
 
-6. Update CLAUDE.md files if you discover reusable patterns (see below)
+6. **CHROMIUM TEST DETECTION** (for filter file modifications only):
 
-7. **If ALL tests pass:**
+   If your fix involves adding a test to a filter file (e.g., `test/filters/browser_tests.filter`), determine if it's a Chromium test:
+
+   **Detection Logic:**
+   - Look at which test file the test is defined in:
+     - If the test is in `./src/brave/chromium_src/**` or `./src/**` but NOT in `./src/brave/**`:
+       - This is a **Chromium test** (upstream test that Brave inherits from Chromium)
+     - If the test is in `./src/brave/**` (excluding chromium_src):
+       - This is a **Brave test** (Brave-specific test)
+
+   **For Chromium Tests - Additional Verification:**
+
+   1. **Check if Chromium has already disabled this test:**
+      ```bash
+      # Search in upstream Chromium source for the test being disabled or marked flaky
+      cd [workingDirectory]/..
+      # Check for DISABLED_ prefix
+      git grep "DISABLED_<TestName>" chromium/src/
+      # Check Chromium's test expectations/filter files
+      git grep "<TestName>" chromium/src/testing/buildbot/filters/
+      ```
+      - If found: **Document that Chromium has also disabled this test**
+      - If not found: Note that this is a Brave-specific disable of a Chromium test
+
+   2. **Verify Brave modifications aren't causing the failure:**
+      - Extract the directory path of the test file (e.g., if test is in `./src/chrome/browser/ui/test.cc`, directory is `chrome/browser/ui/`)
+      - Check if there are Brave-specific modifications in `./src/brave/chromium_src/` for files in that directory:
+        ```bash
+        # Example: If test is in chrome/browser/ui/tabs/test.cc
+        find ./src/brave/chromium_src/chrome/browser/ui/ -type f 2>/dev/null | head -20
+        ```
+      - If Brave modifications exist in related directories, analyze whether they could be causing the test failure
+      - Document findings - this helps determine if the test fails due to Brave changes or is an upstream issue
+
+   **Store Detection Results for Commit Message and PR:**
+   - Make note of whether this is a **Chromium test** or **Brave test**
+   - Note whether **Chromium has also disabled it** (include evidence)
+   - Note any **Brave modifications** in related code paths
+   - This information will be used in step 7 for commit message and later for PR body
+
+7. Update CLAUDE.md files if you discover reusable patterns (see below)
+
+8. **If ALL tests pass:**
    - Commit ALL changes (must be in `[workingDirectory from prd.json config]`)
    - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
+   - **For Chromium test disables (filter file modifications)**: If you detected this is a Chromium test in step 6, include in commit message:
+     - State clearly that it's a **Chromium test** (e.g., "Disable Chromium test..." or "This is an upstream Chromium test...")
+     - If Chromium has also disabled it, mention that explicitly (e.g., "Chromium has also disabled this test" or "Already disabled upstream")
+     - If Brave modifications might be related, mention what was found (e.g., "Brave modifies chrome/browser/ui/ via chromium_src")
    - Update the PRD at `./brave-core-bot/prd.json`:
      - Set `status: "committed"`
      - Set `lastActivityBy: null` (not yet public)

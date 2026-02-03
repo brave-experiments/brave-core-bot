@@ -25,8 +25,15 @@
 ## Summary
 [Brief description of what this PR does and why]
 
+[If this is a Chromium test being disabled, add a clear note:]
+**Note: This is a Chromium test** (located in `./src/` not `./src/brave/`).
+
 ## Root Cause
 [Description of the underlying issue that needed to be fixed]
+
+[If this is a Chromium test, include:]
+- **Chromium upstream status**: [Chromium has also disabled this test / Chromium has not disabled this test / Evidence of upstream bug: crbug.com/XXXXX]
+- **Brave modifications**: [Brave does not modify this code area / Brave has modifications in ./src/brave/chromium_src/[path] that may affect this test]
 
 ## Fix
 [Description of how the fix addresses the root cause]

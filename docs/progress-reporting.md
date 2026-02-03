@@ -9,6 +9,9 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - What was implemented
 - Files changed
 - Branch created: [branch-name]
+- [If filter file modification] **Test Type**: [Chromium test / Brave test]
+- [If Chromium test] **Chromium Status**: [Chromium has also disabled this test / Not disabled by Chromium / Upstream bug: crbug.com/XXXXX]
+- [If Chromium test] **Brave Modifications**: [No Brave modifications in this area / Brave modifies [path] via chromium_src]
 - **Test Results** (REQUIRED):
   - [List all acceptance criteria tests and their results]
   - All tests MUST pass before transitioning to "committed"
