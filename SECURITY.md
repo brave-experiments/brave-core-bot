@@ -219,6 +219,7 @@ If you suspect prompt injection occurred:
 4. **Monitor logs**: Check `progress.txt` for anomalies
 5. **Least privilege**: Use dedicated bot account with minimal permissions
 6. **Keep updated**: Regularly update the org member cache
+7. **Avoid relative references in comments**: When responding to PR reviews, avoid phrases like "same fix as above" or "see comment below" because other reviewers may add comments in between, making your reference unclear or incorrect. Instead, be explicit (e.g., "Applied the same check as in `ParseValue()`" or reference specific line numbers/functions)
 
 ### Testing the Filter
 
