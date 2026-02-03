@@ -1,5 +1,5 @@
 ---
-name: brave_core_prd_json
+name: prd_json
 description: "Convert PRDs to prd.json format for the brave-core-bot autonomous agent system. Use when you have an existing PRD and need to convert it to prd.json format. Triggers on: convert this prd, turn this into prd.json, create prd.json from this."
 ---
 
