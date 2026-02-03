@@ -113,13 +113,12 @@ gh pr create --title "the pr title" --body "$(cat <<'EOF'
 
 ## Test plan
 [Bulleted markdown checklist of TODOs for testing the pull request...]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
 
 **Important:**
+- DO NOT add "Generated with Claude Code" or similar attribution
 - DO NOT use the TodoWrite or Task tools
 - Return the PR URL when you're done, so the user can see it
 
