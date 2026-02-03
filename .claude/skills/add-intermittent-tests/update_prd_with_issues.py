@@ -2,6 +2,7 @@
 import json
 import sys
 import re
+import copy
 
 # Read GitHub issues and existing PRD
 if len(sys.argv) < 2:
@@ -16,6 +17,10 @@ github_issues = json.loads(sys.stdin.read())
 # Read existing PRD
 with open(prd_path, 'r') as f:
     prd = json.load(f)
+
+# Create a deep copy of existing stories for verification
+original_stories = copy.deepcopy(prd['userStories'])
+existing_story_count = len(prd['userStories'])
 
 # Extract existing issue numbers from PRD
 existing_issues = set()
@@ -88,7 +93,14 @@ for issue in github_issues:
 
     new_stories.append(user_story)
 
-# Add new stories to PRD
+# SAFETY CHECK: Verify existing stories were not modified
+for i in range(existing_story_count):
+    if prd['userStories'][i] != original_stories[i]:
+        print(f"ERROR: Existing story {prd['userStories'][i]['id']} was modified!", file=sys.stderr)
+        print("This is a bug - existing stories should never be changed.", file=sys.stderr)
+        sys.exit(1)
+
+# Add new stories to PRD (appends to end, doesn't modify existing)
 prd['userStories'].extend(new_stories)
 
 # Output updated PRD
