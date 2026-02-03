@@ -1,5 +1,5 @@
 ---
-name: add_intermittent_tests
+name: add-intermittent-tests
 description: "Fetch intermittent test failures from brave/brave-browser GitHub issues with bot/type/test label and add missing ones to the Brave Core PRD. Triggers on: update prd with tests, add intermittent tests, sync test issues, fetch bot/type/test issues."
 ---
 
