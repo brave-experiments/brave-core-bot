@@ -86,18 +86,34 @@ Each story should be small enough to implement in one focused session.
 
 **Important:**
 - Acceptance criteria must be verifiable, not vague. "Works correctly" is bad. "Button shows confirmation dialog before deleting" is good.
-- **For test fixes:** Explicitly state whether it's an upstream (Chromium) or Brave test fix. Include a step to determine test location using `git grep` before specifying the test command.
+- **For test fixes:** Determine test location DURING PRD creation and write the correct acceptance criteria directly.
 
-### Test Fix Acceptance Criteria Pattern
+### Test Fix PRD Generation Process
 
-For test fixes, always include these steps in order:
+**IMPORTANT:** When creating a PRD for a test fix, you MUST determine the test location during PRD generation:
 
-1. **Determine test location:** Use `git grep TestClassName ../src` and `git grep TestClassName ../src/brave` to find where the test is defined
-2. **For Brave tests (found in `../src/brave`):**
-   - `npm run test -- brave_browser_tests --gtest_filter=TestName`
-   - `npm run test -- brave_unit_tests --gtest_filter=TestName`
-   - `npm run test -- brave_components_unittests --gtest_filter=TestName`
-   - Run 5 times to verify consistency
+1. **Before writing the PRD**, run `git grep TestClassName ../src/brave` and `git grep TestClassName ../src` to find where the test is defined
+2. **Based on the location**, write acceptance criteria with the correct test command:
+   - If test is in `../src/brave` → Use `brave_browser_tests`, `brave_unit_tests`, or `brave_components_unittests`
+   - If test is in `../src` (Chromium) → Use `browser_tests`, `unit_tests`, or `components_unittests`
+3. **Include the specific test target** based on what you find (e.g., `brave_browser_tests` vs `browser_tests`)
+4. **Do NOT use conditional acceptance criteria** like "[For Brave tests only]" - write the exact command
+
+### Example Test Fix Acceptance Criteria
+
+For a Brave test (found in `../src/brave/browser/...`):
+```
+- [ ] Fix the failing test condition
+- [ ] Run `npm run build` from src/brave (must pass)
+- [ ] Run `npm run test -- brave_browser_tests --gtest_filter=TestName` (must pass 5 consecutive times)
+```
+
+For a Chromium test (found in `../src/chrome/browser/...`):
+```
+- [ ] Fix the failing test condition
+- [ ] Run `npm run build` from src/brave (must pass)
+- [ ] Run `npm run test -- browser_tests --gtest_filter=TestName` (must pass 5 consecutive times)
+```
 
 ### 4. Functional Requirements
 Numbered list of specific functionalities:

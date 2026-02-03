@@ -56,16 +56,16 @@ This updates the existing PRD with any new issues that aren't already tracked.
 ### What the scripts do:
 
 - Extract test names from issue titles
-- Determine test type (browser_test vs unit_test) based on test name patterns
+- **Determine test location at generation time** by running `git grep` to find if the test is in `src/brave` or `src` (Chromium)
 - Generate proper user story structure with:
   - Sequential US-XXX IDs
-  - Step to determine test location via `git grep` (upstream vs Brave)
-  - Appropriate test binary (`brave_browser_tests`, `brave_unit_tests`, or `brave_components_unittests`) for Brave tests
+  - `testLocation` field: 'brave', 'chromium', or 'unknown'
+  - Correct test binary based on location (`brave_browser_tests` for Brave, `browser_tests` for Chromium)
   - Standard acceptance criteria including BEST-PRACTICES.md read
   - Correct priority ordering
 - Skip issues already in the PRD (update script only)
 
-**IMPORTANT:** The generated acceptance criteria include a step to determine if the test is upstream (Chromium) or Brave. For upstream tests, the `npm run test` commands should not be used.
+**Key improvement:** Test location is determined DURING prd.json generation, so acceptance criteria contain the correct test command directly (no conditional `[For Brave tests only]` annotations).
 
 ---
 

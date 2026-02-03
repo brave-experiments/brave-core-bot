@@ -113,21 +113,33 @@ For stories with testable logic, also include:
 "Tests pass"
 ```
 
-### For test fixes, determine test location first:
+### For test fixes, determine test location DURING prd.json creation:
 
-**IMPORTANT:** Always explicitly state whether it's an upstream (Chromium) or Brave test fix.
+**IMPORTANT:** When converting a test fix PRD to prd.json, you MUST determine the test location first and write the correct acceptance criteria directly.
 
-```
-"Determine test location: Run git grep TestClassName in ../src and ../src/brave to find where the test is defined",
-"[For Brave tests only] Run npm run build from src/brave (must pass)",
-"[For Brave tests only] Run npm run test -- brave_browser_tests --gtest_filter=TestName (must pass 5 consecutive times)"
-```
+**Before writing the prd.json:**
+1. Run `git grep TestClassName ../src/brave` and `git grep TestClassName ../src`
+2. Based on where the test is found, write the specific test command
 
 **For Brave tests (found in `../src/brave`):**
-- `npm run test -- brave_browser_tests --gtest_filter=TestName`
-- `npm run test -- brave_unit_tests --gtest_filter=TestName`
-- `npm run test -- brave_components_unittests --gtest_filter=TestName`
-- Run 5 times to verify consistency
+```json
+"acceptanceCriteria": [
+  "Fix the failing test condition",
+  "Run npm run build from src/brave (must pass)",
+  "Run npm run test -- brave_browser_tests --gtest_filter=TestName (must pass 5 consecutive times)"
+]
+```
+
+**For Chromium tests (found in `../src/chrome` or similar):**
+```json
+"acceptanceCriteria": [
+  "Fix the failing test condition",
+  "Run npm run build from src/brave (must pass)",
+  "Run npm run test -- browser_tests --gtest_filter=TestName (must pass 5 consecutive times)"
+]
+```
+
+**Do NOT use conditional criteria** like `[For Brave tests only]` - write the exact command based on your research.
 
 Test fixes are NOT complete until the specific test passes consistently (5 times).
 
