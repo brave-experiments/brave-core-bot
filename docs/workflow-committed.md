@@ -55,7 +55,15 @@ EOF
    - Do NOT add "Generated with Claude Code" or similar attribution
    - Capture the PR number from the output
 
-5. **Set appropriate labels on the PR and linked issues:**
+5. **Assign the PR to yourself (the bot account):**
+
+   ```bash
+   gh pr edit <pr-number> --add-assignee @me
+   ```
+
+   This makes it clear who is responsible for the PR and helps with tracking.
+
+6. **Set appropriate labels on the PR and linked issues:**
 
    ```bash
    # Add labels to PR
@@ -74,7 +82,7 @@ EOF
    - Add `release-notes/exclude` to both PR and linked issue for changes that typical browser users wouldn't care about (code cleanup, refactors, internal tooling, etc.)
    - Use judgment for `QA/No` based on whether manual QA testing is needed
 
-6. **If push or PR creation succeeds:**
+7. **If push or PR creation succeeds:**
    - Update the PRD at `./brave-core-bot/prd.json`:
      - Store PR number in `prNumber` field
      - Store PR URL in `prUrl` field (format: `https://github.com/brave/brave-core/pull/<number>`)
@@ -84,7 +92,7 @@ EOF
    - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
    - **END THE ITERATION** - Stop processing
 
-7. **If push or PR creation fails:**
+8. **If push or PR creation fails:**
    - DO NOT update status in prd.json (keep as "committed")
    - Document failure in `./brave-core-bot/progress.txt`
    - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (don't retry endlessly)
