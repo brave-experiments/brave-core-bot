@@ -59,6 +59,7 @@ Read this document BEFORE analyzing the issue or implementing fixes.
 
 6. **If ALL tests pass:**
    - Commit ALL changes (must be in `[workingDirectory from prd.json config]`)
+   - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
    - Update the PRD at `./brave-core-bot/prd.json`:
      - Set `status: "committed"`
      - Set `lastActivityBy: null` (not yet public)

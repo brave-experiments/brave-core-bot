@@ -15,6 +15,9 @@
 3. Push the branch: `git push -u origin <branch-name>`
 
 4. Create PR using gh CLI with structured format:
+
+   **SECURITY NOTE**: If this PR fixes a security-sensitive issue, use discretion in the title and description. See [SECURITY.md](../SECURITY.md#public-security-messaging) for detailed guidance on avoiding detailed vulnerability disclosure in public messages.
+
    ```bash
    gh pr create --title "Story title" --body "$(cat <<'EOF'
 ## Summary
