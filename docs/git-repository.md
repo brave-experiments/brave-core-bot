@@ -105,9 +105,11 @@ IMPORTANT: When the user asks you to create a pull request, follow these steps c
    - Push to remote with -u flag if needed
    - Create PR using gh pr create with the format below. Use a HEREDOC to pass the body to ensure correct formatting.
 
+**IMPORTANT**: Always create PRs in draft state using the `--draft` flag. This allows for human review before marking ready.
+
 **Example:**
 ```bash
-gh pr create --title "the pr title" --body "$(cat <<'EOF'
+gh pr create --draft --title "the pr title" --body "$(cat <<'EOF'
 ## Summary
 <1-3 bullet points>
 

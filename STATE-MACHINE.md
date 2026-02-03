@@ -103,7 +103,7 @@ This document describes the complete state machine for user story progression th
 
 **Actions:**
 - Push branch to remote
-- Create pull request using `gh pr create`
+- Create pull request using `gh pr create --draft`
 - Store PR number in `prNumber` field
 
 **Exit Conditions:**
