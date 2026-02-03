@@ -30,79 +30,43 @@ gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --
 
 ---
 
-## Step 2: Extract Existing Issues from PRD
+## Step 2: Process Issues and Update PRD
 
-Read the PRD and extract all existing issue numbers from user story descriptions:
+Two helper scripts are available in `.claude/skills/add-intermittent-tests/`:
 
-```python
-import json
-
-with open('./brave-core-bot/prd.json') as f:
-    prd = json.load(f)
-
-existing_issues = set()
-for story in prd['userStories']:
-    desc = story['description']
-    if 'issue #' in desc:
-        issue_num = desc.split('issue #')[1].split(')')[0]
-        existing_issues.add(issue_num)
-```
-
----
-
-## Step 3: Identify Missing Issues
-
-Compare the GitHub issues with the existing PRD issues to find which ones are missing.
-
----
-
-## Step 4: Add Missing Issues to PRD
-
-For each missing issue, create a new user story with:
-
-- **id**: Next available US-XXX number
-- **title**: "Fix test: [TestName]"
-- **description**: "As a developer, I need to fix the intermittent failure in [TestName] (issue #[number])."
-- **testType**: Determine from test name:
-  - Contains "BrowserTest" → "browser_test"
-  - Contains "AlternateTestParams" or "PartitionAlloc" → "unit_test"
-  - Default → "browser_test"
-- **testFilter**: The full test name from the issue title
-- **acceptanceCriteria**: Follow the standard pattern:
-  ```json
-  [
-    "Read ./brave-core-bot/BEST-PRACTICES.md for async testing patterns and common pitfalls",
-    "Fetch issue #[number] details from brave/brave-browser GitHub API",
-    "Analyze stack trace and identify root cause",
-    "Implement fix for the intermittent failure",
-    "Run npm run build from src/brave (must pass)",
-    "Run npm run format from src/brave (must pass)",
-    "Run npm run presubmit from src/brave (must pass)",
-    "Run npm run gn_check from src/brave (must pass)",
-    "Run npm run test -- brave_browser_tests --gtest_filter=[TestName] (must pass - run 5 times to verify consistency)"
-  ]
-  ```
-  Note: Use `brave_unit_tests` instead of `brave_browser_tests` for unit tests.
-- **priority**: Next sequential number after highest existing priority
-- **status**: "pending"
-- **prNumber**: null
-- **lastActivityBy**: null
-- **branchName**: null
-- **prUrl**: null
-
----
-
-## Step 5: Update PRD File
-
-Use `jq` to append the new stories to the userStories array:
+### If PRD doesn't exist yet:
 
 ```bash
-jq --slurpfile new_stories /tmp/new_stories.json '.userStories += $new_stories[0]' ./brave-core-bot/prd.json > /tmp/prd_updated.json && mv /tmp/prd_updated.json ./brave-core-bot/prd.json
+gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100 | \
+  .claude/skills/add-intermittent-tests/create_prd_from_issues.py > ./brave-core-bot/prd.json
 ```
+
+This creates a new PRD with all the open test issues.
+
+### If PRD already exists:
+
+```bash
+gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100 | \
+  .claude/skills/add-intermittent-tests/update_prd_with_issues.py ./brave-core-bot/prd.json > /tmp/prd_updated.json && \
+  mv /tmp/prd_updated.json ./brave-core-bot/prd.json
+```
+
+This updates the existing PRD with any new issues that aren't already tracked.
+
+### What the scripts do:
+
+- Extract test names from issue titles
+- Determine test type (browser_test vs unit_test) based on test name patterns
+- Generate proper user story structure with:
+  - Sequential US-XXX IDs
+  - Appropriate test binary (brave_browser_tests or brave_unit_tests)
+  - Standard acceptance criteria including BEST-PRACTICES.md read
+  - Correct priority ordering
+- Skip issues already in the PRD (update script only)
 
 ---
 
-## Step 6: Provide Recap
+## Step 3: Provide Recap
 
 Generate a comprehensive recap showing:
 
