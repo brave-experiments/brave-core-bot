@@ -7,8 +7,8 @@ run-state.json
 # Trusted reviewers allowlist - user-specific
 scripts/trusted-reviewers.txt
 
-# Claude settings - user-specific
-.claude/
+# Claude settings - user-specific (but track project skills)
+.claude/settings.local.json
 
 # Backup files
 *.backup

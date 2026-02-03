@@ -86,38 +86,6 @@ echo "✓ Pre-commit hook installed to $BOT_HOOK_DEST"
 echo "  (Prevents committing prd.json, progress.txt, run-state.json)"
 echo ""
 
-# Install Claude Code skills
-echo "Installing Claude Code skills..."
-CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
-
-if [ ! -d "$CLAUDE_SKILLS_DIR" ]; then
-  echo "Creating Claude skills directory: $CLAUDE_SKILLS_DIR"
-  mkdir -p "$CLAUDE_SKILLS_DIR"
-fi
-
-# Install brave_core_prd skill
-if [ -f "$SCRIPT_DIR/skills/brave_core_prd.md" ]; then
-  echo "  Installing /brave_core_prd skill..."
-  cp "$SCRIPT_DIR/skills/brave_core_prd.md" "$CLAUDE_SKILLS_DIR/"
-  echo "  ✓ /brave_core_prd skill installed"
-fi
-
-# Install brave_core_prd_json (PRD converter) skill
-if [ -f "$SCRIPT_DIR/skills/brave_core_prd_json.md" ]; then
-  echo "  Installing /brave_core_prd_json skill..."
-  cp "$SCRIPT_DIR/skills/brave_core_prd_json.md" "$CLAUDE_SKILLS_DIR/"
-  echo "  ✓ /brave_core_prd_json skill installed"
-fi
-
-# Install prd_bc_add_intermittent_tests (Add intermittent test issues to PRD) skill
-if [ -f "$SCRIPT_DIR/skills/prd_bc_add_intermittent_tests.md" ]; then
-  echo "  Installing /prd_bc_add_intermittent_tests skill..."
-  cp "$SCRIPT_DIR/skills/prd_bc_add_intermittent_tests.md" "$CLAUDE_SKILLS_DIR/"
-  echo "  ✓ /prd_bc_add_intermittent_tests skill installed"
-fi
-
-echo ""
-
 # Check git config
 echo "Checking git configuration..."
 cd "$GIT_REPO"
