@@ -18,6 +18,40 @@ To manually start a fresh run (useful when you want to re-check all pushed PRs o
 
 This resets the iteration state (`runId` and `storiesCheckedThisRun`) while **preserving** configuration settings (`skipPushedTasks`, `enableMergeBackoff`, `mergeBackoffStoryIds`). This allows all stories to be checked again without losing your configuration preferences.
 
+## Prioritize Specific Tasks
+
+Set `prioritizeTask` in `run-state.json` to force specific stories to be worked on before all others:
+
+```json
+{
+  "prioritizeTask": ["US-012", "US-015"]
+}
+```
+
+**Usage:**
+- Provide an array of story IDs to work on in order
+- These stories will be picked FIRST, before any normal priority logic
+- The first story in the array will be selected, then the second, and so on
+- Once the prioritizeTask array is exhausted, normal priority rules apply
+- Set to empty array `[]` to disable prioritization
+
+**This setting is preserved across run resets** - it's a configuration preference, not iteration state.
+
+**Examples:**
+```bash
+# Prioritize specific stories
+jq '.prioritizeTask = ["US-012"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+jq '.prioritizeTask = ["US-012", "US-015"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Clear prioritization (return to normal priority)
+jq '.prioritizeTask = []' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+```
+
+**Common Use Cases:**
+- Force work on a specific high-priority bug fix
+- Override normal priority order temporarily
+- Test a specific story during development
+
 ## Skip Pushed Tasks Mode
 
 Set `skipPushedTasks: true` in `run-state.json` when you want to:

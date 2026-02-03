@@ -54,6 +54,18 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
      - `skipPushedTasks` flag
      - `enableMergeBackoff` flag (defaults to `true` if not present)
      - `mergeBackoffStoryIds` (array of strings or null)
+     - `prioritizeTask` (array of story IDs to prioritize, defaults to `[]`)
+
+   **Step 1.5: Check prioritizeTask array FIRST**
+   - If `prioritizeTask` is not empty AND has unchecked stories:
+     - Loop through the `prioritizeTask` array in order
+     - For each story ID in the array:
+       - If the story ID is NOT in `storiesCheckedThisRun`:
+         - If the story exists in prd.json:
+           - If the story's status is NOT "merged", "skipped", or "invalid":
+             - **SELECT THIS STORY** and skip Steps 2-4 below (go directly to Step 5)
+     - If all stories in `prioritizeTask` have been checked or are completed, continue to Step 2
+   - If `prioritizeTask` is empty, continue to Step 2
 
    **Step 2: Apply filters to get candidate stories**
 
