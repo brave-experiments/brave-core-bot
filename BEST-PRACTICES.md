@@ -8,6 +8,7 @@ This document contains important patterns and anti-patterns discovered while fix
 - [JavaScript Evaluation in Tests](#javascript-evaluation-in-tests)
 - [Navigation and Timing](#navigation-and-timing)
 - [Test Isolation](#test-isolation)
+- [Chromium Pattern Research](#chromium-pattern-research)
 
 ---
 
@@ -545,6 +546,9 @@ Before writing async tests, verify:
 - [ ] Large throttle windows for throttle behavior tests
 - [ ] Proper observers for same-document navigation
 - [ ] Testing public APIs, not implementation details
+- [ ] Searched Chromium codebase for similar patterns
+- [ ] Included Chromium code references in comments when following patterns
+- [ ] Prefer event-driven JS (MutationObserver) over C++ polling for DOM changes
 
 ---
 
