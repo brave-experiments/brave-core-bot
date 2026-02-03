@@ -152,8 +152,8 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
 
   # Check for completion signal (only in assistant text responses, not tool results)
-  # Filter to only assistant messages with type "text" to avoid false positives from reading CLAUDE.md
-  if grep '"type":"text"' "$TEMP_OUTPUT" | grep -q "<promise>COMPLETE</promise>"; then
+  # Use jq to properly filter for assistant messages with text content to avoid false positives from reading CLAUDE.md
+  if jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$TEMP_OUTPUT" 2>/dev/null | grep -q "<promise>COMPLETE</promise>"; then
     echo ""
     echo "Agent completed all tasks!"
     echo "Completed at work iteration $work_iteration (loop $loop_count of $MAX_ITERATIONS)"
