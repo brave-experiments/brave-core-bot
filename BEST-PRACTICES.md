@@ -165,9 +165,56 @@ DCHECK failed: stack_.size() < static_cast<size_t>(nesting_level_)
 2. Inside that loop, `content::EvalJs()` starts **another** run loop to execute JavaScript
 3. This creates **nested run loops**, which triggers a DCHECK on macOS
 
-### ✅ Use Manual Polling Loop for JavaScript Conditions
+### ✅ Prefer Event-Driven JavaScript Over C++ Polling
 
-**GOOD - Manual polling with NonBlockingDelay:**
+**When waiting for DOM changes, prefer JavaScript event-driven patterns (like MutationObserver) over C++ polling loops.**
+
+Event-driven patterns are:
+- More deterministic (respond immediately when the event occurs)
+- More efficient (no wasted CPU cycles polling)
+- Consistent with Chromium patterns (see `service_worker_internals_ui_browsertest.cc`)
+
+**BEST - MutationObserver for DOM changes:**
+```cpp
+// Pattern from Chromium's service_worker_internals_ui_browsertest.cc
+static constexpr char kWaitForTextScript[] = R"(
+  (function() {
+    const element = document.getElementById($1);
+    const expected = $2;
+
+    function getText() {
+      return element.tagName === 'INPUT' || element.tagName === 'TEXTAREA'
+          ? element.value : element.innerText;
+    }
+
+    if (getText() === expected) {
+      return getText();
+    }
+
+    return new Promise(function(resolve) {
+      const observer = new MutationObserver(function() {
+        if (getText() === expected) {
+          observer.disconnect();
+          resolve(getText());
+        }
+      });
+      observer.observe(element,
+          {childList: true, subtree: true, characterData: true});
+    });
+  })()
+)";
+std::string updated_text =
+    content::EvalJs(web_contents,
+                    content::JsReplace(kWaitForTextScript,
+                                       element_id,
+                                       expected_text))
+        .ExtractString();
+```
+
+### ✅ Manual Polling Loop (Fallback)
+
+**Use C++ polling only when JavaScript event-driven patterns aren't applicable** (e.g., checking for element existence, waiting for JS API readiness):
+
 ```cpp
 const base::TimeTicks deadline = base::TimeTicks::Now() + base::Seconds(10);
 for (;;) {
