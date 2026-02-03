@@ -12,7 +12,7 @@ Automatically fetch open test failure issues from the brave/brave-browser reposi
 ## The Job
 
 1. Fetch all open issues with the `bot/type/test` label from brave/brave-browser
-2. Compare with existing issues in the PRD (`./brave-core-bot/prd.json`)
+2. Compare with existing issues in the PRD (`./prd.json`)
 3. Add any missing issues as new user stories
 4. Provide a recap of what was added
 
@@ -38,7 +38,7 @@ Two helper scripts are available in `.claude/skills/add-intermittent-tests/`:
 
 ```bash
 gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100 | \
-  .claude/skills/add-intermittent-tests/create_prd_from_issues.py > ./brave-core-bot/prd.json
+  .claude/skills/add-intermittent-tests/create_prd_from_issues.py > ./prd.json
 ```
 
 This creates a new PRD with all the open test issues.
@@ -47,8 +47,8 @@ This creates a new PRD with all the open test issues.
 
 ```bash
 gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100 | \
-  .claude/skills/add-intermittent-tests/update_prd_with_issues.py ./brave-core-bot/prd.json > /tmp/prd_updated.json && \
-  mv /tmp/prd_updated.json ./brave-core-bot/prd.json
+  .claude/skills/add-intermittent-tests/update_prd_with_issues.py ./prd.json > /tmp/prd_updated.json && \
+  mv /tmp/prd_updated.json ./prd.json
 ```
 
 This updates the existing PRD with any new issues that aren't already tracked.
@@ -149,6 +149,6 @@ Successfully fetched 15 open issues from the `bot/type/test` label and added 7 m
 ## Error Handling
 
 - If `gh` CLI is not available, report error and exit
-- If `./brave-core-bot/prd.json` doesn't exist, report error and exit
+- If `./prd.json` doesn't exist, report error and exit
 - If GitHub API rate limit is hit, report error with retry time
 - If `jq` is not available, report error and exit

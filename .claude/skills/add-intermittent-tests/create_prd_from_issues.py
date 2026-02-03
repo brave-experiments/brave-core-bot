@@ -39,7 +39,7 @@ for idx, issue in enumerate(github_issues, start=1):
         "testType": test_type,
         "testFilter": test_name,
         "acceptanceCriteria": [
-            "Read ./brave-core-bot/BEST-PRACTICES.md for async testing patterns and common pitfalls",
+            "Read ./BEST-PRACTICES.md for async testing patterns and common pitfalls",
             f"Fetch issue #{issue_num} details from brave/brave-browser GitHub API",
             "Analyze stack trace and identify root cause",
             "Implement fix for the intermittent failure",
