@@ -66,13 +66,24 @@ if [ ! -d "$GIT_REPO/.git" ]; then
   exit 1
 fi
 
-# Install pre-commit hook
+# Install pre-commit hook for target repo (src/brave)
 HOOK_DEST="$GIT_REPO/.git/hooks/pre-commit"
 
-echo "Installing pre-commit hook..."
+echo "Installing pre-commit hook to target repo..."
 cp "$HOOK_SOURCE" "$HOOK_DEST"
 chmod +x "$HOOK_DEST"
 echo "✓ Pre-commit hook installed to $HOOK_DEST"
+echo ""
+
+# Install pre-commit hook for brave-core-bot repo itself
+BOT_HOOK_SOURCE="$SCRIPT_DIR/hooks/pre-commit-bot-repo"
+BOT_HOOK_DEST="$SCRIPT_DIR/.git/hooks/pre-commit"
+
+echo "Installing pre-commit hook to brave-core-bot repo..."
+cp "$BOT_HOOK_SOURCE" "$BOT_HOOK_DEST"
+chmod +x "$BOT_HOOK_DEST"
+echo "✓ Pre-commit hook installed to $BOT_HOOK_DEST"
+echo "  (Prevents committing prd.json, progress.txt, run-state.json)"
 echo ""
 
 # Install Claude Code skills
