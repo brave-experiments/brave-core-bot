@@ -1,5 +1,6 @@
 # Runtime files - user-specific state
 prd.json
+prd.archived.json
 progress.txt
 run-state.json
 .last-branch
