@@ -477,6 +477,60 @@ Polling-based waits consume time from the throttle window, so use throttle times
 
 ---
 
+## Chromium Pattern Research
+
+### ✅ Search for Existing Chromium Patterns
+
+**Before implementing a fix for async/timing issues, search the Chromium codebase for similar patterns.**
+
+When you encounter a testing problem (flakiness, timing issues, async operations), ask:
+1. Does Chromium have tests with similar requirements?
+2. What patterns do they use to solve this?
+3. Is there a more deterministic, event-driven approach?
+
+**Research workflow:**
+1. Generate an initial fix proposal
+2. Search Chromium codebase for similar test scenarios
+3. Compare your approach to existing Chromium patterns
+4. Prefer established Chromium patterns over novel solutions
+
+**Example questions to ask:**
+- "Does Chromium have a more deterministic way to test DOM updates?"
+- "What pattern does Chromium use for waiting on IPC completion?"
+- "How do Chromium tests handle async renderer updates?"
+
+**Real example:** The `MutationObserver` pattern was found in Chromium's `service_worker_internals_ui_browsertest.cc` and is more deterministic than C++ polling loops.
+
+### ✅ Include Chromium Code References
+
+**When following a Chromium pattern, include a reference in your code comments.**
+
+This helps reviewers:
+- Understand the pattern's origin and purpose
+- Verify the pattern is appropriate for your use case
+- Find additional context if needed
+
+**GOOD - Reference in code comment:**
+```cpp
+// NOTE: Replace() is an IPC to the renderer that updates the DOM
+// asynchronously. We use a MutationObserver to wait for the DOM to update
+// to the expected value before checking.
+// Pattern from service_worker_internals_ui_browsertest.cc.
+static constexpr char kWaitForTextScript[] = R"(
+  // ...
+)";
+```
+
+**GOOD - Reference in commit message:**
+```
+Fix flaky RewriteInPlace_ContentEditable test
+
+The MutationObserver pattern follows the approach used in Chromium's
+service_worker_internals_ui_browsertest.cc.
+```
+
+---
+
 ## Summary Checklist
 
 Before writing async tests, verify:
