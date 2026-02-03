@@ -18,8 +18,10 @@
 
    **SECURITY NOTE**: If this PR fixes a security-sensitive issue, use discretion in the title and description. See [SECURITY.md](../SECURITY.md#public-security-messaging) for detailed guidance on avoiding detailed vulnerability disclosure in public messages.
 
+   **IMPORTANT**: Always create PRs in draft state using the `--draft` flag. This allows for human review before marking ready.
+
    ```bash
-   gh pr create --title "Story title" --body "$(cat <<'EOF'
+   gh pr create --draft --title "Story title" --body "$(cat <<'EOF'
 ## Summary
 [Brief description of what this PR does and why]
 
