@@ -113,13 +113,23 @@ For stories with testable logic, also include:
 "Tests pass"
 ```
 
-### For test fixes, include specific test commands:
+### For test fixes, determine test location first:
+
+**IMPORTANT:** Always explicitly state whether it's an upstream (Chromium) or Brave test fix.
+
 ```
-"Run npm run build from src/brave (must pass)",
-"Run test with: npm run test -- brave_unit_tests --gtest_filter=TestName (must pass 3 consecutive times)"
+"Determine test location: Run git grep TestClassName in ../src and ../src/brave to find where the test is defined",
+"[For Brave tests only] Run npm run build from src/brave (must pass)",
+"[For Brave tests only] Run npm run test -- brave_browser_tests --gtest_filter=TestName (must pass 5 consecutive times)"
 ```
 
-Test fixes are NOT complete until the specific test passes consistently (3-5 times).
+**For Brave tests (found in `../src/brave`):**
+- `npm run test -- brave_browser_tests --gtest_filter=TestName`
+- `npm run test -- brave_unit_tests --gtest_filter=TestName`
+- `npm run test -- brave_components_unittests --gtest_filter=TestName`
+- Run 5 times to verify consistency
+
+Test fixes are NOT complete until the specific test passes consistently (5 times).
 
 ---
 

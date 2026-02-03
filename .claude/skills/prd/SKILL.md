@@ -86,7 +86,18 @@ Each story should be small enough to implement in one focused session.
 
 **Important:**
 - Acceptance criteria must be verifiable, not vague. "Works correctly" is bad. "Button shows confirmation dialog before deleting" is good.
-- **For test fixes:** Include specific test commands with filters and repetition requirements (e.g., "Run test 3 times consecutively").
+- **For test fixes:** Explicitly state whether it's an upstream (Chromium) or Brave test fix. Include a step to determine test location using `git grep` before specifying the test command.
+
+### Test Fix Acceptance Criteria Pattern
+
+For test fixes, always include these steps in order:
+
+1. **Determine test location:** Use `git grep TestClassName ../src` and `git grep TestClassName ../src/brave` to find where the test is defined
+2. **For Brave tests (found in `../src/brave`):**
+   - `npm run test -- brave_browser_tests --gtest_filter=TestName`
+   - `npm run test -- brave_unit_tests --gtest_filter=TestName`
+   - `npm run test -- brave_components_unittests --gtest_filter=TestName`
+   - Run 5 times to verify consistency
 
 ### 4. Functional Requirements
 Numbered list of specific functionalities:

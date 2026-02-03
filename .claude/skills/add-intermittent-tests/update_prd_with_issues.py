@@ -75,13 +75,14 @@ for issue in github_issues:
         "acceptanceCriteria": [
             "Read ./BEST-PRACTICES.md for async testing patterns and common pitfalls",
             f"Fetch issue #{issue_num} details from brave/brave-browser GitHub API",
+            f"Determine test location: Run git grep {test_name.split('.')[0]} in ../src and ../src/brave to find where the test is defined",
             "Analyze stack trace and identify root cause",
             "Implement fix for the intermittent failure",
             "Run npm run build from src/brave (must pass)",
             "Run npm run format from src/brave (must pass)",
             "Run npm run presubmit from src/brave (must pass)",
             "Run npm run gn_check from src/brave (must pass)",
-            f"Run npm run test -- {test_binary} --gtest_filter={test_name} (must pass - run 5 times to verify consistency)"
+            f"[For Brave tests only] Run npm run test -- {test_binary} --gtest_filter={test_name} (must pass - run 5 times to verify consistency)"
         ],
         "priority": max_priority,
         "status": "pending",
