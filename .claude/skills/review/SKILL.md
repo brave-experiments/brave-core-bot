@@ -188,6 +188,7 @@ Check for **RED FLAGS** indicating insufficient root cause analysis:
 1. **Can you explain WHY the test fails?** (Not just symptoms, but cause)
 2. **Can you explain HOW the fix addresses the root cause?** (Mechanism, not hope)
 3. **Is there a clear causal chain?** (A causes B, fix C breaks the chain)
+4. **Why does this fail in Brave specifically?** (What Brave-specific factors contribute - e.g., different UI elements, additional features, different timing characteristics, etc.)
 
 ### AI Slop Detection
 Watch for generic explanations that could apply to any bug:
@@ -200,6 +201,17 @@ Watch for generic explanations that could apply to any bug:
 - WHAT timing issue? Between which operations?
 - WHAT synchronization was missing? What signal is now used?
 - WHERE was the race condition? What two things were racing?
+
+### Brave-Specific Context Required
+
+If a test fails in Brave but passes in Chrome (or is flaky in Brave but stable in Chrome), the root cause analysis MUST explain what Brave-specific factors contribute:
+- Different UI elements (Brave Shields, sidebar, wallet button, etc.)
+- Additional toolbar items or browser chrome that affects layout/sizing
+- Brave-specific features that change timing or execution order
+- Different default settings or feature flags
+- Additional observers or hooks that Brave adds
+
+Without this explanation, the analysis is incomplete even if the general mechanism is understood.
 
 ---
 
@@ -236,6 +248,27 @@ If the fix is disabling a test:
 - Were other approaches tried first?
 - Is this a Chromium test (upstream) or Brave test?
 - If Chromium test, is it also disabled upstream?
+
+### Intermittent/Flaky Test Analysis
+
+For flaky tests, the root cause analysis must explain **why the failure is intermittent** - not just why it fails, but why it doesn't fail every time:
+
+**Questions to answer:**
+- What variable condition causes the test to sometimes pass and sometimes fail?
+- Is it timing-dependent? (e.g., race between two async operations)
+- Is it resource-dependent? (e.g., system load, memory pressure)
+- Is it order-dependent? (e.g., test isolation issues, shared state)
+- Is it platform-specific? (e.g., only flaky on certain OS/architecture)
+
+**Examples of good intermittency explanations:**
+- "The test is flaky because the viewport resize animation may or may not complete before the screenshot is captured, depending on system load"
+- "The race window is small (~15ms) so the test only fails when thread scheduling happens to interleave the operations in a specific order"
+- "On slower CI machines, the async callback completes before the size check; on faster machines, it doesn't"
+
+**Red flags (incomplete analysis):**
+- "The test is flaky" (without explaining the variable condition)
+- "Sometimes passes, sometimes fails" (just restating the symptom)
+- "Timing-dependent" (without explaining what timing varies)
 
 ---
 
@@ -290,8 +323,16 @@ Output the review in this format:
 ### Assessment
 - [ ] Clear identification of WHY the problem occurs
 - [ ] Clear explanation of HOW the fix addresses it
+- [ ] Explains Brave-specific factors that contribute to the issue
+- [ ] For flaky tests: explains WHY the failure is intermittent
 - [ ] No vague/uncertain language without justification
 - [ ] No generic "AI slop" explanations
+
+### Intermittency Analysis (for flaky tests)
+<If this is a flaky/intermittent test, explain:>
+- **Variable condition**: <What causes it to sometimes pass, sometimes fail?>
+- **Flaky in Brave only?**: <Does this also flake in upstream Chrome, or only in Brave?>
+- **Why Brave specifically?**: <What Brave-specific factors make this flaky?>
 
 ### Issues Found
 <List specific problems with the root cause analysis>
@@ -393,9 +434,9 @@ Just let me know what you'd like to do.
 
 If the user asks you to post the review as a comment on GitHub, **always prefix the comment** with:
 
-> I generated this review about the changes, sharing here. It should be used for informational purposes only and not as proof of review.
+I generated this review about the changes, sharing here. It should be used for informational purposes only and not as proof of review.
 
-This disclaimer must appear at the very beginning of the comment before the review content.
+This disclaimer must appear at the very beginning of the comment before the review content (as plain text, not as a blockquote).
 
 ---
 
