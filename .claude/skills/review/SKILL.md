@@ -299,96 +299,53 @@ Rate confidence level:
 
 ## Step 9: Generate Review Report
 
+**CRITICAL: Avoid Redundancy**
+- Each piece of information should appear ONCE in the report
+- Do NOT repeat the same issue in multiple sections
+- The verdict reasoning should be a brief reference, not a restatement of everything above
+
+**CRITICAL: Fill Informational Gaps Yourself**
+- If the PR is missing context that you CAN research (e.g., "why does this flake in Brave but not upstream?"), DO THE RESEARCH and provide the answer in your analysis
+- Only list something as an "issue requiring iteration" if it requires action from the PR author that you cannot provide
+- The confidence level should reflect the state AFTER you've provided any missing context - if you filled the gaps, confidence should be higher
+
 Output the review in this format:
 
 ```markdown
 # PR Review: #<number> - <title>
 
 ## Summary
-<One paragraph summary of what this PR does and why>
+<2-3 sentences: what this PR does, the root cause, and whether the fix is appropriate>
 
-## Associated Issue
-- **GitHub Issue**: #<number or "N/A">
+## Context
+- **Issue**: #<number or "N/A">
+- **Previous attempts**: <Brief list or "None found">
 
-## Previous Fix Attempts
-<List previous PRs that attempted this fix, with outcomes>
-- PR #XXXX: <title> - <outcome>
-- None found
+## Analysis
 
-## Root Cause Analysis Quality
+### Root Cause
+<Summarize the PR's explanation. If incomplete, research and provide the missing context yourself rather than flagging it as an issue.>
 
-### Explanation Provided
-<Quote or summarize the root cause explanation from PR body>
+### Brave-Specific Factors (if applicable)
+<If this fails in Brave but not upstream, research and explain why. Provide this context yourself.>
 
-### Assessment
-- [ ] Clear identification of WHY the problem occurs
-- [ ] Clear explanation of HOW the fix addresses it
-- [ ] Explains Brave-specific factors that contribute to the issue
-- [ ] For flaky tests: explains WHY the failure is intermittent
-- [ ] No vague/uncertain language without justification
-- [ ] No generic "AI slop" explanations
+### Fix Evaluation
+<Does the fix address the root cause? Any best practices violations?>
 
-### Intermittency Analysis (for flaky tests)
-<If this is a flaky/intermittent test, explain:>
-- **Variable condition**: <What causes it to sometimes pass, sometimes fail?>
-- **Flaky in Brave only?**: <Does this also flake in upstream Chrome, or only in Brave?>
-- **Why Brave specifically?**: <What Brave-specific factors make this flaky?>
+## Issues Requiring Author Action
 
-### Issues Found
-<List specific problems with the root cause analysis>
+<ONLY list issues that genuinely require the PR author to take action. Do NOT include:
+- Informational gaps you filled in the Analysis section
+- Context you researched and provided above
+- Minor suggestions>
 
-## Fix Analysis
+If no issues: "None - PR is ready for review."
 
-### Changes Made
-<Summarize the actual code changes>
+## Verdict: PASS / FAIL (assessed AFTER accounting for any context you provided above)
 
-### Code Context Review
-<Based on reading the actual source files in ../src/brave/, does the fix make sense?>
+**Confidence**: HIGH / MEDIUM / LOW
 
-### Best Practices Check
-- [ ] No banned timing-based patterns
-- [ ] No RunUntilIdle() usage
-- [ ] No nested run loops (EvalJs in RunUntil)
-- [ ] Proper synchronization mechanisms used
-- [ ] Follows Chromium patterns where applicable
-
-### Issues Found
-<List specific problems with the implementation>
-
-## Important Issues (Requires Iteration)
-
-<List ONLY issues that warrant developer attention. Skip:
-- Minor style suggestions
-- Optional improvements
-- "Nice to have" changes>
-
-1. **[CRITICAL/HIGH/MEDIUM]** <Issue description>
-   - Why it matters: <explanation>
-   - Suggested fix: <if applicable>
-
-## Confidence Assessment
-**Level**: HIGH / MEDIUM / LOW
-
-**Reasoning**: <Why this confidence level>
-
----
-
-## Verdict: PASS / FAIL
-
-**Reasoning**: <Clear explanation of the verdict>
-
-<If FAIL, what must be addressed before approval>
-
----
-
-## Next Steps
-
-If you'd like me to help improve this PR:
-- **Amend the PR description** - I can help rewrite it with better root cause analysis
-- **Add a comment** - I can draft a comment requesting specific changes
-- **Suggest fixes** - I can propose code changes to address the issues found
-
-Just let me know what you'd like to do.
+<1-2 sentence reasoning>
 ```
 
 ---
