@@ -12,7 +12,29 @@ If a story has `status: "pushed"` with `prUrl` and `prNumber` already defined, t
 
 1. Get the PR number from the story's `prNumber` field
 2. Get the PR repository from prd.json `ralphConfig.prRepository` field
-3. Fetch PR review data using **filtered API** (Brave org members only):
+3. **Check if PR is already closed:**
+   ```bash
+   gh pr view <pr-number> --json state -q '.state'
+   ```
+
+   **If the PR state is "CLOSED" (not "MERGED"):**
+   - The PR was closed by someone else without merging
+   - Update the PRD at `./brave-core-bot/prd.json`:
+     - Set `status: "invalid"`
+     - Set `skipReason: "PR was closed without merging"`
+   - Append to `./brave-core-bot/progress.txt`:
+     - Document that PR was closed externally
+   - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
+   - **END THE ITERATION** - Story is marked as invalid
+
+   **If the PR state is "MERGED":**
+   - The PR was already merged (possibly manually)
+   - Continue to Step 1 below to handle as a merged PR
+
+   **If the PR state is "OPEN":**
+   - Continue with normal workflow below
+
+4. Fetch PR review data using **filtered API** (Brave org members only):
    ```bash
    ./brave-core-bot/scripts/filter-pr-reviews.sh <pr-number> markdown <pr-repository>
    ```
@@ -165,35 +187,76 @@ When review comments need to be addressed, you enter a full development cycle wi
   - What the reviewer is asking to change
   - How to reconcile the feedback with the original requirements
 
-### 2. Understand Feedback & Plan Changes
+### 2. Check if Task is Already Completed Elsewhere (CRITICAL - check before implementation)
+
+Before implementing changes, analyze review comments to detect if the reviewer indicates the task is already done:
+
+**Common indicators that task is already complete:**
+- Reviewer states "this is already fixed" or "already done"
+- Reviewer mentions "duplicate PR" or "superseded by another fix"
+- Reviewer indicates "test is no longer failing" or "issue resolved elsewhere"
+- Reviewer suggests closing the PR as "no longer needed"
+
+**If reviewer indicates task is already complete:**
+
+1. **Post thank you comment:**
+   ```bash
+   gh pr comment <pr-number> --body "$(cat <<'EOF'
+   Thank you for reviewing! I understand this fix is no longer needed. Closing this PR and marking the task as invalid.
+   EOF
+   )"
+   ```
+
+2. **Close the PR:**
+   ```bash
+   gh pr close <pr-number> --comment "Closing as task is already completed elsewhere"
+   ```
+
+3. **Update the PRD at `./brave-core-bot/prd.json`:**
+   - Set `status: "invalid"`
+   - Set `skipReason: "[Brief explanation from reviewer about why task is already done]"`
+   - Keep existing `prNumber`, `prUrl`, and `branchName` fields
+
+4. **Append to `./brave-core-bot/progress.txt`:**
+   - Document that reviewer indicated task is already complete
+   - Include the skip reason
+
+5. **Mark story as checked:**
+   - Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
+
+6. **END THE ITERATION** - Story is complete (marked as invalid)
+
+**If reviewer requests actual changes (not indicating task is already done), continue below:**
+
+### 3. Understand Feedback & Plan Changes
 
 - Parse all review comments from Brave org members
 - Understand what changes are requested
 - Identify which files and code sections need changes
 - Plan the implementation approach that satisfies BOTH the original requirements AND the review feedback
 
-### 3. Checkout Correct Branch
+### 4. Checkout Correct Branch
 
 - Get branch name from story's `branchName` field
 - `cd [workingDirectory from prd.json config]`
 - `git checkout <branchName>`
 - Ensure you're on the story's existing branch
 
-### 4. Implement Changes
+### 5. Implement Changes
 
 - Make the requested code changes
 - Apply the same coding standards as initial development
 - Keep changes focused on the feedback
 - **Note**: Changes may be needed in production code, test code, or both - analyze the feedback to determine where fixes are required
 
-### 5. Run ALL Acceptance Criteria Tests ⚠️ CRITICAL
+### 6. Run ALL Acceptance Criteria Tests ⚠️ CRITICAL
 
 - Re-run EVERY test from the original story's acceptance criteria
 - Use same timeout and background settings as initial development
 - ALL tests MUST pass before proceeding
 - See [testing-requirements.md](./testing-requirements.md) for complete requirements
 
-### 6. If ALL Tests Pass
+### 7. If ALL Tests Pass
 
 - **Check if branch has existing commits:**
   ```bash
@@ -216,7 +279,7 @@ When review comments need to be addressed, you enter a full development cycle wi
 - Keep `status: "pushed"` (stay in this state)
 - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
-### 7. If ANY Tests Fail
+### 8. If ANY Tests Fail
 
 - DO NOT commit or push
 - Keep `status: "pushed"` (stays in review state)

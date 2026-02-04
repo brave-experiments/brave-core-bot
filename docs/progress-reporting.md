@@ -96,9 +96,9 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 
 ```
 ## [Date/Time] - [Story ID] - Status: [previous-status] → skipped
-- **Reason for skipping:** [Brief explanation - e.g., "already fixed on master", "no longer reproducible"]
-- **Root Cause Analysis:** [What you discovered about why this story is no longer needed]
-- **Resolution:** [What fix already exists, or why it's blocked]
+- **Reason for skipping:** [Brief explanation - e.g., "blocked by missing dependency", "intentionally deferred"]
+- **Root Cause Analysis:** [What you discovered about why this story is being skipped]
+- **Resolution:** [What's blocking it, or why it's deferred]
 - **GitHub Notification:** [Posted comment on issue #XXXX / No issue referenced / Comment already exists]
 - **Note:** [Any additional context for future reference]
 ---
@@ -108,7 +108,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 
 ```
 ## [Date/Time] - [Story ID] - Status: [previous-status] → invalid
-- **Reason for invalid:** [Brief explanation - e.g., "duplicate of #XXXX", "not a bug - working as intended", "contradictory requirements"]
+- **Reason for invalid:** [Brief explanation - e.g., "duplicate of #XXXX", "already fixed by PR #YYYY", "not a bug - working as intended", "PR was closed without merging"]
 - **Analysis:** [What you discovered about why this story is invalid]
 - **GitHub Notification:** [Posted comment on issue #XXXX / No issue referenced / Comment already exists]
 - **Note:** [Any additional context for future reference]

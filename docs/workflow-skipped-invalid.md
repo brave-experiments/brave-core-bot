@@ -7,10 +7,11 @@
 This story has been intentionally skipped and will not be worked on. During task selection, skipped stories should not be picked (they're in the SKIP priority category). If you encounter a skipped story, simply move to the next story in priority order during task selection.
 
 Stories can be manually set to "skipped" status when:
-- The story is no longer relevant
-- The story has been superseded by other work
 - The story is blocked indefinitely and should be skipped
-- The story is intentionally deferred
+- The story is intentionally deferred for later work
+- The work is valid but deprioritized
+
+**NOTE:** If the work is already done elsewhere or is a duplicate, use "invalid" status instead.
 
 ### IMPORTANT: Notify GitHub Issue When Skipping
 
@@ -41,9 +42,8 @@ When you change a story's status to "skipped" (from any status), you MUST check 
    - Include the reason for skipping
 
 **Example scenarios requiring notification:**
-- Story skipped because fix already exists on master → Comment on issue explaining fix is already present
-- Story skipped because it's no longer reproducible → Comment on issue that it couldn't be reproduced
 - Story skipped because of missing dependencies/blockers → Comment on issue explaining what's blocking it
+- Story skipped because it's intentionally deferred → Comment on issue explaining the deferral reason
 
 This ensures stakeholders who filed or are watching the issue aren't left wondering why the bot didn't work on it.
 
@@ -56,9 +56,11 @@ This story has been marked as invalid and will not be worked on. During task sel
 Stories can be manually set to "invalid" status when:
 - The story is based on incorrect information or misunderstanding
 - The story is a duplicate of another story
+- The work is already completed elsewhere (e.g., fixed by another PR, fixed on master)
 - The reported issue is not actually a bug (working as intended)
 - The story requirements are contradictory or impossible
 - The story is not applicable to the current codebase
+- A PR for this story was closed without merging
 
 ### IMPORTANT: Notify GitHub Issue When Marking Invalid
 
@@ -89,8 +91,10 @@ When you change a story's status to "invalid" (from any status), you MUST check 
    - Include the reason for marking invalid
 
 **Example scenarios requiring notification:**
-- Story invalid because it's a duplicate → Comment on issue with link to original issue
+- Story invalid because it's a duplicate → Comment on issue with link to original issue/PR
+- Story invalid because work is already completed → Comment on issue explaining fix already exists (with PR link)
 - Story invalid because behavior is working as intended → Comment explaining expected behavior
 - Story invalid because requirements are contradictory → Comment explaining the contradiction
+- Story invalid because PR was closed without merging → Comment on issue explaining PR was closed
 
 This ensures stakeholders understand why the issue was marked invalid.
