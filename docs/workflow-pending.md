@@ -86,7 +86,31 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - If **no PR exists** or only unrelated PRs were found:
      - Proceed with implementation (continue to step 4)
 
-4. Implement the user story
+4. **Research previous fix attempts**
+
+   Before implementing, search for previous PRs that attempted to fix this same issue (including closed/failed attempts):
+
+   ```bash
+   # Search for closed/merged PRs that reference this issue
+   gh api search/issues --method GET \
+     -f q="repo:brave/brave-core is:pr <issue-number> OR <test-name-or-keywords>" \
+     --jq '.items[] | {number, title, state, html_url, user: .user.login}'
+   ```
+
+   **If previous attempts are found:**
+   - Gather the diffs from those PRs to understand what was tried:
+     ```bash
+     gh pr diff <pr-number> --repo brave/brave-core
+     ```
+   - Read any review comments to understand why the approach may have failed
+   - Use this context to inform your approach - avoid repeating failed strategies
+
+   **This research is especially important for:**
+   - Intermittent test failures (often have multiple fix attempts)
+   - Issues that have been open for a long time
+   - Issues with significant discussion threads
+
+5. **Implement the user story**
 
    **IMPORTANT: Where to Make Fixes**
 
@@ -97,11 +121,11 @@ Read this document BEFORE analyzing the issue or implementing fixes.
 
    Analyze the failure carefully to determine where the actual problem lies. Don't assume the production code is always wrong - tests can have bugs too.
 
-5. **CRITICAL**: Run **ALL** acceptance criteria tests - **YOU MUST NOT SKIP ANY**
+6. **CRITICAL**: Run **ALL** acceptance criteria tests - **YOU MUST NOT SKIP ANY**
 
    See [testing-requirements.md](./testing-requirements.md) for complete test execution requirements.
 
-6. **CHROMIUM TEST DETECTION** (for filter file modifications only):
+7. **CHROMIUM TEST DETECTION** (for filter file modifications only):
 
    If your fix involves adding a test to a filter file (e.g., `test/filters/browser_tests.filter`), determine if it's a Chromium test:
 
@@ -140,14 +164,14 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - Make note of whether this is a **Chromium test** or **Brave test**
    - Note whether **Chromium has also disabled it** (include evidence)
    - Note any **Brave modifications** in related code paths
-   - This information will be used in step 7 for commit message and later for PR body
+   - This information will be used in step 9 for commit message and later for PR body
 
-7. Update CLAUDE.md files if you discover reusable patterns (see below)
+8. Update CLAUDE.md files if you discover reusable patterns (see below)
 
-8. **If ALL tests pass:**
+9. **If ALL tests pass:**
    - Commit ALL changes (must be in `[workingDirectory from prd.json config]`)
    - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
-   - **For Chromium test disables (filter file modifications)**: If you detected this is a Chromium test in step 6, include in commit message:
+   - **For Chromium test disables (filter file modifications)**: If you detected this is a Chromium test in step 7, include in commit message:
      - State clearly that it's a **Chromium test** (e.g., "Disable Chromium test..." or "This is an upstream Chromium test...")
      - If Chromium has also disabled it, mention that explicitly (e.g., "Chromium has also disabled this test" or "Already disabled upstream")
      - If Brave modifications might be related, mention what was found (e.g., "Brave modifies chrome/browser/ui/ via chromium_src")
@@ -158,7 +182,7 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - Append your progress to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
    - **Continue in same iteration:** Do NOT mark story as checked yet - proceed immediately to push and create PR (see [workflow-committed.md](./workflow-committed.md))
 
-8. **If ANY tests fail:**
+9. **If ANY tests fail:**
    - DO NOT commit changes
    - Keep `status: "pending"`
    - Keep `branchName` (so we can continue on same branch next iteration)
@@ -166,23 +190,49 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array (don't retry same story endlessly)
    - **END THE ITERATION** - Stop processing
 
-## Retry Policy for Persistent Test Failures
+## Retry Policy for Persistent Failures
 
-If a story keeps failing tests across multiple iterations:
+If a story keeps failing across multiple iterations:
 
 1. **First Failure**: Document the failure, keep trying
 2. **Second Failure**: Analyze root cause more deeply, try different approach
-3. **Third+ Failure**: If tests keep failing after 3+ attempts:
-   - Add a detailed comment to `./brave-core-bot/progress.txt` explaining:
-     - What was tried
-     - Why tests are failing
-     - What blockers exist (missing dependencies, environment issues, etc.)
-   - Mark story with a special note: "BLOCKED - Requires manual intervention"
-   - Skip this story in subsequent iterations until the blocker is resolved
+3. **Third+ Failure**: **Step back and reconsider the strategy entirely**
+
+### Strategic Reconsideration (Third+ Failure)
+
+When multiple attempts have failed, consider whether the fundamental approach is wrong:
+
+**Review previous attempts:**
+- Use `gh api` to search for any previous PRs that attempted this fix (see step 4)
+- Gather diffs from those PRs to understand what has already been tried
+- Read review comments and discussions for insights into why approaches failed
+
+**Question your assumptions:**
+- If using polling, waiting, or timing-based approaches: Will the expected state ever actually occur?
+- Could the intermittent behavior indicate a real underlying problem rather than a test issue?
+- Is there a race condition that no amount of waiting will reliably fix?
+
+**Consider alternative approaches (for Brave code):**
+- **Refactor the test approach**: If a browser test is flaky, could the same functionality be verified with a more reliable unit test?
+- **Fix the underlying code**: Sometimes the test is revealing a real bug in the production code
+- **Add proper synchronization**: If there's a race condition, add explicit signaling rather than waits
+
+**Last resort - disable with full documentation:**
+If no fix is viable after thorough investigation, you may create a PR to disable the test, but you MUST:
+- Document all previous fix attempts (including PRs by others)
+- Explain why each approach failed
+- Describe the fundamental issue that makes the test unfixable
+- Confirm no other options remain for making the test reliable
+
+**Update progress.txt with:**
+- What was tried across all attempts
+- Why the current strategy isn't working
+- What blockers exist (missing dependencies, environment issues, fundamental design issues, etc.)
+- Mark story with: "BLOCKED - Requires manual intervention" if no path forward
 
 **Important**: Count failures per implementation approach, not just per iteration. If you try a completely different fix strategy, that's a new attempt.
 
-The goal is to avoid infinite loops on impossible tasks while still giving sufficient retry attempts for legitimate intermittent failures or initial misunderstandings.
+The goal is to avoid infinite loops on impossible tasks while still giving sufficient retry attempts for legitimate failures or initial misunderstandings.
 
 ## Problem-Solving Approach
 
