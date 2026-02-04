@@ -76,6 +76,7 @@ EOF
    **For test issue fixes:**
    - Add labels to PR: `QA/No`, `release-notes/exclude`, `ai-generated`
    - Add labels to linked issue: `QA/No`, `release-notes/exclude`
+   - **If the only change is disabling a test in a filter file** (e.g., adding to `test/filters/` or similar), also add the `CI/skip` label to the PR. This skips unnecessary CI runs for trivial filter-only changes.
 
    **For other PRs:**
    - Always add to PR: `ai-generated`
