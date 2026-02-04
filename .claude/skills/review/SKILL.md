@@ -383,12 +383,19 @@ Just let me know what you'd like to do.
 - Check related files, headers, and tests
 - For chromium_src changes, also read the upstream Chromium file
 
-### Local Only
+### Local by Default
 
-- **DO NOT** post comments on the PR
-- **DO NOT** approve or request changes on GitHub
+- **DO NOT** post comments, approve, or request changes on GitHub **unless the user explicitly asks**
 - **DO NOT** merge or close the PR
 - This is an analysis tool for the reviewer's eyes only
+
+### Posting to GitHub
+
+If the user asks you to post the review as a comment on GitHub, **always prefix the comment** with:
+
+> I generated this review about the changes, sharing here. It should be used for informational purposes only and not as proof of review.
+
+This disclaimer must appear at the very beginning of the comment before the review content.
 
 ---
 
@@ -418,4 +425,4 @@ Or with just a PR number (assumes brave/brave-core):
 - [ ] Assessed fix confidence level
 - [ ] Only reported important issues
 - [ ] Provided clear pass/fail verdict with reasoning
-- [ ] Did NOT post anything to GitHub
+- [ ] Only posted to GitHub if user explicitly requested (with disclaimer prefix)
