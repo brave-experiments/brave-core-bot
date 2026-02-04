@@ -274,10 +274,8 @@ Output the review in this format:
 ## Summary
 <One paragraph summary of what this PR does and why>
 
-## Associated Story
-- **Story ID**: <id or "None found">
+## Associated Issue
 - **GitHub Issue**: #<number or "N/A">
-- **Status**: <story status>
 
 ## Previous Fix Attempts
 <List previous PRs that attempted this fix, with outcomes>
@@ -410,7 +408,7 @@ Or with just a PR number (assumes brave/brave-core):
 ## Checklist Before Completing Review
 
 - [ ] Parsed PR URL and gathered context
-- [ ] Found associated user story (if any)
+- [ ] Extracted associated GitHub issue (if any)
 - [ ] Researched previous fix attempts
 - [ ] Analyzed the proposed fix diff
 - [ ] **Read the actual source files in ../src/brave/** to understand context
