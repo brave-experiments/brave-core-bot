@@ -309,6 +309,15 @@ Rate confidence level:
 - Only list something as an "issue requiring iteration" if it requires action from the PR author that you cannot provide
 - The confidence level should reflect the state AFTER you've provided any missing context - if you filled the gaps, confidence should be higher
 
+**CRITICAL: No Vague Language in YOUR Analysis**
+- The same vague language rules (Step 6) apply to YOUR review output, not just the PR's analysis
+- If you write "appears to", "seems to", "might be", etc. in your analysis, you have NOT completed the review
+- You must either:
+  1. **Investigate further** until you can make a definitive statement, OR
+  2. **Flag it as requiring investigation** in the "Issues Requiring Author Action" section
+- Example of what NOT to do: "The channel detection appears to return STABLE" - this is incomplete
+- Example of what TO do: Either trace the exact code path to confirm what value is returned, OR list "Determine exact channel value returned in CI environment" as an issue requiring investigation
+
 Output the review in this format:
 
 ```markdown
