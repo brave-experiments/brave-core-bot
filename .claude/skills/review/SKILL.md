@@ -249,6 +249,31 @@ If the fix is disabling a test:
 - Is this a Chromium test (upstream) or Brave test?
 - If Chromium test, is it also disabled upstream?
 
+**CRITICAL: Use the most specific filter file possible.**
+
+Filter files follow the pattern: `{test_suite}-{platform}-{variant}.filter`
+
+Available specificity levels (prefer most specific):
+1. `browser_tests-windows-asan.filter` - Platform + sanitizer specific (MOST SPECIFIC)
+2. `browser_tests-windows.filter` - Platform specific
+3. `browser_tests.filter` - All platforms (LEAST SPECIFIC - avoid if possible)
+
+**Before accepting a test disable, verify:**
+1. **Which CI jobs reported the failure?** Check issue labels (bot/platform/*, bot/arch/*) and CI job names
+2. **Is the root cause platform-specific?** (e.g., Windows-only APIs, macOS-specific behavior)
+3. **Is the root cause build-type-specific?** (e.g., ASAN/MSAN/UBSAN, OFFICIAL vs non-OFFICIAL)
+4. **Does a more specific filter file exist or should one be created?**
+
+**Examples:**
+- Test fails only on Windows ASAN → use `browser_tests-windows-asan.filter`
+- Test fails only on Linux → use `browser_tests-linux.filter`
+- Test fails on all platforms due to Brave-specific code → use `browser_tests.filter`
+
+**Red flags (overly broad disables):**
+- Adding to `browser_tests.filter` when failure is only reported on one platform
+- Adding to general filter when failure is only on sanitizer builds (ASAN/MSAN/UBSAN)
+- No investigation of which CI configurations actually fail
+
 ### Intermittent/Flaky Test Analysis
 
 For flaky tests, the root cause analysis must explain **why the failure is intermittent** - not just why it fails, but why it doesn't fail every time:

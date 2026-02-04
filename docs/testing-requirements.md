@@ -217,6 +217,64 @@ EXPECT_TRUE(base::test::RunUntil([&]() { return destroy_count == 1; }));
 
 **Mojo Testing:** Reference "Stubbing Mojo Pipes" documentation for unit testing Mojo calls.
 
+## Disabling Tests via Filter Files
+
+When a test must be disabled (e.g., upstream Chromium test incompatible with Brave infrastructure), **use the most specific filter file possible**.
+
+### Filter File Naming Convention
+
+Filter files are located in `test/filters/` and follow the pattern:
+```
+{test_suite}-{platform}-{variant}.filter
+```
+
+### Specificity Levels (prefer most specific)
+
+1. **Most specific**: `browser_tests-windows-asan.filter` - Platform + sanitizer
+2. **Platform specific**: `browser_tests-windows.filter` - Single platform
+3. **Least specific**: `browser_tests.filter` - All platforms (avoid if possible)
+
+### Before Disabling a Test
+
+1. **Identify which CI jobs fail** - Check issue labels (bot/platform/*, bot/arch/*) and CI job URLs
+2. **Determine if failure is platform-specific** - e.g., Windows-only APIs, macOS behavior
+3. **Determine if failure is build-type-specific** - e.g., ASAN/MSAN/UBSAN, OFFICIAL builds
+4. **Choose the most specific filter file** - Create one if it doesn't exist
+
+### Examples
+
+| Failure Scope | Correct Filter File |
+|---------------|---------------------|
+| Windows ASAN only | `browser_tests-windows-asan.filter` |
+| All Windows builds | `browser_tests-windows.filter` |
+| Linux UBSAN only | `unit_tests-linux-ubsan.filter` |
+| All platforms (Brave-specific) | `browser_tests.filter` |
+
+### Existing Sanitizer Filter Examples
+
+- `unit_tests-linux-ubsan.filter` - UBSAN-specific disables
+
+### Red Flags (Overly Broad Disables)
+
+- ❌ Adding to `browser_tests.filter` when failure only reported on one platform
+- ❌ Adding to general filter when failure only on sanitizer builds (ASAN/MSAN/UBSAN)
+- ❌ No investigation of which CI configurations actually fail
+
+### Filter Entry Documentation
+
+Always include a comment explaining:
+1. **Why** the test is disabled
+2. **What** specific condition causes the failure
+3. **Why** this filter file was chosen (if not obvious)
+
+```
+# This test fails on Windows ASAN because ScopedInstallDetails defaults to
+# STABLE channel, blocking command line switches that only work on non-STABLE.
+# Windows-specific: ScopedInstallDetails only used on Windows.
+# ASAN-specific: Only OFFICIAL builds return STABLE; non-OFFICIAL return UNKNOWN.
+-WatermarkSettingsCommandLineBrowserTest.GetColors
+```
+
 ## Quality Requirements
 
 - **ALL** acceptance criteria tests must pass - this is non-negotiable
