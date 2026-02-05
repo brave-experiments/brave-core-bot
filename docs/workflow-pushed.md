@@ -274,12 +274,26 @@ Before implementing changes, analyze review comments to detect if the reviewer i
   ```bash
   gh pr comment <pr-number> --body "Fixed: [brief description of what was changed]"
   ```
-- **Evaluate if feedback contains learnable patterns** - see "Learning from Review Feedback" section below
-  - If a general pattern was identified, create a separate PR to brave-core-bot docs (in the same iteration)
+- **REQUIRED: Evaluate if feedback contains learnable patterns** (see checklist below)
 - Update the PRD: Set `lastActivityBy: "bot"` (we just responded)
 - Update `./brave-core-bot/progress.txt` with what was changed
 - Keep `status: "pushed"` (stay in this state)
 - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
+
+**Learnable Pattern Evaluation Checklist** (do this after pushing):
+
+Answer these questions about the review feedback you just addressed:
+1. Does the feedback mention "we always do X", "our convention is", or "in general, we..."?
+2. Does the feedback describe a coding style, naming convention, or organizational pattern?
+3. Is this about a common mistake or general best practice (not specific to just this PR)?
+4. Would other PRs benefit from knowing this pattern upfront?
+
+**If YES to any question:** Create a documentation PR to brave-core-bot (in the same iteration):
+- Follow the "Learning from Review Feedback" section below
+- Create separate branch/PR with the pattern documentation
+- Document this in progress.txt
+
+**If NO to all questions:** Continue to next step (pattern is PR-specific, no documentation needed)
 
 ### 8. If ANY Tests Fail
 
