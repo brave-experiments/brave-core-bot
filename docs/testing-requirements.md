@@ -275,6 +275,14 @@ Always include a comment explaining:
 -WatermarkSettingsCommandLineBrowserTest.GetColors
 ```
 
+**Organization conventions:**
+
+- **Group tests by shared root cause** - Tests that fail for the same reason go under one comment section
+- **Specific reasons get their own section** - Don't add tests with detailed/specific failure reasons to generic catch-all sections (e.g., don't put a test with a specific race condition under "# Flaky upstream.")
+- **Alphabetical ordering within sections** - Keep test entries alphabetically sorted within each comment section
+
+Example: A test with a specific viewport race condition should not be grouped under "# Flaky upstream." - it needs its own section explaining that specific race condition.
+
 ## Quality Requirements
 
 - **ALL** acceptance criteria tests must pass - this is non-negotiable
