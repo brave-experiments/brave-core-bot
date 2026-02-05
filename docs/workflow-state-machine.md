@@ -110,39 +110,57 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
 
 ## Handling Duplicate Test Fix Stories
 
-**CRITICAL RULE: Never skip a test fix story as "duplicate" if the test is still failing**
+**CRITICAL RULE: Never skip a test fix story as "duplicate" if the GitHub issue is still open**
 
 When multiple stories exist for the SAME test (same `testFilter` value):
 
-### Decision Logic
+### Decision Logic - Default to NOT skipping
 
-1. **Previous fix merged AND test verified passing consistently** → Skip current story as duplicate ✓
-   - Verify: Previous PR is merged AND test passes 5+ consecutive runs
-   - Action: Mark current story as `status: "skipped"` with clear `skipReason`
+**If the GitHub issue is still OPEN → DO NOT SKIP (assume re-occurrence)**
 
-2. **Previous fix under review OR test still failing** → Work on current story as NEW fix attempt ✓
-   - Each story represents a potential new fix approach
-   - Previous fix may not have addressed the root cause
-   - Action: Implement the current story normally (status: "pending")
+An open issue means the test is still failing. Treat subsequent stories as NEW fix attempts, not duplicates.
 
-3. **NEVER assume a previous fix worked without verification**
-   - A merged PR does NOT guarantee the intermittent test is fixed
-   - Intermittent tests require multiple consecutive passing runs to verify
-   - If a test continues to fail after a previous fix, subsequent stories are NEW attempts
+### When to Skip (requires ALL conditions)
+
+Only skip a test fix story as "duplicate" if ALL of these are verified:
+
+1. **Previous fix is merged** (not just open/under review)
+2. **GitHub issue was created BEFORE the previous PR merged**
+   - Compare timestamps: `issue.createdAt < pr.mergedAt`
+   - If issue was created AFTER the merge, this is a RE-OCCURRENCE → work on it
+3. **No new failures reported since the merge**
+   - Check issue comments for reports of continued failures
+   - Check CI/build logs if available
+4. **Version/environment matches** (if specified in the issue)
+   - If the issue mentions a specific Chromium version, verify the fix covers that version
+
+### Timestamp Verification Commands
+
+```bash
+# Get issue creation date
+gh issue view <issue-number> --repo brave/brave-browser --json createdAt
+
+# Get PR merge date
+gh pr view <pr-number> --repo brave/brave-core --json mergedAt
+
+# Compare: If issue.createdAt > pr.mergedAt → RE-OCCURRENCE (work on it)
+```
 
 ### Example
 
 US-016 and US-023 both fix `BraveSearchTestEnabled.DefaultAPIVisibleKnownHost`:
-- US-023 has PR #33596 merged (status: "merged")
-- Test is still failing intermittently → US-016 should be worked on as a NEW fix attempt
-- **Do NOT skip US-016** until the test is verified to pass consistently after US-023's merge
+- US-023 has PR #33596 merged on 2024-01-15
+- US-016's issue was created on 2024-01-20 (AFTER the merge)
+- This is a **RE-OCCURRENCE** → US-016 should be worked on as a NEW fix attempt
+- **Do NOT skip US-016** - the previous fix did not address all failure modes
 
 ### Important Notes
 
-- Each intermittent test fix story may use different approaches to solve the same test
-- The first fix attempt may have identified one race condition but missed others
-- Only skip duplicate stories after VERIFICATION that the test is fixed
-- Check the GitHub issue for the test to see if new failures occurred after the previous PR merged
+- **When in doubt, DO NOT SKIP** - intermittent tests often have multiple root causes
+- Each fix story may address different race conditions or timing issues
+- A merged PR does NOT guarantee the intermittent test is fixed
+- Only skip after VERIFICATION using timestamp data that proves it's a true duplicate
+- If timestamps are unavailable or ambiguous, proceed with implementation
 
 ## State Change Tracking
 

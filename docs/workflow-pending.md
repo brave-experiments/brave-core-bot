@@ -61,6 +61,40 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    ```
 
    **Analyze the results:**
+
+   **⚠️ CRITICAL: Special Handling for Intermittent Test Failures**
+
+   If this story is fixing an intermittent test failure (has `testFilter` field or description mentions flaky/intermittent test), apply these rules INSTEAD of the normal duplicate PR logic:
+
+   1. **If the GitHub issue is still OPEN** → **DO NOT SKIP** (assume re-occurrence)
+      - An open issue means the test is still failing intermittently
+      - Previous fix attempts may not have addressed the root cause
+      - Proceed with implementation (continue to step 4)
+
+   2. **Only skip as duplicate if ALL of these are true:**
+      - There is a merged PR that attempted to fix this test
+      - The GitHub issue was created BEFORE that PR was merged (check timestamps)
+      - No new test failures reported since the PR merge date (check issue comments/activity)
+      - The Chromium version in the issue matches or is older than the fix version
+
+   3. **How to check timestamps:**
+      ```bash
+      # Get issue creation date
+      gh issue view <issue-number> --repo brave/brave-browser --json createdAt
+
+      # Get PR merge date (if merged)
+      gh pr view <pr-number> --repo brave/brave-core --json mergedAt
+
+      # If issue.createdAt > pr.mergedAt, this is a RE-OCCURRENCE → work on it
+      # If issue.createdAt < pr.mergedAt AND no new comments after merge → may be duplicate
+      ```
+
+   4. **When in doubt, DO NOT SKIP** - intermittent tests often have multiple root causes
+
+   ---
+
+   **For NON-test-failure stories (normal duplicate check):**
+
    - If an **open** PR exists that clearly addresses this issue:
      - Check the PR author and description to confirm it's for the same issue
      - Update the story in `./brave-core-bot/prd.json`:
