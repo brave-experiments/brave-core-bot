@@ -80,9 +80,9 @@ If no story found, note this in the review (PR may be manual, not bot-generated)
 
 ---
 
-## Step 3: Research Previous Fix Attempts
+## Step 3: Research Previous Fix Attempts and Prove Differentiation
 
-**CRITICAL**: Before evaluating the current fix, understand what has been tried before.
+**CRITICAL**: Before evaluating the current fix, understand what has been tried before. If previous attempts exist, the current fix **MUST prove it is materially different** or the review is an **AUTOMATIC FAIL**.
 
 ```bash
 # Search for previous PRs that attempted to fix this issue
@@ -99,12 +99,36 @@ For each previous attempt found:
 ```bash
 # Get the diff to understand what was tried
 gh pr diff <pr-number> --repo brave/brave-core
+
+# Get review comments to understand why it failed/was rejected
+gh pr view <pr-number> --repo brave/brave-core --json reviews,comments
 ```
 
 **Document findings:**
 - What approaches were tried before?
 - Why did they fail or get rejected?
 - Are there patterns in the failures?
+
+### Differentiation Requirement (AUTOMATIC FAIL if not met)
+
+When previous fix attempts exist, you MUST compare the current PR's diff against each previous attempt's diff and answer:
+
+1. **Is the approach materially different?** Compare the actual code changes, not just the PR description. Look at:
+   - Are the same files being modified?
+   - Are the same lines/functions being changed?
+   - Is the same strategy being applied (e.g., both add a wait, both add a null check, both reorder operations)?
+
+2. **If the approach IS different, explain HOW:**
+   - "Previous PR #1234 added a `RunUntilIdle()` call. This PR instead uses `TestFuture` to synchronize on the specific callback."
+   - "Previous PR #1234 disabled the test. This PR fixes the underlying race condition by adding an observer."
+
+3. **If the approach is the same or substantially similar → AUTOMATIC FAIL:**
+   - Same files modified with same type of change
+   - Same strategy (e.g., both add timing delays, both add the same kind of guard)
+   - Same root cause explanation with no new evidence
+   - Cosmetically different but functionally identical (e.g., different wait duration, different variable name for the same fix)
+
+**The burden of proof is on the current fix.** If you cannot clearly articulate why this fix is different from previous failed attempts, the review MUST FAIL with the reason: "Fix is not materially different from previous attempt(s) #XXXX."
 
 ---
 
@@ -319,6 +343,7 @@ Rate confidence level:
 - Uses timing-based approaches
 - Overly complex for the problem
 - Changes unrelated code
+- Fix is not materially different from a previous failed attempt
 
 ---
 
@@ -354,6 +379,7 @@ Output the review in this format:
 ## Context
 - **Issue**: #<number or "N/A">
 - **Previous attempts**: <Brief list or "None found">
+- **Differentiation**: <How this fix differs from previous attempts, or "N/A - no previous attempts">
 
 ## Analysis
 
@@ -449,6 +475,7 @@ Or with just a PR number (assumes brave/brave-core):
 - [ ] Parsed PR URL and gathered context
 - [ ] Extracted associated GitHub issue (if any)
 - [ ] Researched previous fix attempts
+- [ ] If previous attempts exist: proved current fix is materially different (or FAILED the review)
 - [ ] Analyzed the proposed fix diff
 - [ ] **Read the actual source files in ../src/brave/** to understand context
 - [ ] Used filtering scripts for all GitHub data
