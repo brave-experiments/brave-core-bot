@@ -20,8 +20,14 @@
 
    **IMPORTANT**: Always create PRs in draft state using the `--draft` flag. This allows for human review before marking ready.
 
+   **CRITICAL: Always include labels when creating the PR.** Determine which labels apply (see label rules below) and pass them directly to `gh pr create` using `--label` flags.
+
    ```bash
-   gh pr create --draft --title "Story title" --body "$(cat <<'EOF'
+   gh pr create --draft --title "Story title" \
+     --label "ai-generated" \
+     --label "QA/No" \
+     --label "release-notes/exclude" \
+     --body "$(cat <<'EOF'
 ## Summary
 [Brief description of what this PR does and why]
 
@@ -54,6 +60,7 @@ EOF
    - Keep the last checkbox "CI passes cleanly" unchecked
    - Do NOT add "Generated with Claude Code" or similar attribution
    - Capture the PR number from the output
+   - **The `--label` flags above are an example for test fixes.** Adjust labels based on the rules in step 6 below. The `ai-generated` label is ALWAYS required.
 
 5. **Assign the PR to yourself (the bot account):**
 
@@ -65,23 +72,29 @@ EOF
 
 6. **Set appropriate labels on the PR and linked issues:**
 
+   Labels should have been applied during PR creation in step 4 via `--label` flags. If any labels were missed, add them now:
+
    ```bash
-   # Add labels to PR
+   # Add missing labels to PR (if not already applied during creation)
    gh pr edit <pr-number> --add-label "label1,label2"
 
-   # Add labels to linked issue
+   # Add labels to linked issue (ALWAYS required - cannot be done during PR creation)
    gh issue edit <issue-number> --add-label "label1,label2" --repo brave/brave-browser
    ```
 
-   **For test issue fixes:**
-   - Add labels to PR: `QA/No`, `release-notes/exclude`, `ai-generated`
-   - Add labels to linked issue: `QA/No`, `release-notes/exclude`
-   - **If the only change is disabling a test in a filter file** (e.g., adding to `test/filters/` or similar), also add the `CI/skip` label to the PR. This skips unnecessary CI runs for trivial filter-only changes.
+   ### Label Rules
+
+   **MANDATORY for ALL PRs (no exceptions):**
+   - `ai-generated` — MUST be on every bot-created PR
+
+   **For test issue fixes (add to BOTH PR and linked issue):**
+   - `QA/No` — manual QA not needed
+   - `release-notes/exclude` — not user-facing
+   - `CI/skip` — **only if the change is limited to filter files** (e.g., `test/filters/`). This skips unnecessary CI for trivial filter-only changes.
 
    **For other PRs:**
-   - Always add to PR: `ai-generated`
-   - Add `release-notes/exclude` to both PR and linked issue for changes that typical browser users wouldn't care about (code cleanup, refactors, internal tooling, etc.)
-   - Use judgment for `QA/No` based on whether manual QA testing is needed
+   - `release-notes/exclude` — add to both PR and linked issue for changes typical users wouldn't care about (code cleanup, refactors, internal tooling, etc.)
+   - `QA/No` — use judgment based on whether manual QA testing is needed
 
 7. **If push or PR creation succeeds:**
    - Update the PRD at `./brave-core-bot/prd.json`:

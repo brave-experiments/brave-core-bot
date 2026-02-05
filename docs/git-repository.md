@@ -104,9 +104,15 @@ IMPORTANT: When the user asks you to create a pull request, follow these steps c
 
 **IMPORTANT**: Always create PRs in draft state using the `--draft` flag. This allows for human review before marking ready.
 
+**IMPORTANT**: Always include required labels when creating the PR using `--label` flags. At minimum, all bot-created PRs MUST have the `ai-generated` label. See [workflow-committed.md](./workflow-committed.md) for full label rules.
+
 **Example:**
 ```bash
-gh pr create --draft --title "the pr title" --body "$(cat <<'EOF'
+gh pr create --draft --title "the pr title" \
+  --label "ai-generated" \
+  --label "QA/No" \
+  --label "release-notes/exclude" \
+  --body "$(cat <<'EOF'
 ## Summary
 <1-3 bullet points>
 
