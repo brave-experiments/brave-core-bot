@@ -84,12 +84,13 @@ If no story found, note this in the review (PR may be manual, not bot-generated)
 
 **CRITICAL**: Before evaluating the current fix, understand what has been tried before. If previous attempts exist, the current fix **MUST prove it is materially different** or the review is an **AUTOMATIC FAIL**.
 
+**Where to search:** Previous fix attempts live as pull requests in the target repository (typically `brave/brave-core`). Search by issue number AND by test name/keywords, since not all PRs reference the issue directly:
+
 ```bash
-# Search for previous PRs that attempted to fix this issue
 # Extract issue number from story or PR body
 ISSUE_NUMBER="<extracted from story or PR body>"
 
-# Search closed/merged PRs that reference this issue
+# Search PRs in the target repo by issue number and test name
 gh api search/issues --method GET \
   -f q="repo:brave/brave-core is:pr $ISSUE_NUMBER OR <test-name>" \
   --jq '.items[] | {number, title, state, html_url, user: .user.login}'
