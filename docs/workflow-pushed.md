@@ -282,18 +282,7 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 
 **Learnable Pattern Evaluation Checklist** (do this after pushing):
 
-Answer these questions about the review feedback you just addressed:
-1. Does the feedback mention "we always do X", "our convention is", or "in general, we..."?
-2. Does the feedback describe a coding style, naming convention, or organizational pattern?
-3. Is this about a common mistake or general best practice (not specific to just this PR)?
-4. Would other PRs benefit from knowing this pattern upfront?
-
-**If YES to any question:** Create a documentation PR to brave-core-bot (in the same iteration):
-- Follow the "Learning from Review Feedback" section below
-- Create separate branch/PR with the pattern documentation
-- Document this in progress.txt
-
-**If NO to all questions:** Continue to next step (pattern is PR-specific, no documentation needed)
+Follow **[docs/learnable-patterns.md](./learnable-patterns.md)** to evaluate whether the review feedback contains a learnable pattern and, if so, capture it.
 
 ### 8. If ANY Tests Fail
 
@@ -318,90 +307,7 @@ In this case, the reviewer should be notified via a PR comment that automated fi
 
 ## Learning from Review Feedback
 
-When addressing review comments, evaluate whether the feedback represents a **general best practice pattern** that should be captured for future work.
-
-### Identifying Learnable Patterns
-
-Review comments that indicate general patterns (not one-off fixes):
-- "We always do X when Y" or "Our convention is..."
-- "This is a common mistake" or "Watch out for this pattern"
-- Feedback about coding style, naming conventions, or architectural approaches
-- Test patterns or testing requirements specific to Brave
-- API usage patterns or Brave-specific idioms
-- Security practices or review requirements
-
-**Not learnable patterns** (skip this section):
-- Bug fixes specific to this PR
-- Typo corrections
-- Logic errors in this specific implementation
-- One-time edge cases
-
-### Capturing Patterns in brave-core-bot
-
-If the feedback contains a general pattern, update the brave-core-bot documentation:
-
-**1. Determine where the pattern belongs:**
-
-| Pattern Type | Document Location |
-|-------------|-------------------|
-| Async testing, RunUntil patterns | `./brave-core-bot/BEST-PRACTICES.md` |
-| Git workflow, branch naming | `./brave-core-bot/docs/git-repository.md` |
-| Test execution requirements | `./brave-core-bot/docs/testing-requirements.md` |
-| Problem-solving approaches | `./brave-core-bot/docs/workflow-pending.md` (Problem-Solving Approach section) |
-| PR creation, commit messages | `./brave-core-bot/docs/workflow-committed.md` |
-| Review response patterns | `./brave-core-bot/docs/workflow-pushed.md` |
-| Security practices | `./brave-core-bot/SECURITY.md` |
-| General codebase patterns | `./brave-core-bot/progress.txt` (Codebase Patterns section) |
-
-**2. Create a separate branch and PR for brave-core-bot:**
-
-```bash
-# Save current directory
-ORIGINAL_DIR=$(pwd)
-
-# Switch to brave-core-bot repo
-cd ./brave-core-bot
-
-# Create a new branch for the documentation update
-git checkout master
-git pull origin master
-git checkout -b docs/learn-<brief-description>
-
-# Make the documentation changes
-# ... edit the appropriate file ...
-
-# Commit the changes
-git add <file>
-git commit -m "Add learned pattern: <brief description>
-
-Learned from review feedback on PR #<pr-number>: <one-line summary of the pattern>"
-
-# Push and create PR
-git push -u origin docs/learn-<brief-description>
-gh pr create --title "Add learned pattern: <brief description>" --body "$(cat <<'EOF'
-## Summary
-- Captured a reusable pattern from review feedback on brave-core PR #<pr-number>
-
-## Pattern
-<describe the pattern that was learned>
-
-## Source
-Review comment: <link to the specific review comment if available>
-EOF
-)"
-
-# Return to original directory
-cd "$ORIGINAL_DIR"
-```
-
-**3. Document the learning in progress.txt:**
-- Note that a pattern was identified and captured
-- Reference the brave-core-bot PR number
-
-### When to Skip This Section
-
-- If the review feedback is specific to the current PR only
-- If the pattern is already documented
+See **[docs/learnable-patterns.md](./learnable-patterns.md)** for the complete guide on identifying, evaluating, and capturing learnable patterns from review feedback.
 - If unsure whether something is a general pattern (err on the side of not adding)
 
 **IMPORTANT**: This learning step should NOT block the main PR. First address the review feedback on the original PR, then (in the same iteration) create the documentation PR if a pattern was identified.

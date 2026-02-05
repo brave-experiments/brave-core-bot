@@ -502,10 +502,7 @@ See `SECURITY.md` for complete security guidelines.
 
 ## Contributing
 
-When adding new patterns or learnings:
-1. Update `CLAUDE.md` for agent-level patterns
-2. Update `progress.txt` for codebase-specific patterns
-3. Keep the README focused on setup and usage
+When adding new patterns or learnings, see [docs/learnable-patterns.md](./docs/learnable-patterns.md) for guidance on where each type of pattern belongs.
 
 ## License
 

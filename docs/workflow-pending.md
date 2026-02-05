@@ -319,16 +319,7 @@ Only update CLAUDE.md if you have **genuinely reusable knowledge** that would he
 
 ## Consolidate Patterns
 
-If you discover a **reusable pattern** that future iterations should know, add it to the `## Codebase Patterns` section at the TOP of ./brave-core-bot/progress.txt (create it if it doesn't exist):
-
-```
-## Codebase Patterns
-- Example: Use `sql<number>` template for aggregations
-- Example: Always use `IF NOT EXISTS` for migrations
-- Example: Export types from actions.ts for UI components
-```
-
-Only add patterns that are **general and reusable**, not story-specific details.
+See **[docs/learnable-patterns.md](./learnable-patterns.md)** for the complete guide on identifying and capturing reusable patterns, including how to use `progress.txt` for lightweight patterns and when to create documentation PRs.
 
 ## Browser Testing (If Available)
 

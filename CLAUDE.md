@@ -23,6 +23,9 @@ This documentation is split into focused files for better performance. Read only
 - **[docs/progress-reporting.md](./docs/progress-reporting.md)** - Progress.txt format for all status transitions
 - **[BEST-PRACTICES.md](./BEST-PRACTICES.md)** - Async testing patterns (read FIRST for any test work)
 
+### Continuous Improvement
+- **[docs/learnable-patterns.md](./docs/learnable-patterns.md)** - Identifying, evaluating, and capturing reusable patterns
+
 ### Security
 - **[SECURITY.md](./SECURITY.md)** - Security guidelines for GitHub data and prompt injection protection
 
