@@ -58,8 +58,7 @@ Only create commits when requested by the user. If unclear, ask first. When the 
 
 3. You can call multiple tools in a single response. When multiple independent pieces of information are requested and all commands are likely to succeed, run multiple tool calls in parallel for optimal performance. run the following commands:
    - Add relevant untracked files to the staging area.
-   - Create the commit with a message ending with:
-     Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+   - Create the commit. Do NOT add any Co-Authored-By lines or Claude attribution.
    - Run git status after the commit completes to verify success.
    Note: git status depends on the commit completing, so run it sequentially after the commit.
 
@@ -78,8 +77,6 @@ Only create commits when requested by the user. If unclear, ask first. When the 
 ```bash
 git commit -m "$(cat <<'EOF'
 Commit message here.
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -120,7 +117,8 @@ EOF
 ```
 
 **Important:**
-- DO NOT add "Generated with Claude Code" or similar attribution
+- DO NOT add "Generated with Claude Code" or similar attribution to PRs
+- DO NOT add Co-Authored-By lines or any Claude attribution to commits
 - DO NOT use the TodoWrite or Task tools
 - Return the PR URL when you're done, so the user can see it
 
