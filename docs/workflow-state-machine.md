@@ -108,6 +108,42 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
 
 **CRITICAL**: Always prioritize responding to reviewers over starting new work. This ensures reviewers aren't kept waiting.
 
+## Handling Duplicate Test Fix Stories
+
+**CRITICAL RULE: Never skip a test fix story as "duplicate" if the test is still failing**
+
+When multiple stories exist for the SAME test (same `testFilter` value):
+
+### Decision Logic
+
+1. **Previous fix merged AND test verified passing consistently** → Skip current story as duplicate ✓
+   - Verify: Previous PR is merged AND test passes 5+ consecutive runs
+   - Action: Mark current story as `status: "skipped"` with clear `skipReason`
+
+2. **Previous fix under review OR test still failing** → Work on current story as NEW fix attempt ✓
+   - Each story represents a potential new fix approach
+   - Previous fix may not have addressed the root cause
+   - Action: Implement the current story normally (status: "pending")
+
+3. **NEVER assume a previous fix worked without verification**
+   - A merged PR does NOT guarantee the intermittent test is fixed
+   - Intermittent tests require multiple consecutive passing runs to verify
+   - If a test continues to fail after a previous fix, subsequent stories are NEW attempts
+
+### Example
+
+US-016 and US-023 both fix `BraveSearchTestEnabled.DefaultAPIVisibleKnownHost`:
+- US-023 has PR #33596 merged (status: "merged")
+- Test is still failing intermittently → US-016 should be worked on as a NEW fix attempt
+- **Do NOT skip US-016** until the test is verified to pass consistently after US-023's merge
+
+### Important Notes
+
+- Each intermittent test fix story may use different approaches to solve the same test
+- The first fix attempt may have identified one race condition but missed others
+- Only skip duplicate stories after VERIFICATION that the test is fixed
+- Check the GitHub issue for the test to see if new failures occurred after the previous PR merged
+
 ## State Change Tracking
 
 The `lastIterationHadStateChange` field in run-state.json controls whether the work iteration counter increments. This keeps the iteration count meaningful (representing actual work done) while allowing rapid checking of multiple stories without inflating the count.
