@@ -1,5 +1,22 @@
 # Workflow State Machine
 
+## Valid Status Values (ONLY these are allowed)
+
+**CRITICAL: The `status` field in prd.json MUST be one of these exact values. Using ANY other value (e.g., "pr_created", "in_review", "ready", etc.) is INVALID and will break the workflow.**
+
+| Status | Type | Description |
+|--------|------|-------------|
+| `"pending"` | Active | Development in progress |
+| `"committed"` | Active | Code committed locally, ready to push and create PR |
+| `"pushed"` | Active | PR created and public, awaiting review/merge |
+| `"merged"` | Terminal | PR merged successfully |
+| `"skipped"` | Terminal | Intentionally skipped (e.g., duplicate PR exists) |
+| `"invalid"` | Terminal | Invalid story, won't be worked on |
+
+**Valid transitions:** `pending` → `committed` → `pushed` → `merged`. Any status can also transition to `skipped` or `invalid`. The `pushed` state loops back to itself when responding to review feedback.
+
+**NEVER invent new status values.** If a transition doesn't fit one of these statuses, you are misunderstanding the workflow.
+
 ## Your Task - State Machine Workflow
 
 **CRITICAL: One Story Per Iteration**

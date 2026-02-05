@@ -2,6 +2,19 @@
 
 This document describes the complete state machine for user story progression through the bot's workflow.
 
+## Valid Status Values (ONLY these are allowed)
+
+**CRITICAL: The `status` field in prd.json MUST be one of these exact string values. Using ANY other value is INVALID.**
+
+- `"pending"` — Development in progress
+- `"committed"` — Code committed locally, ready to push and create PR
+- `"pushed"` — PR created and public, awaiting review/merge
+- `"merged"` — PR merged successfully (terminal)
+- `"skipped"` — Intentionally skipped (terminal)
+- `"invalid"` — Invalid story (terminal)
+
+**NEVER invent new status values** (e.g., "pr_created", "in_review", "ready", "done", etc.). If a transition doesn't fit one of these 6 statuses, you are misunderstanding the workflow.
+
 ## State Diagram
 
 ```
@@ -189,6 +202,36 @@ This document describes the complete state machine for user story progression th
 
 ---
 
+### 5. skipped
+**Description:** Story intentionally skipped (e.g., duplicate PR already exists for this issue).
+
+**Entry Conditions:**
+- An existing PR is found that addresses the same issue
+- Story determined to be a true duplicate after verification
+
+**Actions:**
+- None (terminal state)
+
+**Exit Conditions:**
+- None (terminal state)
+
+---
+
+### 6. invalid
+**Description:** Story is invalid and won't be worked on (e.g., PR was closed without merging, or reviewer indicated work is no longer needed).
+
+**Entry Conditions:**
+- PR was closed externally without merging
+- Reviewer indicated the task is already completed elsewhere
+
+**Actions:**
+- None (terminal state)
+
+**Exit Conditions:**
+- None (terminal state)
+
+---
+
 ## Task Selection Priority
 
 When the bot picks the next story to work on:
@@ -261,10 +304,14 @@ When the bot picks the next story to work on:
 | From State  | To State    | Trigger                                         | Quality Gate                           |
 |-------------|-------------|-------------------------------------------------|----------------------------------------|
 | pending     | committed   | Development work complete                       | ALL acceptance criteria tests pass     |
+| pending     | skipped     | Duplicate PR already exists for this issue      | Verified existing PR addresses issue   |
 | committed   | pushed      | Branch pushed, PR created                       | Code public, awaiting review           |
 | pushed      | pushed      | Review feedback implementation complete         | ALL acceptance criteria tests pass     |
 | pushed      | merged      | PR approved, CI passing, mergeable             | Required approvals, no blockers        |
+| pushed      | invalid     | PR closed without merging / task already done   | Confirmed by reviewer or PR state      |
 | merged      | (none)      | Terminal state                                  | N/A                                    |
+| skipped     | (none)      | Terminal state                                  | N/A                                    |
+| invalid     | (none)      | Terminal state                                  | N/A                                    |
 
 **Note:** The `pushed → pushed` transition (responding to reviews) involves a complete implementation sub-cycle with the same testing requirements as `pending → committed`.
 
