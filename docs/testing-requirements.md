@@ -280,6 +280,7 @@ Always include a comment explaining:
 - **Group tests by shared root cause** - Tests that fail for the same reason go under one comment section
 - **Specific reasons get their own section** - Don't add tests with detailed/specific failure reasons to generic catch-all sections (e.g., don't put a test with a specific race condition under "# Flaky upstream.")
 - **Alphabetical ordering within sections** - Keep test entries alphabetically sorted within each comment section
+- **Blank line before new comment sections** - When adding a new comment section, ensure there is an empty line separating it from the previous section's test entries. Do not place a comment line immediately after a test entry without a blank line in between.
 
 Example: A test with a specific viewport race condition should not be grouped under "# Flaky upstream." - it needs its own section explaining that specific race condition.
 
