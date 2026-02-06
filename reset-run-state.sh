@@ -26,7 +26,7 @@ cat > "$RUN_STATE_FILE" << EOF
     "runId: Timestamp when this run started (null = needs initialization)",
     "storiesCheckedThisRun: Story IDs that have been processed in this run",
     "skipPushedTasks: Set to true to skip all 'pushed' status tasks and only work on new development",
-    "prioritizeTask: Array of story IDs to prioritize before all other stories (e.g., ['US-012', 'US-015'])"
+    "prioritizeTask: Array of story IDs, PR numbers, or repo refs to prioritize (e.g., ['US-012', '33750', 'brave/brave-browser#31393'])"
   ],
   "lastIterationHadStateChange": false,
   "currentIterationLogPath": null

@@ -24,14 +24,22 @@ Set `prioritizeTask` in `run-state.json` to force specific stories to be worked 
 
 ```json
 {
-  "prioritizeTask": ["US-012", "US-015"]
+  "prioritizeTask": ["US-012", "33750", "brave/brave-browser#31393"]
 }
 ```
 
+**Supported entry formats:**
+- **Story ID** (e.g., `"US-012"`): Matches by story `.id` field
+- **Bare number** (e.g., `"33750"`): First tries to match by `.prNumber`, then falls back to `.issueNumber` if no PR match found
+- **Repo reference** (e.g., `"brave/brave-core#33750"` or `"brave/brave-browser#31393"`):
+  - If the repo matches `ralphConfig.prRepository` → matches by `.prNumber`
+  - Otherwise → matches by `.issueNumber` where `.issueUrl` contains that repo
+
 **Usage:**
-- Provide an array of story IDs to work on in order
+- Provide an array of entries to work on in order
 - These stories will be picked FIRST, before any normal priority logic
-- The first story in the array will be selected, then the second, and so on
+- The first entry in the array will be resolved and selected, then the second, and so on
+- Entries that don't resolve to any story in prd.json are skipped
 - Once the prioritizeTask array is exhausted, normal priority rules apply
 - Set to empty array `[]` to disable prioritization
 
@@ -39,9 +47,17 @@ Set `prioritizeTask` in `run-state.json` to force specific stories to be worked 
 
 **Examples:**
 ```bash
-# Prioritize specific stories
+# Prioritize by story ID
 jq '.prioritizeTask = ["US-012"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
-jq '.prioritizeTask = ["US-012", "US-015"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Prioritize by PR number (in the configured prRepository)
+jq '.prioritizeTask = ["33750"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Prioritize by issue reference
+jq '.prioritizeTask = ["brave/brave-browser#31393"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
+
+# Mix formats
+jq '.prioritizeTask = ["US-012", "33750", "brave/brave-browser#31393"]' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
 
 # Clear prioritization (return to normal priority)
 jq '.prioritizeTask = []' run-state.json > tmp.$$.json && mv tmp.$$.json run-state.json
@@ -49,6 +65,8 @@ jq '.prioritizeTask = []' run-state.json > tmp.$$.json && mv tmp.$$.json run-sta
 
 **Common Use Cases:**
 - Force work on a specific high-priority bug fix
+- Prioritize a specific PR that needs attention (by PR number)
+- Prioritize work related to a specific GitHub issue
 - Override normal priority order temporarily
 - Test a specific story during development
 

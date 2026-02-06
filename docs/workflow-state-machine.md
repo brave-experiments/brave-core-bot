@@ -74,15 +74,23 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
      - `prioritizeTask` (array of story IDs to prioritize, defaults to `[]`)
 
    **Step 1.5: Check prioritizeTask array FIRST**
-   - If `prioritizeTask` is not empty AND has unchecked stories:
+   - If `prioritizeTask` is not empty AND has unchecked entries:
      - Loop through the `prioritizeTask` array in order
-     - For each story ID in the array:
-       - If the story ID is NOT in `storiesCheckedThisRun`:
-         - If the story exists in prd.json:
-           - If the story's status is NOT "merged", "skipped", or "invalid":
-             - **SELECT THIS STORY** and skip Steps 2-4 below (go directly to Step 5)
-     - If all stories in `prioritizeTask` have been checked or are completed, continue to Step 2
+     - For each entry in the array, **resolve it to a story** using these rules:
+       1. **Story ID** (matches `US-###` pattern, e.g., `"US-012"`): Find the story where `.id` equals the entry
+       2. **Bare number** (e.g., `"33750"`): First, try to find a story where `.prNumber` equals that number. If no match, try to find a story where `.issueNumber` equals that number.
+       3. **Repo reference** (matches `owner/repo#number` pattern, e.g., `"brave/brave-core#33750"` or `"brave/brave-browser#31393"`):
+          - If the repo matches `ralphConfig.prRepository`: Find the story where `.prNumber` equals the number
+          - Otherwise: Find the story where `.issueNumber` equals the number AND `.issueUrl` contains the repo
+     - Once a story is resolved from the entry:
+       - If the story's **ID** is NOT in `storiesCheckedThisRun`:
+         - If the story's status is NOT "merged", "skipped", or "invalid":
+           - **SELECT THIS STORY** and skip Steps 2-4 below (go directly to Step 5)
+     - If the entry does not resolve to any story in prd.json, skip it and continue to the next entry
+     - If all entries in `prioritizeTask` have been checked or are completed, continue to Step 2
    - If `prioritizeTask` is empty, continue to Step 2
+
+   **Note:** `storiesCheckedThisRun` always stores resolved story IDs (e.g., `"US-012"`), not the original prioritizeTask entry format.
 
    **Step 2: Apply filters to get candidate stories**
 
