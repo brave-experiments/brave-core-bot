@@ -198,7 +198,7 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - Make note of whether this is a **Chromium test** or **Brave test**
    - Note whether **Chromium has also disabled it** (include evidence)
    - Note any **Brave modifications** in related code paths
-   - This information will be used in step 9 for commit message and later for PR body
+   - This information will be used for commit message and later for PR body
 
 8. Update CLAUDE.md files if you discover reusable patterns (see below)
 
@@ -209,6 +209,34 @@ Read this document BEFORE analyzing the issue or implementing fixes.
      - State clearly that it's a **Chromium test** (e.g., "Disable Chromium test..." or "This is an upstream Chromium test...")
      - If Chromium has also disabled it, mention that explicitly (e.g., "Chromium has also disabled this test" or "Already disabled upstream")
      - If Brave modifications might be related, mention what was found (e.g., "Brave modifies chrome/browser/ui/ via chromium_src")
+
+10. **CRITICAL: Run presubmit verification AFTER commit, BEFORE creating PR:**
+
+   After committing, you MUST run the full verification cycle to ensure the commit is valid:
+   ```bash
+   cd [workingDirectory from prd.json config]
+   npm run format      # Check/fix formatting
+   npm run presubmit   # Run presubmit checks
+   npm run gn_check    # Verify GN configuration
+   npm run build       # Verify build succeeds
+   ```
+
+   **If presubmit or any verification fails:**
+   - Fix the issues
+   - Stage and commit the fixes
+   - **Re-run the ENTIRE verification cycle again** (format, presubmit, gn_check, build, tests)
+   - Repeat until ALL verifications pass consecutively
+
+   **IMPORTANT: Multiple iterations require full re-verification.** If you make ANY changes after initial commit (including formatting fixes, presubmit fixes, or any other modifications), you MUST re-run:
+   1. `npm run format`
+   2. `npm run presubmit`
+   3. `npm run gn_check`
+   4. `npm run build`
+   5. ALL acceptance criteria tests
+
+   This ensures the final committed state is fully verified. Do NOT create a PR until all checks pass on the final committed state.
+
+11. **Once all verifications pass:**
    - Update the PRD at `./brave-core-bot/prd.json`:
      - Set `status: "committed"`
      - Set `lastActivityBy: null` (not yet public)
@@ -216,7 +244,7 @@ Read this document BEFORE analyzing the issue or implementing fixes.
    - Append your progress to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
    - **Continue in same iteration:** Do NOT mark story as checked yet - proceed immediately to push and create PR (see [workflow-committed.md](./workflow-committed.md))
 
-9. **If ANY tests fail:**
+12. **If ANY tests fail:**
    - DO NOT commit changes
    - Keep `status: "pending"`
    - Keep `branchName` (so we can continue on same branch next iteration)

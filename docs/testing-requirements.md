@@ -283,9 +283,48 @@ Always include a comment explaining:
 
 Example: A test with a specific viewport race condition should not be grouped under "# Flaky upstream." - it needs its own section explaining that specific race condition.
 
+## Presubmit Requirements
+
+**CRITICAL: Presubmit must pass BEFORE creating a pull request.**
+
+After committing your changes, run the full verification cycle:
+
+```bash
+cd [workingDirectory from prd.json config]
+npm run format      # Check/fix formatting
+npm run presubmit   # Run presubmit checks
+npm run gn_check    # Verify GN configuration
+npm run build       # Verify build succeeds
+```
+
+**If presubmit fails:**
+1. Fix the issues identified by presubmit
+2. Stage and commit the fixes
+3. **Re-run the ENTIRE verification cycle** (format, presubmit, gn_check, build)
+4. **Re-run ALL acceptance criteria tests**
+5. Repeat until everything passes consecutively
+
+**Why this matters:**
+- Presubmit catches formatting issues, lint errors, and other problems before CI
+- If you make changes after initial commit (including presubmit fixes), you must verify the new state
+- The PR should only be created when the final committed state passes all checks
+- Skipping this step leads to failed CI and wasted review cycles
+
+**Multiple iterations = full re-verification:**
+
+If you make ANY changes after the initial commit (formatting fixes, presubmit fixes, additional code changes), you MUST re-run:
+1. `npm run format`
+2. `npm run presubmit`
+3. `npm run gn_check`
+4. `npm run build`
+5. ALL acceptance criteria tests
+
+Do NOT create a PR until all verifications pass on the final committed state.
+
 ## Quality Requirements
 
 - **ALL** acceptance criteria tests must pass - this is non-negotiable
+- **Presubmit must pass** before creating a PR - run it after every commit
 - Do NOT commit broken code
 - Do NOT skip tests for any reason
 - Keep changes focused and minimal
