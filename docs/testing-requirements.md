@@ -250,9 +250,17 @@ Filter files are located in `test/filters/` and follow the pattern:
 | Linux UBSAN only | `unit_tests-linux-ubsan.filter` |
 | All platforms (Brave-specific) | `browser_tests.filter` |
 
-### Existing Sanitizer Filter Examples
+### Supported Sanitizer Filters in `testUtils.js`
 
-- `unit_tests-linux-ubsan.filter` - UBSAN-specific disables
+The `getApplicableFilters()` function in `build/commands/lib/testUtils.js` supports these sanitizer-specific filters:
+
+| Sanitizer | Config Check | Example Filter File |
+|-----------|-------------|---------------------|
+| ASAN | `config.isAsan()` | `browser_tests-linux-asan.filter` |
+| UBSAN | `config.is_ubsan` | `unit_tests-linux-ubsan.filter` |
+| MSAN | `config.is_msan` | `browser_tests-linux-msan.filter` |
+
+All three sanitizer types follow the same naming pattern: `{suite}-{platform}-{sanitizer}.filter`
 
 ### Red Flags (Overly Broad Disables)
 
