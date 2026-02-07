@@ -81,7 +81,24 @@ Review each **merged** PR (skip any where `mergedAt` is null) and classify it as
 
 ---
 
-## Step 4: Create the Uplift PR
+## Step 4: Pre-submission Checks
+
+After all cherry-picks are complete but before pushing, run these checks:
+
+1. **Run presubmit**: `npm run presubmit`
+2. **Run gn_check**: `npm run gn_check`
+
+If either command indicates changes are needed (e.g., formatting fixes, GN file updates), make the necessary fixes and amend the last commit:
+
+```bash
+git add -A && git commit --amend --no-edit
+```
+
+If the checks fail for reasons unrelated to the cherry-picked changes (e.g., pre-existing issues in the target branch), note the failures in the summary but proceed with the uplift.
+
+---
+
+## Step 5: Create the Uplift PR
 
 ### Title Format
 
@@ -136,7 +153,7 @@ git push -u origin <branch-name>
 
 ---
 
-## Step 5: Label the Base PRs
+## Step 6: Label the Base PRs
 
 After the uplift PR is created, add the appropriate uplift label to **each base PR** that was included in the uplift:
 - For beta: `uplift/beta`
@@ -150,7 +167,7 @@ Do this for every PR that was successfully cherry-picked and included.
 
 ---
 
-## Step 6: Summary
+## Step 7: Summary
 
 After creating the PR, output a clear summary to the user:
 
