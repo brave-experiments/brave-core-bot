@@ -1,7 +1,7 @@
 ---
 name: uplift
 description: "Create an uplift PR that cherry-picks intermittent test fixes and crash fixes from closed PRs into a target branch (beta or release). Triggers on: /uplift, create uplift, uplift PRs."
-argument-hint: [github-username] [beta|release]
+argument-hint: [github-username] [beta|release] [all|PR1,PR2,PR3]
 disable-model-invocation: true
 allowed-tools: Bash, Read, WebFetch, Grep, Glob
 ---
@@ -15,11 +15,17 @@ Create an uplift pull request that cherry-picks intermittent test fixes and cras
 - **Arguments**: `$ARGUMENTS` — space-separated values:
   - First argument: **GitHub username** (the author whose closed PRs to review)
   - Second argument (optional): **Target channel** — either `beta` or `release`. Defaults to `beta` if not specified.
+  - Third argument (optional): **PR filter** — either:
+    - `all` — evaluate all closed/merged PRs from this author in the past 30 days. Use `gh pr list --repo brave/brave-core --author <username> --state closed --limit 200 --search "closed:>YYYY-MM-DD" --json number,title,mergedAt,mergeCommit,labels,body,url --jq 'sort_by(.mergedAt)'` where `YYYY-MM-DD` is 30 days ago.
+    - A comma-separated list of PR numbers with no spaces (e.g., `33534,33547,33580`) — only evaluate these specific PRs. Fetch each one individually with `gh pr view <number> --repo brave/brave-core --json number,title,mergedAt,mergeCommit,labels,body,url`.
+    - If omitted, defaults to the recent 50 closed PRs (current behavior).
 
 Parse the arguments by splitting `$ARGUMENTS` on whitespace. Examples:
-- `/uplift netzenbot` → username=`netzenbot`, channel=`beta`
-- `/uplift netzenbot beta` → username=`netzenbot`, channel=`beta`
-- `/uplift netzenbot release` → username=`netzenbot`, channel=`release`
+- `/uplift netzenbot` → username=`netzenbot`, channel=`beta`, filter=recent 50
+- `/uplift netzenbot beta` → username=`netzenbot`, channel=`beta`, filter=recent 50
+- `/uplift netzenbot release` → username=`netzenbot`, channel=`release`, filter=recent 50
+- `/uplift netzenbot beta all` → username=`netzenbot`, channel=`beta`, filter=all PRs (past 30 days)
+- `/uplift netzenbot release 33534,33547,33580` → username=`netzenbot`, channel=`release`, filter=only those 3 PRs
 
 ---
 
@@ -27,7 +33,12 @@ Parse the arguments by splitting `$ARGUMENTS` on whitespace. Examples:
 
 Run these in parallel:
 
-1. **Fetch closed PRs**: Use `gh pr list --repo brave/brave-core --author <username> --state closed --limit 50 --json number,title,mergedAt,mergeCommit,labels,body,url --jq 'sort_by(.mergedAt)'` to get all recently closed PRs sorted chronologically. The `mergedAt` field is a GitHub API property — if it is `null`, the PR was closed without being merged and should be skipped.
+1. **Fetch closed PRs** (method depends on the third argument):
+   - **Default (no third arg)**: Use `gh pr list --repo brave/brave-core --author <username> --state closed --limit 50 --json number,title,mergedAt,mergeCommit,labels,body,url --jq 'sort_by(.mergedAt)'`
+   - **`all`**: Use `gh pr list --repo brave/brave-core --author <username> --state closed --limit 200 --search "closed:>YYYY-MM-DD" --json number,title,mergedAt,mergeCommit,labels,body,url --jq 'sort_by(.mergedAt)'` where `YYYY-MM-DD` is 30 days ago from today.
+   - **Comma-separated PR list**: For each PR number, use `gh pr view <number> --repo brave/brave-core --json number,title,mergedAt,mergeCommit,labels,body,url`. Collect results into a list sorted by `mergedAt`.
+
+   The `mergedAt` field is a GitHub API property — if it is `null`, the PR was closed without being merged and should be skipped.
 
 2. **Determine the target branch**: Fetch the content at `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` and find the "Current channel information" table. Look for the row matching the target channel:
    - If channel is `beta`: find the **Beta** row to get its branch name (e.g., `1.88.x`)
@@ -74,9 +85,11 @@ Review each **merged** PR (skip any where `mergedAt` is null) and classify it as
 
 ### Title Format
 
-```
-Uplift intermittent test fixes and crash fixes to <target-branch>
-```
+Generate the title dynamically based on the categories of PRs actually included:
+
+- If the uplift contains **only** intermittent/flaky test fixes and test filter updates (no crash fixes): `Uplift intermittent test fixes to <target-branch>`
+- If the uplift contains **only** crash fixes (no test fixes): `Uplift crash fixes to <target-branch>`
+- If the uplift contains **both** test fixes and crash fixes: `Uplift intermittent test fixes and crash fixes to <target-branch>`
 
 ### Body Format
 
