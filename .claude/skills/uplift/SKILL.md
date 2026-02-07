@@ -85,7 +85,7 @@ Review each **merged** PR (skip any where `mergedAt` is null) and classify it as
 
 After all cherry-picks are complete but before pushing, run these checks:
 
-1. **Run presubmit**: `npm run presubmit`
+1. **Run format**: `npm run format`
 2. **Run gn_check**: `npm run gn_check`
 
 If either command indicates changes are needed (e.g., formatting fixes, GN file updates), make the necessary fixes and amend the last commit:
@@ -94,7 +94,9 @@ If either command indicates changes are needed (e.g., formatting fixes, GN file 
 git add -A && git commit --amend --no-edit
 ```
 
-If the checks fail for reasons unrelated to the cherry-picked changes (e.g., pre-existing issues in the target branch), note the failures in the summary but proceed with the uplift.
+3. **Run presubmit**: `npm run presubmit -- --base=<remote>/<target-branch> --fix` (e.g., `npm run presubmit -- --base=origin/1.87.x --fix`)
+
+If the presubmit check fails for reasons unrelated to the cherry-picked changes (e.g., pre-existing issues in the target branch), note the failures in the summary but proceed with the uplift.
 
 ---
 
