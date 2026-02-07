@@ -88,7 +88,21 @@ Before merging, verify ALL of the following:
    gh pr merge <pr-number> --squash
    ```
 
-5. **Update State:**
+5. **Set nightly milestone on the PR and linked issue:**
+
+   Fetch the content at `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` and find the "Current channel information" table. Look for the **Nightly** row to get its version (e.g., `1.89.x`). The milestone name is `<nightly-version> - Nightly` (e.g., `1.89.x - Nightly`).
+
+   ```bash
+   # Set milestone on the PR
+   gh pr edit <pr-number> --repo brave/brave-core --milestone "<nightly-version> - Nightly"
+
+   # Set milestone on the linked issue (if the story has an issueNumber)
+   gh issue edit <issue-number> --repo brave/brave-browser --milestone "<nightly-version> - Nightly"
+   ```
+
+   If setting the milestone fails (e.g., milestone doesn't exist yet), note it in progress.txt but continue — do not block the merge workflow.
+
+6. **Update State:**
    - Update the PRD at `./brave-core-bot/prd.json`:
      - Set `status: "merged"`
      - Set `mergedAt` to current ISO timestamp (e.g., `"2026-02-02T10:00:00Z"`)
