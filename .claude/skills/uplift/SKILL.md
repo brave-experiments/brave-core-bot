@@ -1,18 +1,25 @@
 ---
 name: uplift
-description: "Create an uplift PR that cherry-picks intermittent test fixes and crash fixes from closed PRs into the beta branch. Triggers on: /uplift, create uplift, uplift PRs."
-argument-hint: [github-username]
+description: "Create an uplift PR that cherry-picks intermittent test fixes and crash fixes from closed PRs into a target branch (beta or release). Triggers on: /uplift, create uplift, uplift PRs."
+argument-hint: [github-username] [beta|release]
 disable-model-invocation: true
 allowed-tools: Bash, Read, WebFetch, Grep, Glob
 ---
 
 # Uplift PR Creator
 
-Create an uplift pull request that cherry-picks intermittent test fixes and crash fixes from a contributor's recently closed/merged PRs into the current beta branch.
+Create an uplift pull request that cherry-picks intermittent test fixes and crash fixes from a contributor's recently closed/merged PRs into a target channel branch.
 
 ## Inputs
 
-- **GitHub username**: `$ARGUMENTS` (the author whose closed PRs to review)
+- **Arguments**: `$ARGUMENTS` — space-separated values:
+  - First argument: **GitHub username** (the author whose closed PRs to review)
+  - Second argument (optional): **Target channel** — either `beta` or `release`. Defaults to `beta` if not specified.
+
+Parse the arguments by splitting `$ARGUMENTS` on whitespace. Examples:
+- `/uplift netzenbot` → username=`netzenbot`, channel=`beta`
+- `/uplift netzenbot beta` → username=`netzenbot`, channel=`beta`
+- `/uplift netzenbot release` → username=`netzenbot`, channel=`release`
 
 ---
 
@@ -20,9 +27,13 @@ Create an uplift pull request that cherry-picks intermittent test fixes and cras
 
 Run these in parallel:
 
-1. **Fetch closed PRs**: Use `gh pr list --repo brave/brave-core --author $ARGUMENTS --state closed --limit 50 --json number,title,mergedAt,mergeCommit,labels,body,url --jq 'sort_by(.mergedAt)'` to get all recently closed PRs sorted chronologically. The `mergedAt` field is a GitHub API property — if it is `null`, the PR was closed without being merged and should be skipped.
+1. **Fetch closed PRs**: Use `gh pr list --repo brave/brave-core --author <username> --state closed --limit 50 --json number,title,mergedAt,mergeCommit,labels,body,url --jq 'sort_by(.mergedAt)'` to get all recently closed PRs sorted chronologically. The `mergedAt` field is a GitHub API property — if it is `null`, the PR was closed without being merged and should be skipped.
 
-2. **Determine the beta branch**: Fetch the content at `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` and find the "Current channel information" table. Look for the **Beta** row to get the branch name (e.g., `1.88.x`). This branch is:
+2. **Determine the target branch**: Fetch the content at `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` and find the "Current channel information" table. Look for the row matching the target channel:
+   - If channel is `beta`: find the **Beta** row to get its branch name (e.g., `1.88.x`)
+   - If channel is `release`: find the **Release** row to get its branch name (e.g., `1.87.x`)
+
+   This branch is:
    - The base branch to create the uplift PR against
    - The branch to cherry-pick commits into
 
@@ -40,20 +51,22 @@ Review each **merged** PR (skip any where `mergedAt` is null) and classify it as
 **EXCLUDE** if the PR is:
 - A feature addition (not a fix)
 - A refactor unrelated to test stability or crashes
-- Already has the `uplift/beta` label (check the `labels` array in the PR JSON)
+- Already has the uplift label for the target channel (check the `labels` array in the PR JSON for `uplift/beta` or `uplift/release` depending on the target channel)
 - Not merged (`mergedAt` is null)
 
 ---
 
 ## Step 3: Cherry-Pick in Chronological Order
 
-1. Fetch the beta branch: `git fetch upstream <beta-branch>`
-2. Create a new branch from the beta branch: `git checkout -b uplift_<username>_<beta-branch> upstream/<beta-branch>`
-3. Cherry-pick each included PR's merge commit in chronological order (earliest first):
+1. **Detect the remote**: Run `git remote -v` to determine whether `upstream` or `origin` points to `brave/brave-core`. Use whichever remote is correct (typically `origin` if there's no `upstream`).
+2. Fetch the target branch: `git fetch <remote> <target-branch>`
+3. **Choose a unique branch name**: Use `uplift_<username>_<target-branch>` as the base name. If that branch already exists (locally or on the remote), append a numeric suffix (e.g., `uplift_<username>_<target-branch>_2`, `_3`, etc.) until you find an unused name. Create the branch: `git checkout -b <branch-name> <remote>/<target-branch>`
+4. **Filter out commits already in the target branch**: Before cherry-picking, check which included commits are already present in the target branch. For each commit, search the target branch log for the PR number from the commit message (e.g., `git log <remote>/<target-branch> --oneline --grep="#XXXXX"`). If a match is found, that PR is already in the target branch — mark it as excluded with reason "Already in target branch" and skip it. This avoids empty cherry-picks and unnecessary merge conflicts.
+5. Cherry-pick the remaining commits sorted by `mergedAt` timestamp (earliest first):
    ```bash
    git cherry-pick <merge_commit_sha>
    ```
-4. If a cherry-pick has conflicts, try to resolve them. If unresolvable, skip that PR and note it in the summary.
+6. If a cherry-pick has conflicts, try to resolve them. If unresolvable, skip that PR and note it in the summary.
 
 ---
 
@@ -62,7 +75,7 @@ Review each **merged** PR (skip any where `mergedAt` is null) and classify it as
 ### Title Format
 
 ```
-Uplift intermittent test fixes and crash fixes to <beta-branch>
+Uplift intermittent test fixes and crash fixes to <target-branch>
 ```
 
 ### Body Format
@@ -72,7 +85,7 @@ Only list the PRs being uplifted. Do NOT mention excluded PRs in the PR body.
 Use a HEREDOC for correct formatting:
 
 ```bash
-gh pr create --repo brave/brave-core --base <beta-branch> --title "<title>" --body "$(cat <<'EOF'
+gh pr create --repo brave/brave-core --base <target-branch> --title "<title>" --body "$(cat <<'EOF'
 Uplift of #XXXX, #YYYY, #ZZZZ
 
 ## Included PRs
@@ -105,17 +118,19 @@ EOF
 ### Push and Create
 
 ```bash
-git push -u origin uplift_<username>_<beta-branch>
+git push -u origin <branch-name>
 ```
 
 ---
 
 ## Step 5: Label the Base PRs
 
-After the uplift PR is created, add the `uplift/beta` label to **each base PR** that was included in the uplift:
+After the uplift PR is created, add the appropriate uplift label to **each base PR** that was included in the uplift:
+- For beta: `uplift/beta`
+- For release: `uplift/release`
 
 ```bash
-gh pr edit <PR_NUMBER> --repo brave/brave-core --add-label "uplift/beta"
+gh pr edit <PR_NUMBER> --repo brave/brave-core --add-label "uplift/<channel>"
 ```
 
 Do this for every PR that was successfully cherry-picked and included.
@@ -130,7 +145,7 @@ After creating the PR, output a clear summary to the user:
 List each included PR with its number, title, and merge commit SHA.
 
 ### Not Uplifted:
-List each excluded PR with its number, title, and the reason it was excluded (e.g., "not merged", "already uplifted (has uplift/beta label)", "not a test fix or crash fix", "cherry-pick conflict").
+List each excluded PR with its number, title, and the reason it was excluded (e.g., "not merged", "already uplifted (has uplift label)", "already in target branch", "not a test fix or crash fix", "cherry-pick conflict").
 
 ### PR Link:
 Provide the URL of the newly created uplift PR.
