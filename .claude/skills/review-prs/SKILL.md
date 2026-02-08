@@ -1,0 +1,112 @@
+---
+name: review-prs
+description: "Review recent open PRs in brave/brave-core for best practices violations. Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
+argument-hint: "[days]"
+---
+
+# Review PRs for Best Practices
+
+Scan recent open PRs in `brave/brave-core` for violations of documented best practices. Interactive: review diffs, identify violations, draft comments, get user approval before posting.
+
+---
+
+## The Job
+
+When invoked with `/review-prs [days]`:
+
+1. **Parse arguments** - default 5 days lookback, or use provided `[days]`
+2. **Fetch open non-draft PRs** created within the lookback period
+3. **Skip PRs** that are drafts, uplifts, CI runs, l10n updates, or dependency bumps
+4. **Skip already-reviewed PRs** where the configured git user posted a review and no new pushes since
+5. **Read all best practices docs** (see list below)
+6. **Review each PR diff** against best practices (only ADDED lines)
+7. **Present findings** in a summary table
+8. **For each violation**, draft a short comment and ask user to approve before posting
+
+---
+
+## Fetching and Filtering PRs
+
+```bash
+gh pr list --repo brave/brave-core --state open --json number,title,createdAt,author,isDraft --limit 200 > /tmp/brave_prs.json
+```
+
+**Skip if:**
+- `isDraft` is true
+- Created before lookback cutoff
+- Title starts with `CI run for` or `Backport` or `Update l10n`
+- Title contains `uplift to`
+
+**Check for prior reviews:**
+```bash
+GIT_USER=$(git config user.name)
+# Get last review by this user
+gh api repos/brave/brave-core/pulls/{number}/reviews --jq '[.[] | select(.user.login == "USERNAME")] | sort_by(.submitted_at) | last | .submitted_at'
+# Get last push
+gh api repos/brave/brave-core/pulls/{number}/events --jq '[.[] | select(.event == "head_ref_force_pushed" or .event == "pushed")] | sort_by(.created_at) | last | .created_at'
+```
+
+Skip if user already reviewed AND no pushes after that review.
+
+---
+
+## Best Practices Docs to Read
+
+- `./brave-core-bot/BEST-PRACTICES.md` (index)
+- `./brave-core-bot/docs/best-practices/architecture.md`
+- `./brave-core-bot/docs/best-practices/coding-standards.md`
+- `./brave-core-bot/docs/best-practices/chromium-src-overrides.md`
+- `./brave-core-bot/docs/best-practices/build-system.md`
+- `./brave-core-bot/docs/best-practices/testing-async.md`
+- `./brave-core-bot/docs/best-practices/testing-javascript.md`
+- `./brave-core-bot/docs/best-practices/testing-navigation.md`
+- `./brave-core-bot/docs/best-practices/testing-isolation.md`
+
+These are the source of truth. Only flag violations of rules documented in these files.
+
+---
+
+## Reviewing Diffs
+
+Fetch each diff with `gh pr diff --repo brave/brave-core {number}`.
+
+Use Task tool to launch parallel review agents in batches of ~8 PRs for efficiency. Pass the best practices rules to each agent.
+
+**Only flag violations in ADDED lines (+ lines), not existing code.**
+
+Also flag bugs introduced by the change (e.g., missing string separators, duplicate DEPS entries, code inside wrong `#if` guard).
+
+---
+
+## What NOT to Flag
+
+- Existing code the PR isn't changing
+- Template functions defined in headers (required by C++)
+- Simple inline getters in headers
+- Style preferences not in the documented best practices
+- Draft PRs (skip entirely)
+
+---
+
+## Comment Style
+
+- **Short and succinct** - 1-3 sentences max
+- **Non-blocking tone** - use "nit:" prefix, "worth considering", "not blocking either way"
+- **Targeted** - reference specific files and code
+- **Acknowledge context** - if upstream does the same thing, say so
+- **No lecturing** - state the issue briefly
+
+---
+
+## Interactive Posting
+
+For each violation, present the draft and ask:
+
+> **PR #12345** - [violation description]
+> Draft: `nit: [short comment]`
+> Post this comment?
+
+Only post after explicit user approval via:
+```bash
+gh pr review --repo brave/brave-core {number} --comment --body "comment text"
+```
