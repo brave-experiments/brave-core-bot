@@ -303,6 +303,18 @@ Available specificity levels (prefer most specific):
 - Test fails only on Linux → use `browser_tests-linux.filter`
 - Test fails on all platforms due to Brave-specific code → use `browser_tests.filter`
 
+5. **Is the test flaky upstream? (Chromium tests only)** — This check only applies to upstream Chromium tests (defined in `src/` but NOT in `src/brave/`). Brave-specific tests won't appear in the Chromium database. For Chromium tests, check the LUCI Analysis database:
+   ```bash
+   python3 ./brave-core-bot/scripts/check-upstream-flake.py "<TestName>"
+   ```
+   The script queries `analysis.api.luci.app` and returns a verdict:
+   - **Known upstream flake** (>=5% flake rate): Supports the disable. Verify the PR comment mentions upstream flakiness.
+   - **Occasional upstream failures** (1-5%): Weakly supports the disable. PR should document this.
+   - **Stable upstream** (<1%): The test is reliable in Chromium — the root cause is likely Brave-specific. The PR must explain what Brave-specific factors cause the failure. A disable without this explanation is a **red flag**.
+   - **Not found / Insufficient data**: Cannot determine from upstream data. Manual analysis needed.
+
+   Use `--days 60` for a wider lookback window if the default 30 days has insufficient data.
+
 **Red flags (overly broad disables):**
 - Adding to `browser_tests.filter` when failure is only reported on one platform
 - Adding to general filter when failure is only on sanitizer builds (ASAN/MSAN/UBSAN)
@@ -495,3 +507,4 @@ Or with just a PR number (assumes brave/brave-core):
 - [ ] Only reported important issues
 - [ ] Provided clear pass/fail verdict with reasoning
 - [ ] Only posted to GitHub if user explicitly requested (with disclaimer prefix)
+- [ ] For test disables: checked upstream flakiness via check-upstream-flake.py

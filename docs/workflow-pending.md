@@ -194,6 +194,17 @@ Only read the docs relevant to your story — don't load all of them every time.
       - If Brave modifications exist in related directories, analyze whether they could be causing the test failure
       - Document findings - this helps determine if the test fails due to Brave changes or is an upstream issue
 
+   3. **Check upstream flakiness data (Chromium tests only):**
+      This step only applies to upstream Chromium tests — skip it for Brave-specific tests (defined in `src/brave/`), which will not appear in the Chromium database.
+      ```bash
+      python3 ./brave-core-bot/scripts/check-upstream-flake.py "<TestClassName.TestMethod>"
+      ```
+      - If the verdict is "Known upstream flake" or "Occasional upstream failures":
+        Document this finding in the filter file comment and commit message
+      - If the verdict is "Stable upstream":
+        Investigate Brave-specific causes before disabling
+      - Include the flake rate and lookback period in your documentation
+
    **Store Detection Results for Commit Message and PR:**
    - Make note of whether this is a **Chromium test** or **Brave test**
    - Note whether **Chromium has also disabled it** (include evidence)
@@ -281,10 +292,12 @@ When multiple attempts have failed, consider whether the fundamental approach is
 
 **Last resort - disable with full documentation:**
 If no fix is viable after thorough investigation, you may create a PR to disable the test, but you MUST:
+- For Chromium tests (not Brave-specific tests): run `python3 ./brave-core-bot/scripts/check-upstream-flake.py "<TestName>"` and include the results
 - Document all previous fix attempts (including PRs by others)
 - Explain why each approach failed
 - Describe the fundamental issue that makes the test unfixable
 - Confirm no other options remain for making the test reliable
+- Include upstream flake rate in the filter file comment if the test is a known upstream flake
 
 **Update progress.txt with:**
 - What was tried across all attempts

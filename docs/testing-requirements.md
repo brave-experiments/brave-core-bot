@@ -239,7 +239,20 @@ Filter files are located in `test/filters/` and follow the pattern:
 1. **Identify which CI jobs fail** - Check issue labels (bot/platform/*, bot/arch/*) and CI job URLs
 2. **Determine if failure is platform-specific** - e.g., Windows-only APIs, macOS behavior
 3. **Determine if failure is build-type-specific** - e.g., ASAN/MSAN/UBSAN, OFFICIAL builds
-4. **Choose the most specific filter file** - Create one if it doesn't exist
+4. **Check upstream flakiness data (Chromium tests only)** - This step only applies to upstream Chromium tests (tests defined in `src/` but NOT in `src/brave/`). It does not apply to Brave-specific tests. Check the LUCI Analysis database:
+   ```bash
+   python3 ./brave-core-bot/scripts/check-upstream-flake.py "<TestSuite.TestMethod>"
+   ```
+   This queries the Chromium CI flakiness database at `analysis.api.luci.app` and returns a verdict:
+   - **Known upstream flake** (>=5% flake rate): Safe to filter. Include the flake rate in the filter comment.
+   - **Occasional upstream failures** (1-5%): Consider filtering. Document the upstream instability.
+   - **Stable upstream** (<1%): Test is stable in Chromium — investigate Brave-specific causes before disabling.
+   - **Not found**: Test may be Brave-specific or use a different ID format. Check manually at https://ci.chromium.org/ui/p/chromium/test-search
+
+   **Note:** Brave-specific tests (defined in `src/brave/`) will not appear in the Chromium upstream database. Do not run this check for Brave tests — it will return "Not found" which is expected and not useful.
+
+   Use `--days 60` for a wider lookback window, or `--json` for machine-readable output.
+5. **Choose the most specific filter file** - Create one if it doesn't exist
 
 ### Examples
 
@@ -274,6 +287,7 @@ Always include a comment explaining:
 1. **Why** the test is disabled
 2. **What** specific condition causes the failure
 3. **Why** this filter file was chosen (if not obvious)
+4. **Upstream flakiness data** (if applicable) — include flake rate and lookback period from `check-upstream-flake.py`
 
 ```
 # This test fails on Windows ASAN because ScopedInstallDetails defaults to
@@ -281,6 +295,13 @@ Always include a comment explaining:
 # Windows-specific: ScopedInstallDetails only used on Windows.
 # ASAN-specific: Only OFFICIAL builds return STABLE; non-OFFICIAL return UNKNOWN.
 -WatermarkSettingsCommandLineBrowserTest.GetColors
+```
+
+```
+# Known upstream flake: 1.8% flake rate over 30 days per LUCI Analysis.
+# Mojo data pipe race condition — completion signal arrives before data is
+# flushed through the consumer side.
+-WebUIURLLoaderFactoryTest.RangeRequest/*
 ```
 
 **Organization conventions:**
