@@ -280,6 +280,26 @@ All three sanitizer types follow the same naming pattern: `{suite}-{platform}-{s
 - ❌ Adding to `browser_tests.filter` when failure only reported on one platform
 - ❌ Adding to general filter when failure only on sanitizer builds (ASAN/MSAN/UBSAN)
 - ❌ No investigation of which CI configurations actually fail
+- ❌ Disabling an entire test suite or parameterized set when only specific test methods fail
+
+### Filter Pattern Specificity
+
+**CRITICAL: Disable only the specific tests that actually fail — never use overly broad patterns.**
+
+When adding entries to filter files, match exactly the failing tests. Do not disable more tests than necessary.
+
+| Scenario | Bad (too broad) | Good (specific) |
+|----------|----------------|-----------------|
+| One test method fails | `-MyTestSuite.*` | `-MyTestSuite.FailingMethod` |
+| One parameterized instance fails | `-MyTestSuite.TestMethod/*` | `-MyTestSuite.TestMethod/FailingParam` |
+| Two methods fail in a suite of 20 | `-MyTestSuite.*` | `-MyTestSuite.FailingA`<br>`-MyTestSuite.FailingB` |
+| All parameterized instances fail | `-MyTestSuite.TestMethod/Param1`<br>`-MyTestSuite.TestMethod/Param2` | `-MyTestSuite.TestMethod/*` (OK here — all actually fail) |
+
+**Rules:**
+1. **List individual failing tests** — don't use wildcards to disable an entire fixture or parameterized set unless every test in it actually fails
+2. **Verify scope before committing** — check the issue/CI logs to confirm exactly which test methods fail, not just the suite name
+3. **Wildcards are only appropriate** when every test matching the pattern genuinely fails (e.g., all parameterized instances of a single method)
+4. **When in doubt, be more specific** — it's better to list 5 individual test entries than to use one wildcard that also silently disables 15 passing tests
 
 ### Filter Entry Documentation
 
