@@ -124,6 +124,8 @@ Before merging, verify ALL of the following:
    - `timestamp_analysis.latest_reviewer_timestamp`: Most recent Brave org member comment/review
    - `timestamp_analysis.who_went_last`: "bot" or "reviewer"
 
+   **Self-reviews count as external reviews:** If you see review comments posted by your own GitHub account (e.g., from a separate bot instance running the `/review` skill), treat them exactly the same as comments from any other Brave employee reviewer. A self-review comes from a separate bot execution context with its own independent analysis, so it should be perceived as feedback from a different person. Do NOT ignore or skip self-reviews.
+
    **Determine who went last:**
    - If `who_went_last: "reviewer"` → Reviewer commented after our last push (NEW COMMENTS)
    - If `who_went_last: "bot"` → We pushed after reviewer's last comment OR no reviewer comments yet (WAITING)
@@ -244,7 +246,7 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 
 ### 3. Understand Feedback & Plan Changes
 
-- Parse all review comments from Brave org members
+- Parse all review comments from Brave org members (including self-reviews from separate bot instances — treat these as external reviewer feedback)
 - Understand what changes are requested
 - Identify which files and code sections need changes
 - Plan the implementation approach that satisfies BOTH the original requirements AND the review feedback
