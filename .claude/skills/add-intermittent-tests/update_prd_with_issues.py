@@ -96,8 +96,11 @@ for issue in github_issues:
     max_id += 1
     max_priority += 1
 
-    # Extract test name from title (remove "Test failure: " prefix)
-    test_name = title.replace("Test failure: ", "")
+    # Extract test name from title (remove common prefixes)
+    test_name = title
+    for prefix in ["Test failure: ", "Intermittent upstream unittest failure: ", "Intermittent upstream unittest failure:  ", "Intermittent test failure: "]:
+        test_name = test_name.replace(prefix, "")
+    test_name = test_name.strip()
 
     # Extract test class name for location detection
     test_class_name = test_name.split('.')[0]
