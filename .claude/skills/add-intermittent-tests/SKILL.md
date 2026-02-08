@@ -1,7 +1,7 @@
 ---
 name: add-intermittent-tests
 description: "Fetch intermittent test failures from brave/brave-browser GitHub issues with bot/type/test label and add missing ones to the Brave Core PRD. Triggers on: update prd with tests, add intermittent tests, sync test issues, fetch bot/type/test issues."
-allowed-tools: Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Grep, Glob
+allowed-tools: Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(git config:*), Bash(jq:*), Read, Grep, Glob
 ---
 
 # PRD Brave Core - Add Intermittent Tests
@@ -12,33 +12,59 @@ Automatically fetch open test failure issues from the brave/brave-browser reposi
 
 ## The Job
 
-1. Fetch all open issues with the `bot/type/test` label from brave/brave-browser
-2. Compare with existing issues in the PRD (`./prd.json`)
-3. Add any missing issues as new user stories
-4. Provide a recap of what was added
+1. Get the configured git user.name (used as the GitHub username)
+2. Fetch all open issues with the `bot/type/test` label from brave/brave-browser
+3. Fetch all open issues assigned to the git user.name from brave/brave-browser
+4. Combine both sets of issues (deduplicated)
+5. Compare with existing issues in the PRD (`./prd.json`)
+6. Add any missing issues as new user stories
+7. Provide a recap of what was added
 
 **Important:** This skill is specifically for the Brave Core Bot PRD format.
 
 ---
 
-## Step 1: Fetch GitHub Issues
+## Step 1: Get Git Username
 
-Use the GitHub CLI to fetch issues:
+Get the configured git user.name to use as the GitHub username for fetching assigned issues:
 
 ```bash
-gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100
+git config user.name
 ```
 
 ---
 
-## Step 2: Process Issues and Update PRD
+## Step 2: Fetch GitHub Issues
+
+Fetch issues from TWO sources and combine them:
+
+1. **Labeled issues** (bot/type/test):
+```bash
+gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100
+```
+
+2. **Assigned issues** (assigned to the git user.name):
+```bash
+gh issue list --repo brave/brave-browser --assignee "<git_user_name>" --state open --json number,title,url,labels --limit 100
+```
+
+3. **Combine and deduplicate** by issue number:
+```bash
+jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' <(gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100) <(gh issue list --repo brave/brave-browser --assignee "$(git config user.name)" --state open --json number,title,url,labels --limit 100)
+```
+
+---
+
+## Step 3: Process Issues and Update PRD
 
 Two helper scripts are available in `.claude/skills/add-intermittent-tests/`:
 
 ### If PRD doesn't exist yet:
 
 ```bash
-gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100 | \
+jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
+  <(gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100) \
+  <(gh issue list --repo brave/brave-browser --assignee "$(git config user.name)" --state open --json number,title,url,labels --limit 100) | \
   .claude/skills/add-intermittent-tests/create_prd_from_issues.py > ./prd.json
 ```
 
@@ -47,7 +73,9 @@ This creates a new PRD with all the open test issues.
 ### If PRD already exists:
 
 ```bash
-gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100 | \
+jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
+  <(gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100) \
+  <(gh issue list --repo brave/brave-browser --assignee "$(git config user.name)" --state open --json number,title,url,labels --limit 100) | \
   .claude/skills/add-intermittent-tests/update_prd_with_issues.py ./prd.json > /tmp/prd_updated.json && \
   mv /tmp/prd_updated.json ./prd.json
 ```
