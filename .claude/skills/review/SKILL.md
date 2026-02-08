@@ -1,6 +1,7 @@
 ---
 name: review
 description: "Review a bot-generated PR for quality, root cause analysis, and fix confidence. Performs local-only analysis without posting to GitHub. Use when reviewing bot PRs before approving. Triggers on: review pr, review this pr, /review <pr_url>, check bot pr quality."
+allowed-tools: Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Grep, Glob
 ---
 
 # PR Review Skill
