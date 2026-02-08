@@ -2,14 +2,14 @@
 
 **Goal: Implement and test the story**
 
-**📖 FIRST STEP**: All acceptance criteria begin with "Read ./brave-core-bot/BEST-PRACTICES.md" - this contains critical async testing patterns including:
-- Never use EvalJs inside RunUntil() lambdas (causes DCHECK on macOS arm64)
-- Never use RunUntilIdle()
-- Proper patterns for JavaScript evaluation in tests
-- Navigation timing and same-document navigation handling
-- Test isolation principles
+**📖 FIRST STEP**: Read `./brave-core-bot/BEST-PRACTICES.md` which indexes all best practices docs. Then read the specific docs relevant to your task:
+- **Test fixes**: Read the async testing, JS evaluation, navigation, and test isolation docs
+- **C++ code changes**: Read `docs/best-practices/coding-standards.md` (naming, ownership, Chromium APIs, banned patterns)
+- **Architecture/service changes**: Read `docs/best-practices/architecture.md` (layering, factories, dependency injection)
+- **Build file changes**: Read `docs/best-practices/build-system.md` (GN organization, deps, buildflags)
+- **chromium_src changes**: Read `docs/best-practices/chromium-src-overrides.md` (override patterns, patch style)
 
-Read this document BEFORE analyzing the issue or implementing fixes.
+Only read the docs relevant to your story — don't load all of them every time.
 
 ## Implementation Steps
 

@@ -1,3 +1,6 @@
+# Ignore directory - for local files that should not be tracked
+.ignore/
+
 # Runtime files - user-specific state
 prd.json
 prd.archived.json

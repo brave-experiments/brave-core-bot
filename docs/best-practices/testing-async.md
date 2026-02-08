@@ -1,0 +1,192 @@
+# Async Testing Patterns
+
+## Root Cause Analysis
+
+### ❌ NEVER Make Timing-Based "Fixes"
+
+**DO NOT make changes that "fix" the test by altering execution timing.**
+
+These "fixes" may make the problem disappear locally, but the underlying race condition will inevitably return. This is the most common type of fake fix.
+
+**BANNED - Any change that works by altering timing rather than providing proper synchronization:**
+
+```cpp
+// ❌ WRONG - Adding logging to "fix" a race condition
+LOG(INFO) << "Debug output";  // Changes timing!
+std::cout << "Checking state" << std::endl;  // Race condition hidden, not fixed
+VLOG(1) << "Operation completed";  // Still just hiding the problem
+
+// ❌ WRONG - Meaningless operations that change timing
+volatile int dummy = 0;
+for (int i = 0; i < 100; i++) { dummy++; }  // Delay tactic, not a fix
+auto unused = SomeGetter();  // Adds execution time
+std::this_thread::yield();  // Still a timing hack
+
+// ❌ WRONG - Reordering unrelated code hoping it helps
+SomeUnrelatedFunction();  // Accidentally changes timing
+ActualTestCode();
+
+// ❌ WRONG - Adding includes that change compilation/execution order
+#include "some_header.h"  // If this "fixes" it, you haven't found the real problem
+
+// ❌ WRONG - Refactoring that accidentally changes execution order
+ExtractMethodThatChangesWhenThingsRun();  // Same code, different timing
+
+// ❌ WRONG - ANY OTHER CHANGE where you can't explain the synchronization
+// If removing it makes the test flaky again, but you don't know WHY it works,
+// it's a fake fix that will eventually break
+```
+
+**This list is not exhaustive.** The key principle: if your change works by altering when things execute rather than by adding proper synchronization, it's unacceptable.
+
+**Why these "fixes" are unacceptable:**
+1. **They hide the problem, not solve it** - The race condition still exists
+2. **They're compiler/optimization dependent** - May work in debug but fail in release builds
+3. **They're platform dependent** - May work on your machine but fail in CI
+4. **They'll break again** - As soon as something else changes timing (new code, different CPU, etc.)
+
+### ✅ Proper Root Cause Analysis
+
+**REQUIRED approach for all test fixes:**
+
+1. **Identify the actual race condition:**
+   - What two things are racing?
+   - Which happens first? Which should happen first?
+   - What's the synchronization mechanism (or lack thereof)?
+
+2. **Find the real synchronization point:**
+   - Use proper wait mechanisms (`base::test::RunUntil()`, `TestFuture`, observers)
+   - Wait for the actual condition you care about, not arbitrary time
+   - Use explicit synchronization primitives (callbacks, run loops with quit closures)
+
+3. **Verify the fix addresses the root cause:**
+   - Can you explain WHY the test was flaky?
+   - Can you explain HOW your fix eliminates the race?
+   - Would your fix work regardless of timing variations?
+
+**GOOD - Actual fixes that address root causes:**
+
+```cpp
+// ✅ CORRECT - Wait for the actual condition
+ASSERT_TRUE(base::test::RunUntil([&]() {
+  return tab_helper()->PageDistillState() == DistillState::kDistilled;
+}));
+
+// ✅ CORRECT - Use TestFuture to synchronize on callback
+TestFuture<Result> future;
+DoAsyncOperation(future.GetCallback());
+const Result& result = future.Get();  // Blocks until callback fires
+
+// ✅ CORRECT - Use observer pattern for event notification
+class MyObserver : public content::WebContentsObserver {
+  void DidFinishNavigation(NavigationHandle* handle) override {
+    if (handle->IsSameDocument()) {
+      run_loop_.Quit();
+    }
+  }
+  base::RunLoop run_loop_;
+};
+```
+
+### Rule of Thumb
+
+**If removing your "fix" would make the test flaky again, but you can't explain WHY it fixes the race condition, it's not a real fix.**
+
+Real fixes are:
+- Deterministic (work every time)
+- Explainable (you can describe the synchronization mechanism)
+- Robust (work across different timing conditions, platforms, and build types)
+
+---
+
+## ❌ NEVER Use RunUntilIdle()
+
+**DO NOT use `RunLoop::RunUntilIdle()` for asynchronous testing.**
+
+This is explicitly forbidden by Chromium style guide because it causes flaky tests:
+- May run too long and timeout
+- May return too early if events depend on different task queues
+- Creates unreliable, non-deterministic tests
+
+**Reference:** [Chromium C++ Testing Best Practices](https://www.chromium.org/chromium-os/developer-library/guides/testing/cpp-writing-tests/)
+
+---
+
+## ✅ Use base::test::RunUntil() for C++ Conditions
+
+**GOOD - When checking C++ state:**
+```cpp
+ASSERT_TRUE(base::test::RunUntil([th]() {
+  return speedreader::DistillStates::IsDistilled(th->PageDistillState());
+}));
+```
+
+**GOOD - When checking object properties:**
+```cpp
+ASSERT_TRUE(base::test::RunUntil([this]() {
+  return tab_helper()->speedreader_bubble_view() != nullptr;
+}));
+```
+
+---
+
+## ❌ CRITICAL: Never Use EvalJs Inside RunUntil()
+
+**DO NOT call `content::EvalJs()` or `content::ExecJs()` inside `base::test::RunUntil()` lambdas.**
+
+This causes DCHECK failures on macOS arm64 due to nested run loop issues.
+
+**BAD - Causes DCHECK failure:**
+```cpp
+// ❌ WRONG - Nested run loops!
+ASSERT_TRUE(base::test::RunUntil([&]() {
+  return content::EvalJs(web_contents, "!!document.getElementById('foo')")
+      .ExtractBool();
+}));
+```
+
+**Error you'll see on macOS arm64:**
+```
+FATAL:base/message_loop/message_pump_apple.mm:389]
+DCHECK failed: stack_.size() < static_cast<size_t>(nesting_level_)
+```
+
+**Why it fails:**
+1. `base::test::RunUntil()` starts a run loop to poll the condition
+2. Inside that loop, `content::EvalJs()` starts **another** run loop to execute JavaScript
+3. This creates **nested run loops**, which triggers a DCHECK on macOS
+
+---
+
+## General Rule: Avoid Nested Run Loops
+
+**Any operation that creates its own run loop should NOT be called inside `base::test::RunUntil()`:**
+
+- ❌ `content::EvalJs()` - creates run loop
+- ❌ `content::ExecJs()` - creates run loop
+- ❌ IPC operations that wait for responses - create run loops
+- ✅ Direct C++ state checks - safe
+- ✅ Simple getter methods - safe
+- ✅ Checking object properties - safe
+
+---
+
+## Alternative: TestFuture for Callbacks
+
+**PREFERRED for callback-based operations:**
+```cpp
+TestFuture<ResultType> future;
+object_under_test.DoSomethingAsync(future.GetCallback());
+const ResultType& actual_result = future.Get();  // Waits for callback
+```
+
+---
+
+## Alternative: QuitClosure() + Run()
+
+**For manual control:**
+```cpp
+base::RunLoop run_loop;
+object_under_test.DoSomethingAsync(run_loop.QuitClosure());
+run_loop.Run();  // Waits specifically for this closure
+```

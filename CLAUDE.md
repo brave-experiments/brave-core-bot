@@ -21,7 +21,7 @@ This documentation is split into focused files for better performance. Read only
 - **[docs/testing-requirements.md](./docs/testing-requirements.md)** - Test execution requirements, C++ best practices, RunUntilIdle patterns
 - **[docs/git-repository.md](./docs/git-repository.md)** - Git operations, branch management, dependency restrictions
 - **[docs/progress-reporting.md](./docs/progress-reporting.md)** - Progress.txt format for all status transitions
-- **[BEST-PRACTICES.md](./BEST-PRACTICES.md)** - Async testing patterns (read FIRST for any test work)
+- **[BEST-PRACTICES.md](./BEST-PRACTICES.md)** - Index of all best practices (testing, coding standards, architecture, build system, chromium_src). Read the relevant sub-docs based on what you're working on.
 
 ### Continuous Improvement
 - **[docs/learnable-patterns.md](./docs/learnable-patterns.md)** - Identifying, evaluating, and capturing reusable patterns
