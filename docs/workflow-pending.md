@@ -332,6 +332,23 @@ The goal is to avoid infinite loops on impossible tasks while still giving suffi
 - If you cannot understand the root cause with high confidence, keep the story as `status: "pending"` and document why
 - Temporary hacks or arbitrary timing adjustments are NOT acceptable solutions
 
+**CRITICAL: Verify Before and After the Fix**
+
+When possible, confirm that the problem actually reproduces before your fix and is resolved after:
+
+1. **Before the fix**: Run the failing test (or reproduce the bug) to confirm the issue exists on the current branch. This validates you're looking at the right problem and establishes a baseline.
+2. **Apply the fix**: Make your code changes.
+3. **After the fix**: Run the same test again to confirm the problem is gone.
+
+This before/after verification:
+- Prevents fixing the wrong problem or a problem that doesn't actually exist
+- Confirms your fix is what resolved the issue (not some other change or environment difference)
+- Gives high confidence the fix is correct when documenting in progress.txt and the PR
+
+**When this verification succeeds**, include the before/after results in progress.txt and the PR description (e.g., "Confirmed test fails on master, passes with fix applied"). This gives reviewers concrete evidence the fix works.
+
+**When this isn't possible** (e.g., the issue only reproduces under specific CI conditions, requires hardware you don't have, or is timing-dependent and only fails intermittently), document why you couldn't reproduce it locally and what evidence you're relying on instead (CI logs, code analysis, etc.).
+
 ## Update CLAUDE.md Files
 
 Before committing, check if any edited files have learnings worth preserving in nearby CLAUDE.md files:
