@@ -110,6 +110,14 @@ git rebase -i --autosquash HEAD~2
 
 ---
 
+## Post-Commit Formatting Fixes
+
+If formatting or linting fixes are needed after committing:
+- **Single commit**: Use `git commit --amend` to fold the fix into the existing commit
+- **Multiple commits**: Use `git commit --fixup=<sha>` and then `git rebase --autosquash HEAD~N` to keep history clean
+
+---
+
 ## Commit Message Guidelines
 
 - Keep it concise (under 72 characters for the subject line)
