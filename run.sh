@@ -11,13 +11,21 @@ if [[ $# -gt 0 ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
   MAX_ITERATIONS="$1"
 fi
 
-# Launch inside tmux if not already in a tmux session
+# Launch inside tmux if not already there
 TMUX_SESSION="brave-bot"
-if [ -z "$TMUX" ]; then
+if [ -z "$BRAVE_BOT_IN_TMUX" ]; then
   tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
-  echo "Starting in tmux session '$TMUX_SESSION'..."
-  echo "To monitor (read-only): tmux attach -t $TMUX_SESSION -r"
-  exec tmux new-session -s "$TMUX_SESSION" "$0" "$@"
+  # Build command with proper quoting
+  CMD="BRAVE_BOT_IN_TMUX=1 '$0'"
+  for arg in "$@"; do
+    CMD="$CMD '$arg'"
+  done
+  # Start bot in detached tmux session, then attach as read-only viewer
+  tmux new-session -d -s "$TMUX_SESSION" "$CMD"
+  echo "Bot running in tmux session '$TMUX_SESSION'"
+  echo "Attaching as read-only viewer (Ctrl+B, D to detach)..."
+  echo "Reattach anytime: tmux attach -t $TMUX_SESSION -r"
+  exec tmux attach -t "$TMUX_SESSION" -r
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
