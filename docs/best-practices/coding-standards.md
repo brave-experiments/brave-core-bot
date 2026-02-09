@@ -16,6 +16,8 @@
 
 Also remove includes you don't actually use. Double-check all includes in new files.
 
+**For type aliases:** include the header that declares the type alias, not the headers for the underlying types. Same principle as class inheritance — if class B inherits from A, include B's header, not A's.
+
 ---
 
 ## Naming Conventions
@@ -139,6 +141,20 @@ static void InternalHelper() { ... }
 namespace {
 void InternalHelper() { ... }
 }  // namespace
+```
+
+**No `static` on `constexpr` inside anonymous namespaces** — the namespace already provides internal linkage, so `static` is redundant.
+
+```cpp
+// ❌ WRONG - redundant static
+namespace {
+static constexpr int kMaxRetries = 3;
+}
+
+// ✅ CORRECT
+namespace {
+constexpr int kMaxRetries = 3;
+}
 ```
 
 ---
@@ -1262,3 +1278,285 @@ void MyService::Shutdown() {
   observation_.Reset();
 }
 ```
+
+---
+
+## ✅ Use `base::Unretained(this)` for Self-Owned Timer Callbacks
+
+**When a class owns a `base::RepeatingTimer` or `base::OneShotTimer`, use `base::Unretained(this)`.** The timer is destroyed with the class, so it can only fire while `this` is valid. Using `WeakPtr` is unnecessary overhead.
+
+```cpp
+// ❌ WRONG - unnecessary overhead
+timer_.Start(FROM_HERE, delay,
+    base::BindRepeating(&MyClass::OnTimer, weak_factory_.GetWeakPtr()));
+
+// ✅ CORRECT - timer is owned, so this is always valid when it fires
+timer_.Start(FROM_HERE, delay,
+    base::BindRepeating(&MyClass::OnTimer, base::Unretained(this)));
+```
+
+**Key distinction:** This is the opposite of the "never use Unretained with thread pool" rule. The difference is ownership: you own the timer, so it cannot outlive you.
+
+---
+
+## ✅ WeakPtr - Bind to Member Function, Not Lambda Capture
+
+**When using WeakPtr with async callbacks, bind directly to a member function.** Don't capture a WeakPtr in a lambda — the weak_ptr could be invalidated before the lambda runs, and there's no automatic cancellation.
+
+```cpp
+// ❌ WRONG - weak_ptr captured in lambda, no automatic cancellation
+auto weak_this = weak_ptr_factory_.GetWeakPtr();
+rpc_->GetNetworkName(base::BindOnce(
+    [](base::WeakPtr<MyService> self, Callback cb, const std::string& name) {
+      if (!self) return;
+      std::move(cb).Run(name);
+    }, weak_this, std::move(callback)));
+
+// ✅ CORRECT - weak_ptr bound to member function, auto-cancelled if invalid
+rpc_->GetNetworkName(base::BindOnce(
+    &MyService::OnGetNetworkName,
+    weak_ptr_factory_.GetWeakPtr(),
+    std::move(callback)));
+```
+
+---
+
+## ✅ Use References for Non-Nullable Parameters; `raw_ref` for Stored References
+
+**When a function parameter cannot be null, use a reference (`T&`) instead of a pointer (`T*`).** For stored member references that cannot be null, use `raw_ref<T>`.
+
+```cpp
+// ❌ WRONG - pointer suggests nullability
+NetworkClient(PrefService* pref_service);
+
+// ✅ CORRECT - reference communicates non-null requirement
+NetworkClient(PrefService& pref_service);
+
+// For stored references:
+raw_ref<PrefService> pref_service_;  // not raw_ptr
+```
+
+---
+
+## ❌ Avoid `std::optional<T>&` References
+
+**Never pass `std::optional<T>&` as a function parameter.** It's confusing and can cause hidden copies. Take by value if storing, or use `base::optional_ref<T>` for non-owning optional references.
+
+```cpp
+// ❌ WRONG - confusing, hidden copies
+void Process(const std::optional<std::string>& value);
+
+// ✅ CORRECT - take by value if storing
+void Process(std::optional<std::string> value);
+
+// ✅ CORRECT - use base::optional_ref for non-owning optional references
+void Process(base::optional_ref<const std::string> value);
+```
+
+---
+
+## ✅ Use `base::FixedArray` Over `std::vector` for Known-Size Runtime Allocations
+
+**When the size is known at creation but not at compile time, use `base::FixedArray`.** It avoids heap allocation for small sizes and communicates immutable size.
+
+```cpp
+// ❌ WRONG - vector suggests dynamic resizing
+std::vector<uint8_t> out(size);
+
+// ✅ CORRECT - size is fixed after construction
+base::FixedArray<uint8_t> out(size);
+```
+
+---
+
+## ✅ Prefer Contiguous Containers Over Linked Lists
+
+**Never use `std::list` for pure traversal — poor cache locality.** Use `std::list` only when stable iterators or frequent mid-container insert/remove is required. Prefer `std::vector` with `reserve()` for known sizes.
+
+---
+
+## ✅ Use `std::optional` Instead of Sentinel Values
+
+**Never use empty string `""`, `-1`, or other magic values as sentinels for "no value".** Use `std::optional<T>`.
+
+```cpp
+// ❌ WRONG - "" as sentinel for "no custom title"
+void SetCustomTitle(const std::string& title);  // "" means "unset"
+
+// ✅ CORRECT - explicit optionality
+void SetCustomTitle(std::optional<std::string> title);  // nullopt means "unset"
+```
+
+---
+
+## ✅ Use `.emplace()` for `std::optional` Initialization Clarity
+
+**When engaging a `std::optional` member, prefer `.emplace()` for clarity about the intent.**
+
+```cpp
+// Less clear
+elapsed_timer_ = base::ElapsedTimer();
+
+// ✅ CORRECT - explicit engagement intent
+elapsed_timer_.emplace();
+```
+
+---
+
+## ✅ Function Ordering in `.cc` Should Match `.h`
+
+**Function definitions in `.cc` files should appear in the same order as their declarations in the corresponding `.h` file.**
+
+---
+
+## ✅ Prefer Free Functions Over Complex Inline Lambdas
+
+**When a lambda is complex enough to make surrounding code harder to parse, extract it into a named free function in the anonymous namespace.**
+
+```cpp
+// ❌ WRONG - complex lambda obscures call site
+DoSomething(base::BindOnce([](int a, int b, int c) {
+  // 20 lines of complex logic...
+}));
+
+// ✅ CORRECT - named function in anonymous namespace
+namespace {
+void ProcessResult(int a, int b, int c) {
+  // 20 lines of complex logic...
+}
+}  // namespace
+DoSomething(base::BindOnce(&ProcessResult));
+```
+
+---
+
+## ✅ Consolidate Feature Flag Checks to Entry Points
+
+**Don't scatter `CHECK`/`DCHECK` for feature flag status throughout the codebase.** Follow the upstream pattern: check at entry points only. Add comments on downstream functions like "Only called when X is enabled".
+
+```cpp
+// ❌ WRONG - CHECK in every function
+void TabStripModel::SetCustomTitle(...) {
+  CHECK(base::FeatureList::IsEnabled(kRenamingTabs));
+}
+void TabStripModel::ClearCustomTitle(...) {
+  CHECK(base::FeatureList::IsEnabled(kRenamingTabs));
+}
+
+// ✅ CORRECT - check at entry point, comment downstream
+void OnTabContextMenuAction(int action) {
+  if (!base::FeatureList::IsEnabled(kRenamingTabs)) return;
+  model->SetCustomTitle(...);  // Only called when kRenamingTabs enabled
+}
+```
+
+---
+
+## ❌ Don't Use `auto` Where Style Guide Wants Explicit Types
+
+**Don't use `auto` merely to avoid writing a type name.** Spell out types like `base::TimeDelta`, `base::Time`, etc. Per Google style guide: "Do not use [auto] merely to avoid the inconvenience of writing an explicit type."
+
+```cpp
+// ❌ WRONG - auto hides the type
+auto elapsed = timer.Elapsed();
+
+// ✅ CORRECT - explicit type
+base::TimeDelta elapsed = timer.Elapsed();
+```
+
+---
+
+## ✅ Member Initialization - Don't Add Default When Constructor Always Sets
+
+Per Chromium C++ dos and donts: "Initialize class members in their declarations, **except where a member's value is explicitly set by every constructor**."
+
+```cpp
+// ❌ WRONG - misleading, constructor always sets this
+class TreeTabNode {
+  raw_ptr<TabInterface> current_tab_ = nullptr;  // never actually nullptr
+  explicit TreeTabNode(TabInterface* tab);  // always sets current_tab_
+};
+
+// ✅ CORRECT - constructor handles initialization
+class TreeTabNode {
+  raw_ptr<TabInterface> current_tab_;
+  explicit TreeTabNode(TabInterface* tab) : current_tab_(tab) {}
+};
+```
+
+---
+
+## ✅ Prefer Overloads Over Silently-Ignored Optional Parameters
+
+**Don't force callers to provide parameters that are silently ignored.** Use function overloads. Similarly, prefer overloads over `std::variant` for distinct call patterns.
+
+```cpp
+// ❌ WRONG - body_value silently ignored for GET/HEAD
+void ApiFetch(const std::string& verb, const std::string& url,
+              const base::Value& body_value, Callback cb);
+
+// ✅ CORRECT - separate overloads
+void ApiFetch(const std::string& url, Callback cb);  // GET
+void ApiFetch(const std::string& url, const base::Value& body, Callback cb);  // POST
+```
+
+---
+
+## ✅ Don't Store Error State - Handle/Log and Store Only Success
+
+**When a field can hold either a success or error, handle/log the error immediately and store only the success type.**
+
+```cpp
+// ❌ WRONG - storing error variant
+base::expected<ChainMetadata, std::string> chain_metadata_;
+
+// ✅ CORRECT - handle error at failure point, store only success
+std::optional<ChainMetadata> chain_metadata_;
+```
+
+---
+
+## ✅ Document All New Classes, Public Methods, and Fields
+
+**All new classes, public methods, and non-obvious fields must have documentation comments.** For IDL types, document dictionaries and fields.
+
+---
+
+## ✅ Document Non-Obvious Failure Branches
+
+**When a function has multiple early-return failure branches, add a brief comment before each summarizing what it handles.**
+
+```cpp
+// ❌ WRONG - unclear what each branch handles
+if (!parent_hash) return std::nullopt;
+if (!state_root) return std::nullopt;
+if (!number) return std::nullopt;
+
+// ✅ CORRECT
+// Parent block hash is required for chain continuity.
+if (!parent_hash) return std::nullopt;
+// State root validates the block's state trie.
+if (!state_root) return std::nullopt;
+// Block number must be present and valid.
+if (!number) return std::nullopt;
+```
+
+---
+
+## ❌ Don't Introduce New Uses of Deprecated APIs
+
+**When an API is marked deprecated, never introduce new uses.** Check headers for deprecation notices before using unfamiliar APIs.
+
+```cpp
+// ❌ WRONG - base::Hash deprecated for 6+ years
+uint32_t hash = base::Hash(str);
+
+// ✅ CORRECT - use the recommended replacement
+uint32_t hash = base::FastHash(base::as_byte_span(str));
+```
+
+---
+
+## ✅ Security Review for Unrestricted URL Inputs in Mojom
+
+**When creating mojom interfaces that accept URL parameters from less-privileged processes, consider restricting to an allowlist or enum** rather than accepting arbitrary URLs. An unrestricted URL parameter means the renderer can send requests to any endpoint.

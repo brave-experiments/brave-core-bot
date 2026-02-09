@@ -196,3 +196,73 @@ auto settings_map = base::MakeRefCounted<HostContentSettingsMap>(
     false /* store_last_modified */, false /* restore_session*/,
     false /* should_record_metrics */);
 ```
+
+---
+
+## ✅ Prefer `*_for_testing()` Accessors Over `FRIEND_TEST`
+
+**When tests need access to a single private member, provide a `*_for_testing()` accessor** returning a reference instead of adding multiple `FRIEND_TEST` macros.
+
+```cpp
+// ❌ WRONG - proliferating FRIEND_TEST macros
+class BraveTab {
+  FRIEND_TEST_ALL_PREFIXES(BraveTabTest, RenameBasic);
+  FRIEND_TEST_ALL_PREFIXES(BraveTabTest, RenameCancel);
+  FRIEND_TEST_ALL_PREFIXES(BraveTabTest, RenameSubmit);
+  raw_ptr<views::Textfield> rename_textfield_;
+};
+
+// ✅ CORRECT - single accessor
+class BraveTab {
+  views::Textfield& rename_textfield_for_testing() { return *rename_textfield_; }
+  raw_ptr<views::Textfield> rename_textfield_;
+};
+```
+
+---
+
+## ✅ Verify Tests Actually Test What They Claim
+
+**When using test-only controls (globals, mocks, feature overrides), verify the test still exercises the code path it claims to test.** A test that disables the code under test proves nothing.
+
+```cpp
+// ❌ WRONG - test disables the code it claims to test
+void SetUp() { g_disable_stats_for_testing = true; }
+// "The stats updater should not reach the endpoint"
+// But we disabled stats entirely - this test proves nothing!
+
+// ✅ CORRECT - test the actual behavior with a mock server
+```
+
+---
+
+## ✅ Re-enable Test-Only Globals in `TearDown`
+
+**When a test disables functionality via a global in `SetUp()`, always re-enable it in `TearDown()`** to avoid leaking state to other tests.
+
+```cpp
+// ❌ WRONG - leaks state to other tests
+void SetUp() { g_disable_auto_start = true; }
+
+// ✅ CORRECT - restore state
+void SetUp() { g_disable_auto_start = true; }
+void TearDown() { g_disable_auto_start = false; }
+```
+
+---
+
+## ✅ Use `base::test::ParseJsonDict` for Test Comparisons
+
+**In tests comparing JSON values, use `base::test::ParseJsonDict()`** for simpler, more readable assertions.
+
+```cpp
+// ❌ WRONG - manually building expected dict
+base::Value::Dict expected;
+expected.Set("method", "chain_getBlockHash");
+expected.Set("id", 1);
+EXPECT_EQ(actual, expected);
+
+// ✅ CORRECT - parse from string
+EXPECT_EQ(actual, base::test::ParseJsonDict(
+    R"({"method":"chain_getBlockHash","id":1})"));
+```
