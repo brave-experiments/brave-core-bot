@@ -5,6 +5,7 @@
 **📖 FIRST STEP**: Read `./brave-core-bot/BEST-PRACTICES.md` which indexes all best practices docs. Then read the specific docs relevant to your task:
 - **Test fixes**: Read the async testing, JS evaluation, navigation, and test isolation docs
 - **C++ code changes**: Read `docs/best-practices/coding-standards.md` (naming, ownership, Chromium APIs, banned patterns)
+- **Front-end (TypeScript/React) changes**: Read `docs/best-practices/frontend.md` (component props, XSS prevention)
 - **Architecture/service changes**: Read `docs/best-practices/architecture.md` (layering, factories, dependency injection)
 - **Build file changes**: Read `docs/best-practices/build-system.md` (GN organization, deps, buildflags)
 - **chromium_src changes**: Read `docs/best-practices/chromium-src-overrides.md` (override patterns, patch style)

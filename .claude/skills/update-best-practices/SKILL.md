@@ -53,6 +53,7 @@ docs/best-practices/testing-async.md
 docs/best-practices/testing-isolation.md
 docs/best-practices/testing-javascript.md
 docs/best-practices/testing-navigation.md
+docs/best-practices/frontend.md
 docs/best-practices/chromium-src-overrides.md
 docs/best-practices/build-system.md
 ```

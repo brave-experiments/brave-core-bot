@@ -82,6 +82,7 @@ For each PR, launch a **Task subagent** (subagent_type: "general-purpose") with 
    - `./brave-core-bot/docs/best-practices/coding-standards.md`
    - `./brave-core-bot/docs/best-practices/chromium-src-overrides.md`
    - `./brave-core-bot/docs/best-practices/build-system.md`
+   - `./brave-core-bot/docs/best-practices/frontend.md`
    - `./brave-core-bot/docs/best-practices/testing-async.md`
    - `./brave-core-bot/docs/best-practices/testing-javascript.md`
    - `./brave-core-bot/docs/best-practices/testing-navigation.md`

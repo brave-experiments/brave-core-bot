@@ -86,6 +86,7 @@ Classify each discovered pattern into one of these categories:
 | PR creation | `docs/workflow-committed.md` |
 | Review responses | `docs/workflow-pushed.md` |
 | Security | `SECURITY.md` |
+| Front-end (TS/React) | `docs/best-practices/frontend.md` |
 | General codebase | Report file (for user to triage) |
 | Chromium conventions | `BEST-PRACTICES.md` |
 | Code style/naming | Report file |
