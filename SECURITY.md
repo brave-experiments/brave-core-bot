@@ -233,6 +233,26 @@ Test the filtering script with a known issue:
 cat /tmp/brave-core-bot-cache/org-members.txt | grep bbondy
 ```
 
+## Tab Switch Attack Prevention
+
+**When performing actions triggered from context menus or similar UI, always use the source web contents (captured at action initiation), not the currently active tab.** A malicious page could switch tabs between action initiation and execution, causing the action to apply to the wrong tab.
+
+```cpp
+// ❌ WRONG - using active tab at execution time
+void OnContextMenuAction() {
+  auto* web_contents = browser->tab_strip_model()->GetActiveWebContents();
+  // Malicious page may have switched tabs!
+  PasteIntoWebContents(web_contents);
+}
+
+// ✅ CORRECT - using source web contents from when action was initiated
+void OnContextMenuAction(content::WebContents* source_web_contents) {
+  PasteIntoWebContents(source_web_contents);
+}
+```
+
+---
+
 ### Reporting Security Issues
 
 If you discover a security vulnerability:

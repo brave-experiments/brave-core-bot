@@ -145,3 +145,54 @@ Fix flaky RewriteInPlace_ContentEditable test
 The MutationObserver pattern follows the approach used in Chromium's
 service_worker_internals_ui_browsertest.cc.
 ```
+
+---
+
+## ✅ Always Check `EvalJs` Results
+
+**When using `EvalJs` in tests, always check the result with `EXPECT_TRUE`/`EXPECT_EQ`.** An unchecked `EvalJs` call silently swallows errors - any gibberish expression would appear to "pass" the test.
+
+```cpp
+// ❌ WRONG - unchecked EvalJs, silently ignores exceptions
+content::EvalJs(web_contents, "window.solana.isConnected");
+
+// ✅ CORRECT - result checked
+EXPECT_EQ(true, content::EvalJs(web_contents,
+                                "window.solana.isConnected"));
+```
+
+---
+
+## ❌ Don't Duplicate Test Constants - Expose via Header
+
+**Don't duplicate constants between production code and test code.** If both need the same value, expose it via a shared header file.
+
+```cpp
+// ❌ WRONG - same constant duplicated in test
+// production.cc
+constexpr base::TimeDelta kCleanupDelay = base::Seconds(30);
+// test.cc
+constexpr base::TimeDelta kCleanupDelay = base::Seconds(30);  // duplicated!
+
+// ✅ CORRECT - shared via header
+// constants.h
+inline constexpr base::TimeDelta kCleanupDelay = base::Seconds(30);
+```
+
+---
+
+## ❌ Don't Depend on `//chrome` from Components Tests
+
+**Component-level unit tests must not depend on `//chrome`.** If you need objects typically created by Chrome infrastructure, create them manually in the test.
+
+```cpp
+// ❌ WRONG - depending on //chrome from components test
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+auto* settings_map = HostContentSettingsMapFactory::GetForProfile(profile);
+
+// ✅ CORRECT - create the instance directly
+auto settings_map = base::MakeRefCounted<HostContentSettingsMap>(
+    &pref_service_, false /* is_off_the_record */,
+    false /* store_last_modified */, false /* restore_session*/,
+    false /* should_record_metrics */);
+```

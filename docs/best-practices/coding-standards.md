@@ -1119,3 +1119,146 @@ class DefaultBrowserMonitor {
   std::unique_ptr<Delegate> delegate_;
 };
 ```
+
+---
+
+## ✅ Use `base::EraseIf` / `std::erase_if` Instead of Manual Erase Loops
+
+**Prefer `base::EraseIf` (for `base::flat_*` containers) or `std::erase_if` (for standard containers) over manual iterator-based erase loops.** Cleaner and less error-prone.
+
+```cpp
+// ❌ WRONG - manual erase loop
+for (auto it = items.begin(); it != items.end();) {
+  if (it->IsExpired()) {
+    it = items.erase(it);
+  } else {
+    ++it;
+  }
+}
+
+// ✅ CORRECT
+base::EraseIf(items, [](const auto& item) { return item.IsExpired(); });
+// or for std containers:
+std::erase_if(items, [](const auto& item) { return item.IsExpired(); });
+```
+
+---
+
+## ❌ Never Use `base::Unretained` with Thread Pool
+
+**Never use `base::Unretained` when posting work to thread pools.** Instead, run OS-specific or blocking functions on the thread pool and handle results on the main thread via `PostTaskAndReplyWithResult` with a WeakPtr. Using `Unretained` across threads leads to use-after-free.
+
+```cpp
+// ❌ WRONG - Unretained across threads causes UaF
+base::ThreadPool::PostTask(
+    FROM_HERE, base::BindOnce(&MyClass::DoWork, base::Unretained(this)));
+
+// ✅ CORRECT - static function on pool, weak reply on main thread
+base::ThreadPool::PostTaskAndReplyWithResult(
+    FROM_HERE, base::BindOnce(&DoBlockingWork),
+    base::BindOnce(&MyClass::OnWorkDone, weak_factory_.GetWeakPtr()));
+```
+
+---
+
+## ❌ Don't Use Synchronous OSCrypt in New Code
+
+**New code must use the async OSCrypt interface, not the legacy synchronous one.** The sync interface is deprecated. See `components/os_crypt/sync/README.md`.
+
+```cpp
+// ❌ WRONG - deprecated sync interface
+OSCrypt::EncryptString(plaintext, &ciphertext);
+
+// ✅ CORRECT - use async interface
+os_crypt_async_->GetInstance(
+    base::BindOnce(&MyClass::OnOSCryptReady, weak_factory_.GetWeakPtr()));
+```
+
+---
+
+## ✅ Document Upstream Workarounds with Issue Links
+
+**When adding a workaround for an upstream Chromium bug:**
+1. Add a link to the upstream issue in a code comment
+2. File details on the upstream issue explaining what's happening so they can fix it
+
+This allows us to remove the workaround when the upstream fix lands.
+
+```cpp
+// ✅ CORRECT
+// Workaround for https://crbug.com/123456 - upstream doesn't handle
+// the case where X is null. Remove when the upstream fix lands.
+if (!x) return;
+```
+
+---
+
+## ✅ Use `tabs::TabHandle` Over Raw `WebContents*` for Stored References
+
+**When storing tab references, prefer `tabs::TabHandle` (integer identifiers) over raw `WebContents*` pointers.** TabHandles are guaranteed not to accidentally point to a different tab, unlike raw pointers which can become dangling and be reused for a different allocation.
+
+```cpp
+// ❌ WRONG - raw pointer can dangle and point to wrong tab
+std::vector<content::WebContents*> tabs_to_close_;
+
+// ✅ CORRECT - integer IDs, safe from pointer reuse
+std::vector<tabs::TabHandle> tabs_to_close_;
+// Use TabInterface::GetFromWebContents to map WC to Handle
+```
+
+---
+
+## ✅ `NOTREACHED`/`CHECK(false)` Only for Security-Critical Invariants
+
+**`NOTREACHED`/`CHECK(false)` should only crash the browser for security-critical invariants.** For non-security cases (like invalid enum values from data processing), prefer returning `std::optional`/`std::nullopt` or a default value.
+
+```cpp
+// ❌ WRONG - crashes browser for non-security enum mismatch
+mojom::AdType ToMojomAdType(const std::string& type) {
+  // ...
+  NOTREACHED();  // This isn't a security issue!
+}
+
+// ✅ CORRECT - return optional for non-security case
+std::optional<mojom::AdType> ToMojomAdType(const std::string& type) {
+  // ...
+  return std::nullopt;  // Caller handles gracefully
+}
+```
+
+---
+
+## ✅ Feature Flag Comments Go in `.cc` Files
+
+**Comments explaining what a `base::Feature` does should be placed in the `.cc` file where the feature is defined, not in the `.h` file.**
+
+```cpp
+// ❌ WRONG - feature comment in .h
+// my_features.h
+// Enables the new tab workaround for flash prevention.
+BASE_DECLARE_FEATURE(kBraveWorkaroundNewWindowFlash);
+
+// ✅ CORRECT - feature comment in .cc
+// my_features.cc
+// Enables the new tab workaround for flash prevention.
+BASE_FEATURE(kBraveWorkaroundNewWindowFlash, ...);
+```
+
+---
+
+## ✅ Unsubscribe Observers in `::Shutdown()` Even with `ScopedObservation`
+
+**`ScopedObservation` can still lead to use-after-free.** Always explicitly unsubscribe observers and pref registrars in `KeyedService::Shutdown()`. Event-triggered callbacks (like pref observers) can fire after your service's `Shutdown()` if another service triggers them during its own shutdown sequence.
+
+```cpp
+// ❌ WRONG - relying solely on ScopedObservation destructor
+class MyService : public KeyedService {
+  base::ScopedObservation<PrefService, PrefObserver> observation_{this};
+};
+
+// ✅ CORRECT - explicit unsubscribe in Shutdown
+void MyService::Shutdown() {
+  pref_change_registrar_.RemoveAll();
+  observation_.Reset();
+}
+```

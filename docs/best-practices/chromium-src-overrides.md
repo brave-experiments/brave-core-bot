@@ -246,3 +246,35 @@ Note: This technique does not work when the return type is a pointer or referenc
 // The upstream class doesn't support extensibility here,
 // so we replace the menu construction logic.
 ```
+
+---
+
+## ✅ Verify chromium_src Header GN Dependencies
+
+**When adding new `#include` directives in chromium_src override files, verify they have required GN dependencies.** The override file is compiled as part of the upstream target, which may not have deps on your Brave headers.
+
+**How to verify:** Temporarily add the same headers to the original upstream file and run `gn check`. If it fails, the upstream target needs the dependency added (typically via a patch or `sources.gni`).
+
+```bash
+# Test: add the header to the original file temporarily, then:
+gn check out/Default
+# If it fails, the dep is missing
+```
+
+---
+
+## ✅ Use `runtime_enabled_features.override.json5` for Blink Features
+
+**When adding Brave-specific Blink runtime-enabled features, add them to `runtime_enabled_features.override.json5` instead of patching `runtime_enabled_features.json5`.** The override file is designed for downstream additions and never changes upstream, preventing patch conflicts.
+
+```json5
+// ❌ WRONG - patching runtime_enabled_features.json5 (causes conflicts)
+
+// ✅ CORRECT - add to override file
+// third_party/blink/renderer/platform/runtime_enabled_features.override.json5
+{
+  name: "BraveGlobalPrivacyControl",
+  public: true,
+  base_feature: "none",
+},
+```

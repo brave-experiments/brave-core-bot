@@ -446,3 +446,41 @@ static void MaybeCreateForWebContents(content::WebContents* web_contents) {
 ## ✅ Use `ProfileKeyedServiceFactory` for New Desktop Factories
 
 **New keyed service factories on desktop should inherit from `ProfileKeyedServiceFactory`** rather than the older `BrowserContextKeyedServiceFactory`. See the Brave keyed services documentation.
+
+---
+
+## ✅ Guard New Functionality Behind `base::Feature`
+
+**New functionality should always be guarded behind a `base::Feature` flag.** Unguarded code that crashes can't be disabled remotely via Griffin/feature flags. Use `raw_ptr` checked before use for services that may not exist in all configurations (System profile, Guest profile, disabled feature).
+
+```cpp
+// ❌ WRONG - no feature guard, crash can't be remotely disabled
+auto* service = MyNewServiceFactory::GetForProfile(profile);
+service->DoSomething();  // Crashes if service unavailable
+
+// ✅ CORRECT - guarded behind feature flag
+if (!base::FeatureList::IsEnabled(features::kMyNewFeature))
+  return;
+auto* service = MyNewServiceFactory::GetForProfile(profile);
+if (!service)
+  return;
+service->DoSomething();
+```
+
+---
+
+## ✅ Unify Platform-Specific Delegates
+
+**When implementing functionality for both Android and desktop, unify the code in a single delegate** rather than duplicating it across platforms. Extract only the platform-specific parts (like tab handling) into the delegate interface.
+
+```cpp
+// ❌ WRONG - duplicated logic
+class DesktopDelegate { /* same logic with BrowserList */ };
+class AndroidDelegate { /* same logic with TabModel */ };
+
+// ✅ CORRECT - unified logic, platform-specific tab access
+class UnifiedDelegate {
+  virtual std::vector<TabInfo> GetOpenTabs() = 0;  // platform-specific
+  void DoSharedLogic() { /* uses GetOpenTabs() */ }  // shared
+};
+```

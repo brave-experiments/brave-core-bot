@@ -299,3 +299,84 @@ brave_browser_window_deps = [
 ## ✅ Utility Scripts Should Be Python, Not Node.js or Shell
 
 **Build and utility scripts in brave-core should be written in Python (using `vpython` from depot tools), not Node.js or shell scripts.** This follows Chromium conventions, avoids additional runtime dependencies, and works on all platforms including Windows.
+
+---
+
+## ✅ Unconditional Buildflags Deps with Conditional `deps +=`
+
+**When adding `deps +=` inside an `if(enable_feature)` block in GN, always add an unconditional `buildflags` dependency outside the conditional.** The buildflags header is needed even when the feature is disabled (for the `#if BUILDFLAG(...)` check itself). Run `gn check` with the buildflag disabled to verify.
+
+```gn
+# ❌ WRONG - buildflags dep only inside conditional
+if (enable_brave_rewards) {
+  deps += [
+    "//brave/components/brave_rewards/common/buildflags",
+    "//brave/components/brave_rewards/browser",
+  ]
+}
+
+# ✅ CORRECT - buildflags dep unconditional
+deps += [
+  "//brave/components/brave_rewards/common/buildflags",
+]
+if (enable_brave_rewards) {
+  deps += [ "//brave/components/brave_rewards/browser" ]
+}
+```
+
+---
+
+## ✅ Restrict `source_set` Visibility for Internal Targets
+
+**When using `source_set` for internal component targets, restrict target visibility** to prevent external use. If the target needs to be used externally, use `component` or `static_library` instead.
+
+```gn
+# ❌ WRONG - internal source_set with default (public) visibility
+source_set("internal_network") {
+  sources = [ ... ]
+}
+
+# ✅ CORRECT - restricted visibility
+source_set("internal_network") {
+  visibility = [ ":*" ]  # Only usable within this BUILD.gn
+  sources = [ ... ]
+}
+```
+
+---
+
+## ✅ Python File Writes: Use `newline='\n'`
+
+**When writing files from Python scripts, always specify `newline='\n'`** in `open()` to ensure consistent LF line endings across platforms (especially Windows).
+
+```python
+# ❌ WRONG - platform-dependent line endings
+with open(output_path, 'w') as f:
+    f.write(content)
+
+# ✅ CORRECT - consistent LF endings
+with open(output_path, 'w', newline='\n') as f:
+    f.write(content)
+```
+
+---
+
+## ✅ Use `include_rules` for Common Includes, `specific_include_rules` for Edge Cases
+
+**In DEPS files, use `include_rules` for generally allowed includes across all files in a directory.** Reserve `specific_include_rules` for edge cases where an include should only be allowed in specific files.
+
+```python
+# ❌ WRONG - using specific_include_rules for commonly needed includes
+specific_include_rules = {
+  ".*\.cc": [
+    "+brave/components/content_settings/core/common",
+    "+brave/components/content_settings/core/browser",
+  ],
+}
+
+# ✅ CORRECT - include_rules for generally allowed includes
+include_rules = [
+  "+brave/components/content_settings/core/common",
+  "+brave/components/content_settings/core/browser",
+]
+```
