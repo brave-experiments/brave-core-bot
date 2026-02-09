@@ -36,17 +36,21 @@ gh pr list --repo brave/brave-core --state open --json number,title,createdAt,au
 - Created before lookback cutoff
 - Title starts with `CI run for` or `Backport` or `Update l10n`
 - Title contains `uplift to`
+- Title contains `Just to test CI` or similar CI test patterns
+- Author is the reviewing user's own GitHub login (don't review own PRs)
 
 **Check for prior reviews:**
 ```bash
 GIT_USER=$(git config user.name)
 # Get last review by this user
 gh api repos/brave/brave-core/pulls/{number}/reviews --jq '[.[] | select(.user.login == "USERNAME")] | sort_by(.submitted_at) | last | .submitted_at'
-# Get last push
-gh api repos/brave/brave-core/pulls/{number}/events --jq '[.[] | select(.event == "head_ref_force_pushed" or .event == "pushed")] | sort_by(.created_at) | last | .created_at'
+# Get last push time from timeline (more reliable than events API which returns 404)
+gh api repos/brave/brave-core/issues/{number}/timeline --paginate --jq '[.[] | select(.event == "committed")] | sort_by(.committer.date) | last | .committer.date'
 ```
 
-Skip if user already reviewed AND no pushes after that review.
+Skip if user already reviewed AND no commits after that review.
+
+**Note:** The `/pulls/{number}/events` endpoint returns 404 for some PRs. Use the `/issues/{number}/timeline` endpoint instead, which reliably includes commit events.
 
 ---
 
@@ -76,6 +80,8 @@ Use Task tool to launch parallel review agents in batches of ~8 PRs for efficien
 
 Also flag bugs introduced by the change (e.g., missing string separators, duplicate DEPS entries, code inside wrong `#if` guard).
 
+**Security-sensitive areas** (wallet, crypto, sync, credentials) deserve extra scrutiny. Type mismatches, truncation, and correctness issues in these areas should use stronger language — these aren't nits, they're potential security concerns.
+
 ---
 
 ## What NOT to Flag
@@ -91,10 +97,12 @@ Also flag bugs introduced by the change (e.g., missing string separators, duplic
 ## Comment Style
 
 - **Short and succinct** - 1-3 sentences max
-- **Non-blocking tone** - use "nit:" prefix, "worth considering", "not blocking either way"
 - **Targeted** - reference specific files and code
 - **Acknowledge context** - if upstream does the same thing, say so
 - **No lecturing** - state the issue briefly
+- **Match tone to severity:**
+  - **Genuine nits** (style, naming, minor cleanup): use "nit:" prefix, "worth considering", "not blocking either way"
+  - **Substantive issues** (test reliability, correctness, banned APIs, potential bugs): be direct and clear about why it needs to change. Do NOT use "nit:" for these — a `RunUntilIdle()` violation or a banned API usage is not a nit, it's a real problem.
 
 ---
 
@@ -103,8 +111,10 @@ Also flag bugs introduced by the change (e.g., missing string separators, duplic
 For each violation, present the draft and ask:
 
 > **PR #12345** - [violation description]
-> Draft: `nit: [short comment]`
+> Draft: `[short comment]`
 > Post this comment?
+
+Use "nit:" prefix only for genuinely minor/stylistic issues, not for substantive concerns.
 
 Only post after explicit user approval via:
 ```bash
