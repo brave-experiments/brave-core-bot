@@ -1080,6 +1080,26 @@ std::string url = base::StrCat({url::kHttpsScheme,
 
 ---
 
+## ❌ Don't Narrow Integer Types in Setters or Parameters
+
+**Setter and function parameter types must match the underlying field type.** Accepting a narrower type (e.g., `uint32_t` when the field is `uint64_t`) silently truncates values. This is especially dangerous in security-sensitive code like wallet/crypto transactions.
+
+```cpp
+// ❌ WRONG - parameter narrower than field, silent truncation
+class Transaction {
+  uint64_t invalid_after_ = 0;
+  void set_invalid_after(uint32_t value) { invalid_after_ = value; }
+};
+
+// ✅ CORRECT - types match
+class Transaction {
+  uint64_t invalid_after_ = 0;
+  void set_invalid_after(uint64_t value) { invalid_after_ = value; }
+};
+```
+
+---
+
 ## ✅ Use Delegates Instead of Raw Callbacks for Cross-Layer Dependencies
 
 **When a component-level class needs platform-specific behavior, use a delegate pattern with a dedicated delegate class instead of passing raw callbacks.** Delegates provide cleaner interfaces, safer lifetime management, and better testability.
