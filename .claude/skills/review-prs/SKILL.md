@@ -18,10 +18,9 @@ When invoked with `/review-prs [days] [open|closed|all]`:
 2. **Fetch non-draft PRs** matching the state filter, created within the lookback period
 3. **Skip PRs** that are drafts, uplifts, CI runs, l10n updates, or dependency bumps
 4. **Skip already-reviewed PRs** where the configured git user posted a review and no new pushes since
-5. **Read all best practices docs** (see list below)
-6. **Review each PR diff** against best practices (only ADDED lines)
-7. **Present findings** in a summary table
-8. **For each violation**, draft a short comment and ask user to approve before posting
+5. **Review each PR** one at a time using a Task subagent per PR (see Subagent Review Workflow below)
+6. **Present findings** from each subagent interactively as they complete
+7. **For each violation**, draft a short comment and ask user to approve before posting
 
 ---
 
@@ -55,27 +54,48 @@ Skip if user already reviewed AND no commits after that review.
 
 ---
 
-## Best Practices Docs to Read
+## Subagent Review Workflow
 
-- `./brave-core-bot/BEST-PRACTICES.md` (index)
-- `./brave-core-bot/docs/best-practices/architecture.md`
-- `./brave-core-bot/docs/best-practices/coding-standards.md`
-- `./brave-core-bot/docs/best-practices/chromium-src-overrides.md`
-- `./brave-core-bot/docs/best-practices/build-system.md`
-- `./brave-core-bot/docs/best-practices/testing-async.md`
-- `./brave-core-bot/docs/best-practices/testing-javascript.md`
-- `./brave-core-bot/docs/best-practices/testing-navigation.md`
-- `./brave-core-bot/docs/best-practices/testing-isolation.md`
+**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed in its own Task subagent to avoid context compaction.
 
-These are the source of truth. Only flag violations of rules documented in these files.
+For each PR, launch a **Task subagent** (subagent_type: "general-purpose") with a prompt that includes:
+
+1. **The PR number and repo** (`brave/brave-core`)
+2. **Instructions to read best practices docs** — the subagent reads these itself:
+   - `./brave-core-bot/BEST-PRACTICES.md` (index)
+   - `./brave-core-bot/docs/best-practices/architecture.md`
+   - `./brave-core-bot/docs/best-practices/coding-standards.md`
+   - `./brave-core-bot/docs/best-practices/chromium-src-overrides.md`
+   - `./brave-core-bot/docs/best-practices/build-system.md`
+   - `./brave-core-bot/docs/best-practices/testing-async.md`
+   - `./brave-core-bot/docs/best-practices/testing-javascript.md`
+   - `./brave-core-bot/docs/best-practices/testing-navigation.md`
+   - `./brave-core-bot/docs/best-practices/testing-isolation.md`
+3. **Instructions to fetch the diff** via `gh pr diff --repo brave/brave-core {number}`
+4. **The review rules** (copied into the subagent prompt):
+   - Only flag violations in ADDED lines (+ lines), not existing code
+   - Also flag bugs introduced by the change (e.g., missing string separators, duplicate DEPS entries, code inside wrong `#if` guard)
+   - Security-sensitive areas (wallet, crypto, sync, credentials) deserve extra scrutiny — type mismatches, truncation, and correctness issues should use stronger language
+   - Do NOT flag: existing code the PR isn't changing, template functions defined in headers, simple inline getters in headers, style preferences not in the documented best practices
+   - Comment style: short (1-3 sentences), targeted, acknowledge context. Use "nit:" only for genuinely minor/stylistic issues. Substantive issues (test reliability, correctness, banned APIs) should be direct without "nit:" prefix
+5. **Required output format** — the subagent MUST return ONLY a compact structured result:
+   ```
+   PR #<number>: <title>
+   VIOLATIONS:
+   - file: <path>, line: <line_number>, issue: <brief description>, draft_comment: <1-3 sentence comment to post>
+   - ...
+   NO_VIOLATIONS (if none found)
+   ```
+
+**Optimization:** The subagent can check which file types are in the diff first. If no test files are changed, it can skip the testing docs (`testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md`). If no `chromium_src/` files, skip `chromium-src-overrides.md`. If no `BUILD.gn`/`DEPS` files, skip `build-system.md`.
+
+Process PRs **one at a time** (sequentially). After each subagent returns, if violations were found, present them to the user for interactive approval before moving to the next PR. If no violations, briefly note that and move on.
 
 ---
 
-## Reviewing Diffs
+## Reviewing Diffs (Subagent Internal)
 
-Fetch each diff with `gh pr diff --repo brave/brave-core {number}`.
-
-Use Task tool to launch parallel review agents in batches of ~8 PRs for efficiency. Pass the best practices rules to each agent.
+The subagent fetches the diff with `gh pr diff --repo brave/brave-core {number}`.
 
 **Only flag violations in ADDED lines (+ lines), not existing code.**
 
