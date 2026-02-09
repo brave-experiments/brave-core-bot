@@ -145,17 +145,19 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   cd "$BRAVE_ROOT"
 
+  # Pre-generate session ID so we can print the resume command before Claude starts
+  SESSION_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+  echo ""
+  echo "To monitor this session (read-only): claude --resume $SESSION_ID"
+  echo ""
+
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
   # Always use opus model (which has extended thinking built-in)
   # Use stream-json output format with verbose flag to capture detailed execution logs
   # Capture output to temp file and log file
-  claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+  claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json --session-id "$SESSION_ID" "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
 
-  # Extract session ID from stream-json output for resume capability
-  SESSION_ID=$(jq -r 'select(.type == "result") | .session_id // empty' "$TEMP_OUTPUT" 2>/dev/null | head -1)
-  if [ -n "$SESSION_ID" ]; then
-    echo "To continue this session: claude --resume $SESSION_ID"
-  fi
+  echo "To continue this session: claude --resume $SESSION_ID"
 
   # Check for completion signal (only in assistant text responses, not tool results)
   # Use jq to properly filter for assistant messages with text content to avoid false positives from reading CLAUDE.md
