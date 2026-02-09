@@ -213,7 +213,26 @@ Only read the docs relevant to your story — don't load all of them every time.
 
 8. Update CLAUDE.md files if you discover reusable patterns (see below)
 
-9. **If ALL tests pass:**
+9. **REQUIRED: Verify implementation against best practices:**
+
+   Before committing, spawn a **subagent** (using the Task tool with `subagent_type: "general-purpose"`) to audit your changes against the best practices docs. The subagent should:
+
+   1. Read the diff of all changed files (`git diff` or `git diff HEAD` depending on staging)
+   2. Read the relevant best practices docs based on what changed:
+      - **Test changes**: `docs/best-practices/testing-async.md`, `testing-isolation.md`, `testing-javascript.md`
+      - **C++ changes**: `docs/best-practices/coding-standards.md`
+      - **Architecture changes**: `docs/best-practices/architecture.md`
+      - **Build file changes**: `docs/best-practices/build-system.md`
+      - **chromium_src changes**: `docs/best-practices/chromium-src-overrides.md`
+   3. Compare each change against the documented rules
+   4. Return a list of any violations found, with the specific rule and the offending code
+
+   **If the subagent returns violations:** Fix them before committing.
+   **If the subagent returns no violations:** Proceed to commit.
+
+   This step is mandatory — it catches issues that are easy to miss when focused on implementation. Do NOT skip it.
+
+10. **If ALL tests pass:**
    - Commit ALL changes (must be in `[workingDirectory from prd.json config]`)
    - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
    - **For Chromium test disables (filter file modifications)**: If you detected this is a Chromium test in step 7, include in commit message:
@@ -221,7 +240,7 @@ Only read the docs relevant to your story — don't load all of them every time.
      - If Chromium has also disabled it, mention that explicitly (e.g., "Chromium has also disabled this test" or "Already disabled upstream")
      - If Brave modifications might be related, mention what was found (e.g., "Brave modifies chrome/browser/ui/ via chromium_src")
 
-10. **CRITICAL: Run presubmit verification AFTER commit, BEFORE creating PR:**
+11. **CRITICAL: Run presubmit verification AFTER commit, BEFORE creating PR:**
 
    After committing, you MUST run the full verification cycle to ensure the commit is valid:
    ```bash
@@ -247,7 +266,7 @@ Only read the docs relevant to your story — don't load all of them every time.
 
    This ensures the final committed state is fully verified. Do NOT create a PR until all checks pass on the final committed state.
 
-11. **Once all verifications pass:**
+12. **Once all verifications pass:**
    - Update the PRD at `./brave-core-bot/prd.json`:
      - Set `status: "committed"`
      - Set `lastActivityBy: null` (not yet public)
@@ -255,7 +274,7 @@ Only read the docs relevant to your story — don't load all of them every time.
    - Append your progress to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
    - **Continue in same iteration:** Do NOT mark story as checked yet - proceed immediately to push and create PR (see [workflow-committed.md](./workflow-committed.md))
 
-12. **If ANY tests fail:**
+13. **If ANY tests fail:**
    - DO NOT commit changes
    - Keep `status: "pending"`
    - Keep `branchName` (so we can continue on same branch next iteration)
