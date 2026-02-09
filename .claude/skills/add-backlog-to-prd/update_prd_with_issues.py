@@ -58,7 +58,7 @@ def build_test_story(story_id, priority, issue):
     """Build a user story for a test failure issue."""
     issue_num = issue['number']
     title = issue['title']
-    test_name = title.replace("Test failure: ", "")
+    test_name = re.sub(r'^.*?failure:\s*', '', title, flags=re.IGNORECASE).strip()
     test_class_name = test_name.split('.')[0]
     test_location = find_test_location(test_class_name)
 
@@ -136,9 +136,19 @@ prd_path = sys.argv[1]
 # Read GitHub issues from stdin
 github_issues = json.loads(sys.stdin.read())
 
-# Read existing PRD
-with open(prd_path, 'r') as f:
-    prd = json.load(f)
+# Read existing PRD or create empty structure
+if os.path.exists(prd_path):
+    with open(prd_path, 'r') as f:
+        prd = json.load(f)
+else:
+    prd = {
+        "projectName": "Brave Core Bot Backlog",
+        "description": "Issues from brave/brave-browser repository to be resolved",
+        "config": {
+            "workingDirectory": "../src/brave"
+        },
+        "userStories": []
+    }
 
 # Create a deep copy of existing stories for verification
 original_stories = copy.deepcopy(prd['userStories'])

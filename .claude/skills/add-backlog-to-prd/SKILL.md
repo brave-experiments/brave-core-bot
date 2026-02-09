@@ -57,20 +57,7 @@ jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' <(gh issue l
 
 ## Step 3: Process Issues and Update PRD
 
-Two helper scripts are available in `.claude/skills/add-backlog-to-prd/`:
-
-### If PRD doesn't exist yet:
-
-```bash
-jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
-  <(gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100) \
-  <(gh issue list --repo brave/brave-browser --assignee "$(git config user.name)" --state open --json number,title,url,labels --limit 100) | \
-  .claude/skills/add-backlog-to-prd/create_prd_from_issues.py > ./prd.json
-```
-
-This creates a new PRD with all the open test issues.
-
-### If PRD already exists:
+A single helper script handles both new and existing PRDs:
 
 ```bash
 jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
@@ -80,13 +67,13 @@ jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
   mv /tmp/prd_updated.json ./prd.json
 ```
 
-This updates the existing PRD with any new issues that aren't already tracked.
+If `./prd.json` doesn't exist yet, the script creates a new PRD. If it already exists, it only appends missing issues and never modifies existing stories.
 
-### What the scripts do:
+### What the script does:
 
 - **Detect issue type**: Issues with "Test failure:" title prefix or `bot/type/test` label are treated as test issues; all others get generic stories
 - **For test issues**:
-  - Extract test names from issue titles
+  - Extract test names from issue titles (handles multiple prefixes)
   - Determine test location at generation time by running `git grep` to find if the test is in `src/brave` or `src` (Chromium)
   - Generate test-specific acceptance criteria with correct test binary and filter
   - Include `testType`, `testLocation`, and `testFilter` fields
@@ -94,7 +81,8 @@ This updates the existing PRD with any new issues that aren't already tracked.
   - Use the issue title directly as the story title
   - Generate standard acceptance criteria (fetch issue, analyze, implement, build, format, presubmit, gn_check, find and run relevant tests)
 - Generate proper user story structure with sequential US-XXX IDs and priority ordering
-- Skip issues already in the PRD (update script only)
+- Skip issues already in the PRD
+- Safety check verifies existing stories were not modified
 
 ---
 
@@ -181,6 +169,6 @@ Successfully fetched 15 open issues from the `bot/type/test` label and added 7 m
 ## Error Handling
 
 - If `gh` CLI is not available, report error and exit
-- If `./prd.json` doesn't exist, report error and exit
+- If `./prd.json` doesn't exist, a new one is created automatically
 - If GitHub API rate limit is hit, report error with retry time
 - If `jq` is not available, report error and exit
