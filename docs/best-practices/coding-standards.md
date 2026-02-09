@@ -82,13 +82,13 @@ bool IsBraveCommandId(int id);
 
 ## Ownership and Memory Management
 
-### ✅ Comment Non-Owned Raw Pointers
+### ✅ Use `raw_ptr<T>` and Comment Non-Owned Pointers
 
-**Raw pointers to non-owned objects should be commented with `// not owned`.** This is a Chromium convention.
+**Non-owned member pointers should use `raw_ptr<T>` and be commented with `// not owned`.** This is the modern Chromium convention. `raw_ptr` provides use-after-free protection.
 
 ```cpp
-// ✅ CORRECT
-ThirdPartyExtractor* third_party_extractor_ = nullptr;  // not owned
+// ✅ CORRECT - raw_ptr with ownership comment
+raw_ptr<ThirdPartyExtractor> third_party_extractor_ = nullptr;  // not owned
 ```
 
 ### ✅ Prefer unique_ptr Over new/delete
@@ -109,7 +109,7 @@ void Init() {
 
 ### ❌ Don't Take Ownership of Unowned Resources
 
-If a class doesn't own a resource, don't create ownership wrappers for it. This is a common source of crashes (see also architecture.md on shared_ptr misuse).
+If a class doesn't own a resource, don't create ownership wrappers for it. This is a common source of crashes (see also architecture.md — `std::shared_ptr` is banned entirely in Chromium).
 
 ---
 

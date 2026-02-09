@@ -4,7 +4,7 @@
 
 **Code in `components/` must never use `g_browser_process` or depend on `brave/browser/`.**
 
-This is a Chromium layering violation. Components are lower-level and must not reference browser-layer code. Fix by passing dependencies via injection (constructor params, `Init()` methods, callbacks).
+This is a Chromium layering violation. Components are lower-level and must not reference browser-layer code. Fix by passing dependencies via injection (constructor params, `Init()` methods, callbacks). See the [Chromium Browser Components Cookbook](https://www.chromium.org/developers/design-documents/cookbook/) for the authoritative reference on component architecture.
 
 **BAD:**
 ```cpp
@@ -32,6 +32,41 @@ Similarly, code in `components/safe_browsing/` cannot have `brave/browser/` deps
 - Never use `Profile` in components - pass `PrefService` instead (use `user_prefs::UserPrefs::Get(browser_context)`)
 - Never include `brave/browser/` or `chrome/browser/` from `components/`
 - Use `BrowserContext` instead of `Profile` in components
+- Components may depend on low-level modules (`//base`, `//net`, potentially `//content`)
+- Component dependencies must form a tree — no circular dependencies between `//components/`
+
+### Dependency Breaking Patterns
+
+When extracting code into components, use these patterns to break dependencies on the browser layer:
+
+**Dependency Inversion (primary pattern):** Define a delegate/client interface in the component that the embedder (browser layer) fulfills.
+
+```cpp
+// ✅ In components/ - define the interface
+class AutofillManagerDelegate {
+ public:
+  virtual PrefService* GetPrefs() = 0;
+  virtual ~AutofillManagerDelegate() = default;
+};
+
+// ✅ In browser/ - implement the interface
+class ChromeAutofillManagerDelegate : public AutofillManagerDelegate {
+  PrefService* GetPrefs() override { return profile_->GetPrefs(); }
+};
+```
+
+**Pass Fundamental Objects, Not "Bags of Stuff":** Don't pass aggregate objects like `Profile` — extract and pass only the specific objects needed (e.g., `PrefService*`, `SequencedTaskRunner`).
+
+```cpp
+// ❌ WRONG - passing aggregate "bag of stuff"
+explicit MyService(Profile* profile);
+
+// ✅ CORRECT - pass only what's needed
+MyService(PrefService* prefs,
+          scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
+```
+
+**Verify with `checkdeps`:** Use `tools/checkdeps/checkdeps.py` to verify component DEPS are enforced correctly.
 
 ---
 
@@ -61,27 +96,43 @@ if (rewards_service) {  // Returns null when disabled
 
 ---
 
-## ❌ Don't Misuse shared_ptr for Unowned Memory
+## ❌ `std::shared_ptr` Is Banned - Use Chromium Ownership Primitives
 
-**Don't use `shared_ptr` to take ownership of something you don't own.**
+**`std::shared_ptr` is banned in Chromium code.** Do not use it for any purpose. See the [Chromium Smart Pointer Guidelines](https://www.chromium.org/developers/smart-pointer-guidelines/#when-do-we-use-each-smart-pointer) for the authoritative reference.
 
-Using `shared_ptr` on memory owned by another class causes crashes when the `shared_ptr` frees memory that is still referenced elsewhere. Avoid shared pointers unless there is a strong reason for shared ownership.
+Use Chromium's ownership primitives instead:
+
+| Ownership Model | Smart Pointer to Use |
+|---|---|
+| Singly-owned objects | `std::unique_ptr<>` |
+| Non-owned objects | Raw pointers (`raw_ptr<T>`) or `base::WeakPtr<>` |
+| Ref-counted objects (avoid if possible) | `base::RefCounted` / `scoped_refptr<>` |
+
+**Key rules:**
+- Prefer `std::unique_ptr<>` — it is the most common and correct smart pointer in Chromium
+- Avoid reference counting when possible — it makes ownership and destruction order hard to reason about. Prefer restricting each class to one thread and using `PostTask()` for cross-thread work
+- **Never pass or return smart pointers by const reference** — pass `std::unique_ptr<>` by value (with `std::move()`) to transfer ownership, or use raw pointers for non-owned references
+- For objects you don't own, use `raw_ptr<T>` (with `// not owned` comment) or `base::WeakPtr<>` for pointers that may outlive the target
 
 **BAD:**
 ```cpp
-// ❌ WRONG - taking ownership of an unowned resource
-void Init(network::ResourceRequest& request) {
-  auto shared_request = std::make_shared<network::ResourceRequest>(request);
-  // shared_request will free memory that may still be in use!
-}
+// ❌ WRONG - shared_ptr is banned
+auto shared_request = std::make_shared<network::ResourceRequest>(request);
+
+// ❌ WRONG - passing smart pointer by const reference
+void Process(const std::unique_ptr<Bar>& bar);
 ```
 
 **GOOD:**
 ```cpp
-// ✅ CORRECT - pass by reference or raw pointer for unowned resources
-void Init(const network::ResourceRequest& request) {
-  // Use the request directly, don't take ownership
-}
+// ✅ CORRECT - unique_ptr for owned objects
+auto request = std::make_unique<network::ResourceRequest>();
+
+// ✅ CORRECT - raw pointer for non-owned references
+void Process(Bar* bar);  // non-owning, caller retains ownership
+
+// ✅ CORRECT - unique_ptr by value to transfer ownership
+void TakeOwnership(std::unique_ptr<Bar> bar);
 ```
 
 ---

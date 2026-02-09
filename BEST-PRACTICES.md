@@ -37,5 +37,7 @@ Before writing async tests, verify:
 ## References
 
 - [Chromium C++ Testing Best Practices](https://www.chromium.org/chromium-os/developer-library/guides/testing/cpp-writing-tests/)
+- [Chromium Smart Pointer Guidelines](https://www.chromium.org/developers/smart-pointer-guidelines/) - Authoritative reference on ownership, `unique_ptr`, `scoped_refptr`, `WeakPtr`, and the `shared_ptr` ban
+- [Chromium Browser Components Cookbook](https://www.chromium.org/developers/design-documents/cookbook/) - Authoritative reference on component architecture, layering, dependency inversion, and componentization patterns
 - [Progress Log](./progress.txt) - Real examples from fixing intermittent tests
 - [Agent Instructions](./CLAUDE.md) - Full workflow and testing requirements
