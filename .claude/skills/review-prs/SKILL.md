@@ -1,7 +1,7 @@
 ---
 name: review-prs
 description: "Review recent PRs in brave/brave-core for best practices violations. Supports state filter (open/closed/all). Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
-argument-hint: "[days] [open|closed|all]"
+argument-hint: "[days|page<N>] [open|closed|all]"
 ---
 
 # Review PRs for Best Practices
@@ -12,10 +12,13 @@ Scan recent open PRs in `brave/brave-core` for violations of documented best pra
 
 ## The Job
 
-When invoked with `/review-prs [days] [open|closed|all]`:
+When invoked with `/review-prs [days|page<N>] [open|closed|all]`:
 
-1. **Parse arguments** - default 5 days lookback, or use provided `[days]`. Second argument controls PR state filter: `open` (default), `closed`, or `all`
-2. **Fetch non-draft PRs** matching the state filter, created within the lookback period
+1. **Parse arguments** - Two modes:
+   - **Days mode** (default): `[days]` sets lookback period (default 5 days). Fetches PRs created within that period.
+   - **Page mode**: `page<N>` (e.g., `page1`, `page2`, `page3`) selects a slice of PRs by position. Page 1 = PRs 1-20, page 2 = PRs 21-40, etc. This mirrors the GitHub PR list pagination. No date filtering in page mode.
+   - Second argument controls PR state filter: `open` (default), `closed`, or `all`
+2. **Fetch non-draft PRs** matching the state filter, using date cutoff (days mode) or positional slice (page mode)
 3. **Skip PRs** that are drafts, uplifts, CI runs, l10n updates, or dependency bumps
 4. **Skip already-reviewed PRs** where the configured git user posted a review and no new pushes since
 5. **Review each PR** one at a time using a Task subagent per PR (see Subagent Review Workflow below)
@@ -26,14 +29,26 @@ When invoked with `/review-prs [days] [open|closed|all]`:
 
 ## Fetching and Filtering PRs
 
+**Days mode** (default):
 ```bash
 # Use the parsed state argument (open, closed, or all). Default: open
 gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft --limit 200 > /tmp/brave_prs.json
 ```
 
+**Page mode** (`page<N>`):
+```bash
+# Fetch exactly 20 PRs for the requested page. Page 1 = first 20, page 2 = next 20, etc.
+# gh pr list doesn't support offset, so fetch enough PRs to cover the page and slice in jq.
+LIMIT=$((PAGE * 20))
+gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft --limit $LIMIT > /tmp/brave_prs_all.json
+# Slice to just the requested page (0-indexed: page 1 = items 0-19, page 2 = items 20-39)
+START=$(((PAGE - 1) * 20))
+jq ".[$START:$START+20]" /tmp/brave_prs_all.json > /tmp/brave_prs.json
+```
+
 **Skip if:**
 - `isDraft` is true
-- Created before lookback cutoff
+- Created before lookback cutoff (days mode only — page mode has no date filter)
 - Title starts with `CI run for` or `Backport` or `Update l10n`
 - Title contains `uplift to`
 - Title contains `Just to test CI` or similar CI test patterns
