@@ -91,10 +91,12 @@ Also flag bugs introduced by the change (e.g., missing string separators, duplic
 ## Comment Style
 
 - **Short and succinct** - 1-3 sentences max
-- **Non-blocking tone** - use "nit:" prefix, "worth considering", "not blocking either way"
 - **Targeted** - reference specific files and code
 - **Acknowledge context** - if upstream does the same thing, say so
 - **No lecturing** - state the issue briefly
+- **Match tone to severity:**
+  - **Genuine nits** (style, naming, minor cleanup): use "nit:" prefix, "worth considering", "not blocking either way"
+  - **Substantive issues** (test reliability, correctness, banned APIs, potential bugs): be direct and clear about why it needs to change. Do NOT use "nit:" for these — a `RunUntilIdle()` violation or a banned API usage is not a nit, it's a real problem.
 
 ---
 
@@ -103,8 +105,10 @@ Also flag bugs introduced by the change (e.g., missing string separators, duplic
 For each violation, present the draft and ask:
 
 > **PR #12345** - [violation description]
-> Draft: `nit: [short comment]`
+> Draft: `[short comment]`
 > Post this comment?
+
+Use "nit:" prefix only for genuinely minor/stylistic issues, not for substantive concerns.
 
 Only post after explicit user approval via:
 ```bash
