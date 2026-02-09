@@ -10,6 +10,16 @@ MAX_ITERATIONS=10
 if [[ $# -gt 0 ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
   MAX_ITERATIONS="$1"
 fi
+
+# Launch inside tmux if not already in a tmux session
+TMUX_SESSION="brave-bot"
+if [ -z "$TMUX" ]; then
+  tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
+  echo "Starting in tmux session '$TMUX_SESSION'..."
+  echo "To monitor (read-only): tmux attach -t $TMUX_SESSION -r"
+  exec tmux new-session -s "$TMUX_SESSION" "$0" "$@"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRD_FILE="$SCRIPT_DIR/prd.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
@@ -145,10 +155,10 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   cd "$BRAVE_ROOT"
 
-  # Pre-generate session ID so we can print the resume command before Claude starts
+  # Pre-generate session ID for Claude's internal session management
   SESSION_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
   echo ""
-  echo "To monitor this session (read-only): claude --resume $SESSION_ID"
+  echo "To monitor this session (read-only): tmux attach -t $TMUX_SESSION -r"
   echo ""
 
   # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
@@ -157,7 +167,7 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # Capture output to temp file and log file
   claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json --session-id "$SESSION_ID" "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
 
-  echo "To continue this session: claude --resume $SESSION_ID"
+  echo "Session ID: $SESSION_ID"
 
   # Check for completion signal (only in assistant text responses, not tool results)
   # Use jq to properly filter for assistant messages with text content to avoid false positives from reading CLAUDE.md
