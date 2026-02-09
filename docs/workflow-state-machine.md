@@ -85,6 +85,7 @@ You work on the NEXT ACTIVE STORY by priority number, REGARDLESS of its status. 
      - Once a story is resolved from the entry:
        - If the story's **ID** is NOT in `storiesCheckedThisRun`:
          - If the story's status is NOT "merged", "skipped", or "invalid":
+           - **Remove this entry from the `prioritizeTask` array** in run-state.json (so it won't be re-prioritized in future iterations)
            - **SELECT THIS STORY** and skip Steps 2-4 below (go directly to Step 5)
      - If the entry does not resolve to any story in prd.json, skip it and continue to the next entry
      - If all entries in `prioritizeTask` have been checked or are completed, continue to Step 2
