@@ -21,6 +21,7 @@ When the user invokes this skill:
    - Commit with the message **WITHOUT** the Co-Authored-By line
    - **DO NOT** use any flags like `--no-verify`, `--no-gpg-sign`, etc.
 5. Run `git status` to verify all commits succeeded
+6. If the user passed `push` as an argument (e.g., `/commit push`), run `git push` after all commits succeed
 
 ---
 
