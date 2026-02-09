@@ -1,7 +1,7 @@
 ---
 name: review-prs
-description: "Review recent open PRs in brave/brave-core for best practices violations. Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
-argument-hint: "[days]"
+description: "Review recent PRs in brave/brave-core for best practices violations. Supports state filter (open/closed/all). Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
+argument-hint: "[days] [open|closed|all]"
 ---
 
 # Review PRs for Best Practices
@@ -12,10 +12,10 @@ Scan recent open PRs in `brave/brave-core` for violations of documented best pra
 
 ## The Job
 
-When invoked with `/review-prs [days]`:
+When invoked with `/review-prs [days] [open|closed|all]`:
 
-1. **Parse arguments** - default 5 days lookback, or use provided `[days]`
-2. **Fetch open non-draft PRs** created within the lookback period
+1. **Parse arguments** - default 5 days lookback, or use provided `[days]`. Second argument controls PR state filter: `open` (default), `closed`, or `all`
+2. **Fetch non-draft PRs** matching the state filter, created within the lookback period
 3. **Skip PRs** that are drafts, uplifts, CI runs, l10n updates, or dependency bumps
 4. **Skip already-reviewed PRs** where the configured git user posted a review and no new pushes since
 5. **Read all best practices docs** (see list below)
@@ -28,7 +28,8 @@ When invoked with `/review-prs [days]`:
 ## Fetching and Filtering PRs
 
 ```bash
-gh pr list --repo brave/brave-core --state open --json number,title,createdAt,author,isDraft --limit 200 > /tmp/brave_prs.json
+# Use the parsed state argument (open, closed, or all). Default: open
+gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft --limit 200 > /tmp/brave_prs.json
 ```
 
 **Skip if:**
@@ -120,3 +121,29 @@ Only post after explicit user approval via:
 ```bash
 gh pr review --repo brave/brave-core {number} --comment --body "comment text"
 ```
+
+---
+
+## Closed/Merged PR Workflow
+
+When reviewing closed or merged PRs and a violation is found:
+
+1. **Present the finding** to the user as usual (draft comment + ask for approval)
+2. **If approved**, post a comment on the closed PR noting the issue
+3. **Create a follow-up issue** in `brave/brave-core` to track the fix:
+   ```bash
+   gh issue create --repo brave/brave-core --title "Fix: <brief description of violation>" --body "$(cat <<'EOF'
+   Found during post-merge review of #<PR_NUMBER>.
+
+   <description of the violation and what needs to change>
+
+   See: https://github.com/brave/brave-core/pull/<PR_NUMBER>
+   EOF
+   )"
+   ```
+4. **Reference the new issue** back in the PR comment so the PR author can find it:
+   ```bash
+   gh pr comment --repo brave/brave-core <PR_NUMBER> --body "Created follow-up issue #<ISSUE_NUMBER> to track this."
+   ```
+
+This ensures violations on already-merged code don't get lost — they get tracked as actionable issues.
