@@ -84,17 +84,17 @@ This updates the existing PRD with any new issues that aren't already tracked.
 
 ### What the scripts do:
 
-- Extract test names from issue titles
-- **Determine test location at generation time** by running `git grep` to find if the test is in `src/brave` or `src` (Chromium)
-- Generate proper user story structure with:
-  - Sequential US-XXX IDs
-  - `testLocation` field: 'brave', 'chromium', or 'unknown'
-  - Correct test binary based on location (`brave_browser_tests` for Brave, `browser_tests` for Chromium)
-  - Standard acceptance criteria including BEST-PRACTICES.md read
-  - Correct priority ordering
+- **Detect issue type**: Issues with "Test failure:" title prefix or `bot/type/test` label are treated as test issues; all others get generic stories
+- **For test issues**:
+  - Extract test names from issue titles
+  - Determine test location at generation time by running `git grep` to find if the test is in `src/brave` or `src` (Chromium)
+  - Generate test-specific acceptance criteria with correct test binary and filter
+  - Include `testType`, `testLocation`, and `testFilter` fields
+- **For generic issues**:
+  - Use the issue title directly as the story title
+  - Generate standard acceptance criteria (fetch issue, analyze, implement, build, format, presubmit, gn_check, find and run relevant tests)
+- Generate proper user story structure with sequential US-XXX IDs and priority ordering
 - Skip issues already in the PRD (update script only)
-
-**Key improvement:** Test location is determined DURING prd.json generation, so acceptance criteria contain the correct test command directly (no conditional `[For Brave tests only]` annotations).
 
 ---
 
@@ -171,7 +171,7 @@ Successfully fetched 15 open issues from the `bot/type/test` label and added 7 m
 ## Important Notes
 
 - Always preserve the exact structure of existing user stories
-- All new stories should include the BEST-PRACTICES.md read step
+- Test issues include the BEST-PRACTICES.md read step in acceptance criteria
 - Test type determination is critical for generating correct test commands
 - Priority numbers must be sequential and not conflict with existing ones
 - All new stories start in "pending" status
