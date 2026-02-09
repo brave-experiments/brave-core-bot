@@ -1,12 +1,12 @@
 ---
-name: add-intermittent-tests
-description: "Fetch intermittent test failures from brave/brave-browser GitHub issues with bot/type/test label and add missing ones to the Brave Core PRD. Triggers on: update prd with tests, add intermittent tests, sync test issues, fetch bot/type/test issues."
-allowed-tools: Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(git config:*), Bash(jq:*), Read, Grep, Glob
+name: add-backlog-to-prd
+description: "Fetch open issues from brave/brave-browser (by label or assignee) and add missing ones to the Brave Core PRD backlog. Triggers on: add backlog to prd, update prd with issues, sync backlog, fetch issues for prd, add intermittent tests."
+allowed-tools: Bash, Read, Grep, Glob
 ---
 
-# PRD Brave Core - Add Intermittent Tests
+# PRD Brave Core - Add Backlog Issues
 
-Automatically fetch open test failure issues from the brave/brave-browser repository and add any missing ones to the Brave Core Bot PRD.
+Automatically fetch open issues from the brave/brave-browser repository and add any missing ones to the Brave Core Bot PRD.
 
 ---
 
@@ -57,7 +57,7 @@ jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' <(gh issue l
 
 ## Step 3: Process Issues and Update PRD
 
-Two helper scripts are available in `.claude/skills/add-intermittent-tests/`:
+Two helper scripts are available in `.claude/skills/add-backlog-to-prd/`:
 
 ### If PRD doesn't exist yet:
 
@@ -65,7 +65,7 @@ Two helper scripts are available in `.claude/skills/add-intermittent-tests/`:
 jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
   <(gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100) \
   <(gh issue list --repo brave/brave-browser --assignee "$(git config user.name)" --state open --json number,title,url,labels --limit 100) | \
-  .claude/skills/add-intermittent-tests/create_prd_from_issues.py > ./prd.json
+  .claude/skills/add-backlog-to-prd/create_prd_from_issues.py > ./prd.json
 ```
 
 This creates a new PRD with all the open test issues.
@@ -76,7 +76,7 @@ This creates a new PRD with all the open test issues.
 jq -s '[.[][] | {number, title, url, labels}] | unique_by(.number)' \
   <(gh issue list --repo brave/brave-browser --label "bot/type/test" --state open --json number,title,url,labels --limit 100) \
   <(gh issue list --repo brave/brave-browser --assignee "$(git config user.name)" --state open --json number,title,url,labels --limit 100) | \
-  .claude/skills/add-intermittent-tests/update_prd_with_issues.py ./prd.json > /tmp/prd_updated.json && \
+  .claude/skills/add-backlog-to-prd/update_prd_with_issues.py ./prd.json > /tmp/prd_updated.json && \
   mv /tmp/prd_updated.json ./prd.json
 ```
 
@@ -98,7 +98,7 @@ This updates the existing PRD with any new issues that aren't already tracked.
 
 ---
 
-## Step 3: Provide Recap
+## Step 4: Provide Recap
 
 Generate a comprehensive recap showing:
 
