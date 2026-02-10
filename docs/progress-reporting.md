@@ -1,6 +1,8 @@
 # Progress Reporting
 
-APPEND to ./brave-core-bot/progress.txt (never replace, always append):
+APPEND to ./brave-core-bot/progress.txt (never replace, always append).
+
+**IMPORTANT:** Every progress entry MUST include a `Resume command` line with the claude resume command for the current session. Use the format: `claude -r <session-id>` where `<session-id>` is the current conversation's session ID. This allows easy resumption of the agent.
 
 ## For status: "pending" → "committed"
 
@@ -19,6 +21,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
   - Patterns discovered
   - Gotchas encountered
   - Useful context
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -29,6 +32,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - Pushed branch: [branch-name]
 - Created PR: #[pr-number]
 - PR URL: [url]
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -45,6 +49,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - Commit strategy: [Amended last commit / Created new commit]
 - Posted reply to PR #[pr-number] explaining fixes
 - Pushed changes to PR #[pr-number]
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -59,6 +64,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - Time waiting: [X hours/days since last push]
 - Reviewer reminder: [Sent ping to @reviewer1, @reviewer2 / Not needed yet (< 24hrs) / Already pinged recently / No reviewers assigned]
 - Action: Waiting for reviewer feedback - ending iteration
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -69,6 +75,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - PR #[pr-number] merged successfully
 - Final approvals: [list of approvers]
 - Post-merge monitoring initialized: First check in 1 day
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -89,6 +96,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - [If no: No follow-up action required]
 - Next check scheduled: [timestamp] ([interval] from now)
 - [Or if final: "Post-merge monitoring complete - reached final state"]
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -101,6 +109,7 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - **Resolution:** [What's blocking it, or why it's deferred]
 - **GitHub Notification:** [Posted comment on issue #XXXX / No issue referenced / Comment already exists]
 - **Note:** [Any additional context for future reference]
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
 
@@ -112,5 +121,6 @@ APPEND to ./brave-core-bot/progress.txt (never replace, always append):
 - **Analysis:** [What you discovered about why this story is invalid]
 - **GitHub Notification:** [Posted comment on issue #XXXX / No issue referenced / Comment already exists]
 - **Note:** [Any additional context for future reference]
+- **Resume command:** `claude -r <session-id>`
 ---
 ```
