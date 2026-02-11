@@ -235,8 +235,9 @@ Only read the docs relevant to your story — don't load all of them every time.
       - **Architecture changes**: `docs/best-practices/architecture.md`
       - **Build file changes**: `docs/best-practices/build-system.md`
       - **chromium_src changes**: `docs/best-practices/chromium-src-overrides.md`
-   3. Compare each change against the documented rules
-   4. Return a list of any violations found, with the specific rule and the offending code
+   3. For every new symbol (function, struct, class, constant, variable) introduced in the diff, check it against each relevant rule in the best practices docs — don't skim, check each symbol individually
+   4. For every modification to existing code, verify the change is directly necessary for the fix
+   5. Return a list of any violations found, with the specific rule and the offending code
 
    **If the subagent returns violations:** Fix them before committing.
    **If the subagent returns no violations:** Proceed to commit.
