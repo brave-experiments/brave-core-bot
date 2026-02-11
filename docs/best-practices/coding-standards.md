@@ -1516,6 +1516,31 @@ std::optional<ChainMetadata> chain_metadata_;
 
 ---
 
+## ✅ Comments Must Make Sense to Future Readers of the Codebase
+
+**Every comment should be meaningful to someone reading the code for the first time, with no knowledge of the PR or change history.** Do not add comments that reference removed code, prior behavior, or the change itself. Comments are part of the codebase, not a changelog.
+
+```cpp
+// ❌ WRONG - references removed code / change history
+// Removed the old caching logic that was causing race conditions.
+// Previously this used a raw pointer, now using unique_ptr.
+// Changed from std::map to base::flat_map per review feedback.
+
+// ❌ WRONG - describes what was removed rather than what exists
+// The timeout parameter was removed since it's no longer needed.
+int ProcessRequest(const GURL& url);
+
+// ✅ CORRECT - describes the code as it is now
+// Processes the request synchronously. Returns the HTTP status code.
+int ProcessRequest(const GURL& url);
+
+// ✅ CORRECT - explains current behavior, not history
+// Uses base::flat_map for better cache locality with small key sets.
+base::flat_map<std::string, int> lookup_;
+```
+
+---
+
 ## ✅ Document All New Classes, Public Methods, and Fields
 
 **All new classes, public methods, and non-obvious fields must have documentation comments.** For IDL types, document dictionaries and fields.
