@@ -1,15 +1,21 @@
 #!/bin/bash
 # Long-running AI agent loop
-# Usage: ./run.sh [max_iterations]
+# Usage: ./run.sh [max_iterations] [tui]
 
 set -e
 
 # Parse arguments
 MAX_ITERATIONS=10
 
-if [[ $# -gt 0 ]] && [[ "$1" =~ ^[0-9]+$ ]]; then
-  MAX_ITERATIONS="$1"
-fi
+USE_TUI=false
+
+for arg in "$@"; do
+  if [[ "$arg" =~ ^[0-9]+$ ]]; then
+    MAX_ITERATIONS="$arg"
+  elif [[ "$arg" == "tui" ]]; then
+    USE_TUI=true
+  fi
+done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PRD_FILE="$SCRIPT_DIR/prd.json"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
@@ -151,17 +157,29 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   echo "To monitor this session (read-only): claude --resume $SESSION_ID"
   echo ""
 
-  # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
+  # Claude Code: use --dangerously-skip-permissions for autonomous operation
   # Always use opus model (which has extended thinking built-in)
-  # Use stream-json output format with verbose flag to capture detailed execution logs
-  # Capture output to temp file and log file
-  claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json --session-id "$SESSION_ID" "Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm." 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+  # In print mode: use stream-json output format with verbose flag to capture detailed execution logs
+  # In TUI mode: omit --print to show the interactive TUI
+  CLAUDE_PROMPT="Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm."
+
+  if [ "$USE_TUI" = true ]; then
+    claude --dangerously-skip-permissions --model opus --session-id "$SESSION_ID" "$CLAUDE_PROMPT" 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+  else
+    claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json --session-id "$SESSION_ID" "$CLAUDE_PROMPT" 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+  fi
 
   echo "To continue this session: claude --resume $SESSION_ID"
 
-  # Check for completion signal (only in assistant text responses, not tool results)
-  # Use jq to properly filter for assistant messages with text content to avoid false positives from reading CLAUDE.md
-  if jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$TEMP_OUTPUT" 2>/dev/null | grep -q "<promise>COMPLETE</promise>"; then
+  # Check for completion signal
+  # In print mode: use jq to properly filter for assistant messages with text content to avoid false positives
+  # In TUI mode: simple grep on the output
+  if [ "$USE_TUI" = true ]; then
+    COMPLETION_CHECK=$(grep -c "<promise>COMPLETE</promise>" "$TEMP_OUTPUT" 2>/dev/null || echo "0")
+  else
+    COMPLETION_CHECK=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$TEMP_OUTPUT" 2>/dev/null | grep -c "<promise>COMPLETE</promise>" || echo "0")
+  fi
+  if [ "$COMPLETION_CHECK" -gt 0 ]; then
     echo ""
     echo "Agent completed all tasks!"
     echo "Completed at work iteration $work_iteration (loop $loop_count of $MAX_ITERATIONS)"
