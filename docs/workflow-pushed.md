@@ -262,7 +262,8 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 
 - Make the requested code changes
 - Apply the same coding standards as initial development
-- Keep changes focused on the feedback
+- **Keep changes strictly focused on the feedback** — only change what the reviewer asked for, nothing else
+- Do NOT rename methods, move code, or refactor beyond what the reviewer specifically requested
 - **Note**: Changes may be needed in production code, test code, or both - analyze the feedback to determine where fixes are required
 
 ### 6. Run ALL Acceptance Criteria Tests ⚠️ CRITICAL
@@ -274,18 +275,11 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 
 ### 7. If ALL Tests Pass
 
-- **Check if branch has existing commits:**
-  ```bash
-  # Check if there are commits on this branch beyond master
-  git log master..HEAD --oneline
-  ```
-- **If there ARE existing commits on the branch:**
-  - Amend the last commit: `git amendlast` (updates the previous commit with review changes)
-  - Force push: `git push -f` (updates PR with amended commit)
-- **If there are NO commits yet (empty branch):**
-  - Create a new commit addressing the review comments
-  - Use clear commit message describing what feedback was addressed
-  - Push normally: `git push` (updates existing PR)
+- **ALWAYS create a NEW separate commit** for review feedback changes (never amend existing commits)
+  - Use a clear commit message describing what feedback was addressed (e.g., "Address review: remove unnecessary thread hop")
+  - Push: `git push`
+  - Separate commits let reviewers see exactly what changed in response to their feedback
+  - Without commit history, it's easy to miss unrelated changes that may have been introduced
 - Post a reply to the review comment on GitHub using gh CLI:
   ```bash
   gh pr comment <pr-number> --body "Fixed: [brief description of what was changed]"

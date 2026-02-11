@@ -156,6 +156,16 @@ Only read the docs relevant to your story — don't load all of them every time.
 
    Analyze the failure carefully to determine where the actual problem lies. Don't assume the production code is always wrong - tests can have bugs too.
 
+   **CRITICAL: Minimal Change Scope**
+
+   Only make changes that are **directly necessary** to fix the issue. Do NOT:
+   - **Rename existing methods, variables, or classes** unless the rename itself is the fix
+   - **Move methods or functions** between files/classes/threads unless directly required — if a method already handles cross-thread calls properly, don't move it
+   - **Refactor surrounding code** — "cleanup" changes clutter the diff and make review harder
+   - **Add unnecessary abstractions, helpers, or wrappers** around existing working code
+
+   Every changed line must be **directly justified** by the fix. If a reviewer would ask "why was this changed?" and the answer isn't the fix itself, don't change it. Unnecessary changes obscure the important ones and make it harder to verify correctness.
+
 6. **CRITICAL**: Run **ALL** acceptance criteria tests - **YOU MUST NOT SKIP ANY**
 
    See [testing-requirements.md](./testing-requirements.md) for complete test execution requirements.
