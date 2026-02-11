@@ -164,19 +164,17 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   CLAUDE_PROMPT="Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm."
 
   if [ "$USE_TUI" = true ]; then
-    claude --dangerously-skip-permissions --model opus --session-id "$SESSION_ID" "$CLAUDE_PROMPT" 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+    # TUI mode: let Claude own the terminal directly (no piping)
+    claude --dangerously-skip-permissions --model opus --session-id "$SESSION_ID" "$CLAUDE_PROMPT" || true
   else
     claude --dangerously-skip-permissions --print --model opus --verbose --output-format stream-json --session-id "$SESSION_ID" "$CLAUDE_PROMPT" 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
   fi
 
   echo "To continue this session: claude --resume $SESSION_ID"
 
-  # Check for completion signal
-  # In print mode: use jq to properly filter for assistant messages with text content to avoid false positives
-  # In TUI mode: simple grep on the output
-  if [ "$USE_TUI" = true ]; then
-    COMPLETION_CHECK=$(grep -c "<promise>COMPLETE</promise>" "$TEMP_OUTPUT" 2>/dev/null || echo "0")
-  else
+  # Check for completion signal (print mode only — TUI mode skips this since user is watching)
+  COMPLETION_CHECK=0
+  if [ "$USE_TUI" != true ]; then
     COMPLETION_CHECK=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$TEMP_OUTPUT" 2>/dev/null | grep -c "<promise>COMPLETE</promise>" || echo "0")
   fi
   if [ "$COMPLETION_CHECK" -gt 0 ]; then
