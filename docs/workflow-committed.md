@@ -59,6 +59,7 @@ EOF
 
    **IMPORTANT**:
    - Fill in actual test commands and results from acceptance criteria
+   - If `.ts`/`.tsx`/`.js` files were changed, add checkboxes for `npm run test-unit` and `npm run build-storybook` to the test plan
    - Keep the last checkbox "CI passes cleanly" unchecked
    - Do NOT add "Generated with Claude Code" or similar attribution
    - Capture the PR number from the output
