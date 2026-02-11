@@ -50,8 +50,6 @@
 - [x] Ran npm run gn_check - passed
 - [x] Ran npm run build - passed
 - [x] Ran npm run test -- [test-name] - passed [N/N times]
-- [x] Ran npm run test-unit - passed (if .ts/.tsx/.js changed)
-- [x] Ran npm run build-storybook - passed (if .ts/.tsx/.js changed)
 - [ ] CI passes cleanly
 EOF
 )"
