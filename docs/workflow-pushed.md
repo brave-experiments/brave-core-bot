@@ -180,6 +180,8 @@ Before merging, verify ALL of the following:
 
 **IMPLEMENTATION SUB-CYCLE** (same rigor as initial development):
 
+**CRITICAL: Only make changes the reviewer explicitly asks for.** Do NOT make any additional changes — no "while I'm here" cleanups, no extra refactoring, no renaming things the reviewer didn't mention. If the reviewer asks you to fix one thing, fix exactly that one thing and nothing else. Every extra change risks introducing issues and makes the reviewer's job harder.
+
 When review comments need to be addressed, you enter a full development cycle with FULL CONTEXT:
 
 ### 1. Gather Complete Context (CRITICAL - same context as original implementation)
