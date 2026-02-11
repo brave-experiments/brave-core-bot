@@ -261,6 +261,9 @@ Only read the docs relevant to your story — don't load all of them every time.
    npm run presubmit   # Run presubmit checks
    npm run gn_check    # Verify GN configuration
    npm run build       # Verify build succeeds
+   # If any .ts/.tsx/.js files were changed:
+   npm run test-unit        # Run front-end unit tests
+   npm run build-storybook  # Verify Storybook builds
    ```
 
    **If presubmit or any verification fails:**
@@ -274,7 +277,8 @@ Only read the docs relevant to your story — don't load all of them every time.
    2. `npm run presubmit`
    3. `npm run gn_check`
    4. `npm run build`
-   5. ALL acceptance criteria tests
+   5. If any `.ts`/`.tsx`/`.js` files changed: `npm run test-unit` and `npm run build-storybook`
+   6. ALL acceptance criteria tests
 
    This ensures the final committed state is fully verified. Do NOT create a PR until all checks pass on the final committed state.
 

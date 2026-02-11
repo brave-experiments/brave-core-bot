@@ -96,6 +96,20 @@ Bash({
 })
 ```
 
+## Front-End Testing Requirements
+
+**When changes include `.ts`, `.tsx`, or `.js` files, you MUST run:**
+
+```bash
+cd [workingDirectory from prd.json config]
+npm run test-unit      # Run front-end unit tests
+npm run build-storybook  # Verify Storybook builds successfully
+```
+
+Both must pass before committing. These are in addition to any C++ tests or other acceptance criteria tests.
+
+---
+
 ## C++ Testing Best Practices (Chromium/Brave)
 
 **CRITICAL: Follow these guidelines when writing C++ tests for Chromium/Brave codebase.**
@@ -345,6 +359,9 @@ npm run format      # Check/fix formatting
 npm run presubmit   # Run presubmit checks
 npm run gn_check    # Verify GN configuration
 npm run build       # Verify build succeeds
+# If any .ts/.tsx/.js files were changed:
+npm run test-unit        # Run front-end unit tests
+npm run build-storybook  # Verify Storybook builds
 ```
 
 **If presubmit fails:**

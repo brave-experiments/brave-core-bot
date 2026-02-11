@@ -115,6 +115,14 @@ For a Chromium test (found in `../src/chrome/browser/...`):
 - [ ] Run `npm run test -- browser_tests --gtest_filter=TestName` (must pass 5 consecutive times)
 ```
 
+For a front-end change (`.ts`/`.tsx`/`.js` files):
+```
+- [ ] Implement the fix
+- [ ] Run `npm run build` from src/brave (must pass)
+- [ ] Run `npm run test-unit` (must pass)
+- [ ] Run `npm run build-storybook` (must pass)
+```
+
 ### 4. Functional Requirements
 Numbered list of specific functionalities:
 - "FR-1: The system must allow users to..."
