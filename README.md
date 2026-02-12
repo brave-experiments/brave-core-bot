@@ -133,20 +133,28 @@ This will:
 - Display next steps
 
 **Installed Skills:**
-- `/brave_core_prd` - Generate Product Requirements Documents
-- `/brave_core_prd_json` - Convert PRDs to prd.json format
-- `/prd_bc_add_intermittent_tests` - Fetch intermittent test issues from brave/brave-browser and add missing ones to PRD
+- `/prd` - Generate Product Requirements Documents
+- `/prd-json` - Convert PRDs to prd.json format
+- `/add-backlog-to-prd` - Fetch intermittent test issues from brave/brave-browser and add missing ones to PRD
+- `/prd-clean` - Archive merged/invalid stories from prd.json to prd.archived.json
+- `/commit` - Commit changes without Co-Authored-By attribution
+- `/review` - Review a bot-generated PR for quality and root cause analysis
+- `/review-prs` - Review recent PRs for best practices violations
+- `/check-upstream-flake` - Check if a failing test is a known upstream flake
+- `/update-best-practices` - Fetch and merge upstream Chromium guidelines
+- `/learnable-pattern-search` - Analyze PR review comments for learnable patterns
+- `/preflight` - Run all preflight checks before review
 
 ### 5. Create Your PRD
 
 You can create a PRD in two ways:
 
-**Option A: Use the `/brave_core_prd` skill** (recommended for new features)
+**Option A: Use the `/prd` skill** (recommended for new features)
 ```bash
 claude
-> /brave_core_prd
+> /prd
 ```
-Follow the prompts to generate a structured PRD, then use `/brave_core_prd_json` to convert it to `prd.json`.
+Follow the prompts to generate a structured PRD, then use `/prd-json` to convert it to `prd.json`.
 
 **Option B: Manually edit `prd.json`**
 
@@ -193,11 +201,11 @@ Example:
 
 ### Creating a PRD
 
-Use the `/brave_core_prd` skill in Claude Code to generate a structured PRD:
+Use the `/prd` skill in Claude Code to generate a structured PRD:
 
 ```bash
 claude
-> /brave_core_prd [describe your feature]
+> /prd [describe your feature]
 ```
 
 This will:
@@ -222,7 +230,7 @@ To automatically fetch open test failure issues from brave/brave-browser and add
 
 ```bash
 claude
-> /prd_bc_add_intermittent_tests
+> /add-backlog-to-prd
 ```
 
 This will:
@@ -232,6 +240,22 @@ This will:
 4. Provide a detailed recap of what was added
 
 **Note:** The skill will be available after restarting your Claude Code session following the setup.
+
+### Cleaning Up the PRD
+
+When the PRD accumulates many completed stories, archive them to keep it focused:
+
+```bash
+claude
+> /prd-clean
+```
+
+This runs a Python script that moves merged and invalid stories to `prd.archived.json` and prints a recap of what was archived vs. what remains active.
+
+You can also run it directly:
+```bash
+python3 .claude/skills/prd-clean/clean_prd.py ./prd.json
+```
 
 ## Usage
 
@@ -334,9 +358,9 @@ The included pre-commit hook blocks dependency file changes for the `netzenbot` 
 The bot uses conventional commit messages:
 ```
 feat: [Story ID] - [Story Title]
-
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
 ```
+
+**Important:** Commits must NOT include `Co-Authored-By` lines.
 
 ## Testing Philosophy
 
@@ -419,25 +443,55 @@ npm run sync -- --no-history
 ```
 brave-core-bot/
 ├── README.md              # This file
+├── CLAUDE.md              # Claude agent instructions
+├── BEST-PRACTICES.md      # Index of all best practices
 ├── STATE-MACHINE.md       # Detailed state machine documentation
+├── WORKFLOW.md            # Workflow documentation
 ├── SECURITY.md            # Security guidelines and best practices
+├── LICENSE                # MPL-2.0 license
 ├── setup.sh               # Setup script (installs hook, skills, checks config)
 ├── run.sh                 # Main entry point
-├── CLAUDE.md              # Claude agent instructions
-├── prd.json               # Product requirements (user stories)
-├── progress.txt           # Progress log
-├── .last-branch           # Tracks branch changes
+├── check-should-continue.sh  # Check if bot should continue iterating
+├── reset-run-state.sh     # Reset run state between runs
+├── prd.json               # Product requirements (gitignored)
+├── prd.example.json       # Example PRD template
+├── progress.txt           # Progress log (gitignored)
+├── run-state.json         # Run state tracking (gitignored)
 ├── .gitignore             # Git ignore rules
+├── .claude/
+│   └── skills/            # Claude Code skills (one directory per skill)
+│       ├── prd/           # PRD generation
+│       ├── prd-json/      # PRD to JSON converter
+│       ├── prd-clean/     # Archive merged/invalid stories (Python script)
+│       ├── add-backlog-to-prd/  # Fetch and add bot/type/test issues
+│       ├── commit/        # Commit without attribution
+│       ├── review/        # Review bot-generated PRs
+│       ├── review-prs/    # Review PRs for best practices
+│       ├── check-upstream-flake/  # Check upstream test flakiness
+│       ├── update-best-practices/ # Merge upstream Chromium guidelines
+│       ├── learnable-pattern-search/  # Analyze PR reviews for patterns
+│       ├── preflight/     # Run preflight checks
+│       └── ...
+├── docs/                  # Detailed workflow and reference docs
+│   ├── best-practices/    # Best practices sub-documents
+│   ├── workflow-state-machine.md
+│   ├── workflow-pending.md
+│   ├── workflow-committed.md
+│   ├── workflow-pushed.md
+│   ├── workflow-merged.md
+│   ├── testing-requirements.md
+│   ├── git-repository.md
+│   ├── progress-reporting.md
+│   ├── run-state-management.md
+│   └── learnable-patterns.md
 ├── hooks/
 │   └── pre-commit         # Git pre-commit hook (blocks dependency updates)
 ├── scripts/
+│   ├── check-upstream-flake.py  # Check LUCI Analysis for upstream flakes
 │   ├── fetch-issue.sh     # Fetch and display filtered GitHub issues
 │   ├── filter-issue-json.sh  # Filter GitHub issues to org members only
 │   └── filter-pr-reviews.sh  # Filter PR reviews to org members only
-├── skills/
-│   ├── brave_core_prd.md                   # PRD generation skill
-│   ├── brave_core_prd_json.md              # PRD to JSON converter skill
-│   └── prd_bc_add_intermittent_tests.md    # Fetch and add bot/type/test issues to PRD
+├── logs/                  # Bot run logs
 └── tests/
     ├── test-suite.sh      # Automated test suite
     └── README.md          # Test documentation

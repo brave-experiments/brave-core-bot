@@ -1,29 +1,29 @@
 ---
 name: commit
-description: "Commit changes without Co-Authored-By attribution. Creates logical, atomic commits. Use when the user wants to commit changes without Claude attribution. Triggers on: commit without attribution, commit no attribution, /commit."
+description: "Commit changes without Co-Authored-By attribution. Creates logical, atomic commits."
 ---
 
 # Commit Without Attribution
 
 Create git commits without the Co-Authored-By attribution line. Each commit should be a logical unit of work.
 
----
+## Current State
 
-## The Job
+- Branch: !`git branch --show-current`
+- Status: !`git status --short`
 
-When the user invokes this skill:
-1. Run `git status` to see what files are modified
-2. Run `git diff` to review the changes
-3. Identify logical units of work (may require multiple commits)
+## Steps
+
+1. If on `master`, create a new branch off of master before proceeding (use a descriptive branch name based on the changes).
+2. Run `git diff` to review the changes.
+3. Identify logical units of work (may require multiple commits).
 4. For each logical unit:
    - Draft an appropriate commit message
    - Stage only the files relevant to that unit with `git add`
    - Commit with the message **WITHOUT** the Co-Authored-By line
    - **DO NOT** use any flags like `--no-verify`, `--no-gpg-sign`, etc.
-5. Run `git status` to verify all commits succeeded
-6. If the user passed `push` as an argument (e.g., `/commit push`), run `git push` after all commits succeed
-
----
+5. Run `git status` to verify all commits succeeded.
+6. If the user passed `push` as an argument (e.g., `/commit push`), run `git push` after all commits succeed.
 
 ## Multiple Commits
 
@@ -34,8 +34,6 @@ If the changes span multiple logical units, create separate commits:
 
 Each commit should be atomic and self-contained.
 
----
-
 ## Fixup Commits
 
 For unpushed commits, you can use fixup commits and rebase to keep history clean:
@@ -45,8 +43,8 @@ For unpushed commits, you can use fixup commits and rebase to keep history clean
 git add src/component.ts
 git commit --fixup=abc1234
 
-# Later, squash fixups into their parent commits
-git rebase -i --autosquash HEAD~5
+# Squash fixups into their parent commits (non-interactive)
+git rebase --autosquash HEAD~5
 ```
 
 Only use fixup commits when:
@@ -54,20 +52,33 @@ Only use fixup commits when:
 - The fix logically belongs to the original commit
 - It makes sense to keep them as a single logical unit
 
----
+## Post-Commit Formatting Fixes
+
+If formatting or linting fixes are needed after committing:
+- **Single commit**: Use `git commit --amend` to fold the fix into the existing commit
+- **Multiple commits**: Use `git commit --fixup=<sha>` and then `git rebase --autosquash HEAD~N`
 
 ## Important
 
-- **DO NOT** include the `Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>` line
+- **DO NOT** include any `Co-Authored-By` line
 - **DO NOT** use flags like `--no-verify` or `--no-gpg-sign` unless using `--fixup`
+- **DO NOT** use `git rebase -i` (interactive rebase is not supported)
 - Follow normal commit message conventions (concise, descriptive, imperative mood)
 - Only commit files that are relevant to the logical unit of work
 - Never commit sensitive files (.env, credentials, etc.)
 - Each commit should stand alone and make sense independently
 
----
+## Commit Message Guidelines
 
-## Example: Single Logical Unit
+- Keep it concise (under 72 characters for the subject line)
+- Use imperative mood ("Add feature" not "Added feature")
+- Focus on what and why, not how
+- No period at the end of the subject line
+- Be specific and descriptive
+
+## Examples
+
+### Single Logical Unit
 
 ```bash
 git add src/component.ts src/component.test.ts
@@ -75,9 +86,7 @@ git commit -m "Fix validation logic in user form"
 git status
 ```
 
----
-
-## Example: Multiple Logical Units
+### Multiple Logical Units
 
 ```bash
 # First logical unit: refactoring
@@ -91,9 +100,7 @@ git commit -m "Add email validation to signup form"
 git status
 ```
 
----
-
-## Example: Fixup Commit
+### Fixup Commit
 
 ```bash
 # Original commit
@@ -104,24 +111,6 @@ git commit -m "Add email validation to signup form"
 git add src/component.ts
 git commit --fixup=HEAD
 
-# Squash the fixup before pushing
-git rebase -i --autosquash HEAD~2
+# Squash the fixup before pushing (non-interactive)
+git rebase --autosquash HEAD~2
 ```
-
----
-
-## Post-Commit Formatting Fixes
-
-If formatting or linting fixes are needed after committing:
-- **Single commit**: Use `git commit --amend` to fold the fix into the existing commit
-- **Multiple commits**: Use `git commit --fixup=<sha>` and then `git rebase --autosquash HEAD~N` to keep history clean
-
----
-
-## Commit Message Guidelines
-
-- Keep it concise (under 72 characters for the subject line)
-- Use imperative mood ("Add feature" not "Added feature")
-- Focus on what and why, not how
-- No period at the end of the subject line
-- Be specific and descriptive
