@@ -10,8 +10,9 @@ SKILLS_DEST="$SCRIPT_DIR/../src/brave/.claude/skills"
 
 # Skills to skip (project-specific, not for general use)
 SKIP_SKILLS=(
+  learnable-pattern-search
+  update-best-practices
   add-backlog-to-prd
-  check-milestones
   prd
   prd-clean
   prd-json
