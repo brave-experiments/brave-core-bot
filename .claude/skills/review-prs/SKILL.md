@@ -155,8 +155,10 @@ Use "nit:" prefix only for genuinely minor/stylistic issues, not for substantive
 
 Only post after explicit user approval via:
 ```bash
-gh pr review --repo brave/brave-core {number} --comment --body "comment text"
+gh pr review --repo brave/brave-core {number} --comment --body "Review via brave-core-bot: comment text"
 ```
+
+**All posted comments MUST be prefixed with "Review via brave-core-bot: "** before the actual comment text.
 
 ---
 
@@ -165,7 +167,7 @@ gh pr review --repo brave/brave-core {number} --comment --body "comment text"
 When reviewing closed or merged PRs and a violation is found:
 
 1. **Present the finding** to the user as usual (draft comment + ask for approval)
-2. **If approved**, post a comment on the closed PR noting the issue
+2. **If approved**, post a comment on the closed PR noting the issue (prefixed with "Review via brave-core-bot: ")
 3. **Create a follow-up issue** in `brave/brave-core` to track the fix:
    ```bash
    gh issue create --repo brave/brave-core --title "Fix: <brief description of violation>" --body "$(cat <<'EOF'

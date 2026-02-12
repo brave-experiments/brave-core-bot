@@ -23,6 +23,8 @@ Run `npm run format`. If formatting changes any files, stage and include them in
 ### 2. GN check
 Run `npm run gn_check`. Fix any issues found and re-run until it passes.
 
+**Skip this step** if the only changes are to test filter files (`test/filters/*.filter`) — filter files don't affect GN build configuration.
+
 ### 3. Presubmit
 Run `npm run presubmit`. Fix any issues found and re-run until it passes.
 

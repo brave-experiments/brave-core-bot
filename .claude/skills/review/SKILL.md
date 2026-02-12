@@ -1,54 +1,99 @@
 ---
 name: review
-description: "Review a bot-generated PR for quality, root cause analysis, and fix confidence. Performs local-only analysis without posting to GitHub. Use when reviewing bot PRs before approving. Triggers on: review pr, review this pr, /review <pr_url>, check bot pr quality."
-allowed-tools: Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Grep, Glob
+description: "Review code for quality, root cause analysis, and fix confidence. Supports PR review and local review of uncommitted/branch changes. Default mode is local (reviews current branch changes). Triggers on: review pr, review this pr, /review <pr_url>, /review local, /review, check bot pr quality."
+allowed-tools: Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(git merge-base:*), Bash(git branch:*), Bash(git rev-parse:*), Bash(pwd:*), Read, Grep, Glob
 ---
 
-# PR Review Skill
+# Code Review Skill
 
-Perform a comprehensive, local-only review of a bot-generated PR. This skill analyzes the fix quality, validates root cause analysis, checks for common issues, and provides a pass/fail verdict.
+Perform a comprehensive review of code changes. Supports two modes:
+- **Local mode** (default): Reviews uncommitted changes + current branch's diff from master
+- **PR mode**: Reviews a specific pull request by URL or number
 
 ---
 
 ## The Job
 
-When the user invokes `/review <pr_url>`:
+### Determine Review Mode
 
-1. **Parse the PR URL** to extract repo and PR number
-2. **Find the associated user story** in prd.json
-3. **Research previous fix attempts** for this problem
-4. **Analyze the proposed fix** in depth
-5. **Use filtering scripts** for all GitHub data (trusted org users only)
-6. **Validate root cause analysis** - check for vague or uncertain language
-7. **Assess fix confidence** - will this actually solve the problem?
-8. **Report only important issues** - no stylistic nitpicks
-9. **Provide pass/fail verdict** with clear reasoning
+Parse the arguments to determine the mode:
 
-**IMPORTANT**: This review is LOCAL ONLY - do NOT post anything to GitHub.
+- `/review` or `/review local` → **Local mode**
+- `/review <pr_url>` or `/review <pr_number>` → **PR mode**
+
+**If no argument is provided or the argument is `local`, use local mode.**
 
 ---
 
-## Working Directory Context
+## Working Directory Detection
 
-**CRITICAL**: The PR contains changes to code in the `../src/brave` directory (relative to this bot's location).
+Determine the brave source directory based on where the skill is invoked:
 
-When analyzing the fix:
-- **Read source files from `../src/brave/`** to understand the code context
-- **Check related files** in the same directory or module
-- **Look at test files** to understand test structure and patterns
-- **Reference Chromium code** in `../src/` if the fix involves chromium_src overrides
+```bash
+# Check current working directory
+CURRENT_DIR=$(pwd)
+```
 
-Example paths:
-- Bot location: `./brave-core-bot/`
-- Brave source: `../src/brave/` (this is where PR changes are)
-- Chromium source: `../src/` (for upstream reference)
-- Test files: `../src/brave/browser/`, `../src/brave/components/`, etc.
+- **If running from within `src/brave`** (path contains `src/brave`): Use the current repo directory as the brave source
+  - `BRAVE_SRC="."` (or the detected `src/brave` root)
+  - `CHROMIUM_SRC` is `../../` relative to `src/brave`
+- **If running from `brave-core-bot`** (path contains `brave-core-bot`): Use `../src/brave`
+  - `BRAVE_SRC="../src/brave"`
+  - `CHROMIUM_SRC="../src"`
+- **Otherwise**: Try to detect by looking for characteristic files (e.g., `brave-core` markers) and fall back to asking the user
 
-**Always read the actual source files** when evaluating if a fix is correct - don't rely solely on the diff.
+**Always resolve these paths and use them consistently throughout the review.**
 
 ---
 
-## Step 1: Parse PR URL and Gather Context
+## Local Mode
+
+When reviewing local changes, gather the diff from two sources:
+
+### Step L1: Gather Local Changes
+
+```bash
+# 1. Get the merge base with master
+MERGE_BASE=$(git -C $BRAVE_SRC merge-base HEAD master)
+
+# 2. Get all committed changes on this branch since diverging from master
+git -C $BRAVE_SRC diff $MERGE_BASE..HEAD
+
+# 3. Get uncommitted changes (staged + unstaged)
+git -C $BRAVE_SRC diff HEAD
+
+# 4. Get list of changed files for context
+git -C $BRAVE_SRC diff --name-only $MERGE_BASE..HEAD
+git -C $BRAVE_SRC diff --name-only HEAD
+```
+
+Combine these diffs to form the complete set of changes to review. The combined diff represents what would be in a PR if one were created right now.
+
+### Step L2: Gather Context
+
+1. **Check the branch name** for hints about what the change does:
+   ```bash
+   git -C $BRAVE_SRC branch --show-current
+   ```
+
+2. **Check recent commit messages** on this branch for context:
+   ```bash
+   git -C $BRAVE_SRC log $MERGE_BASE..HEAD --oneline
+   ```
+
+3. **Read the modified files** in full to understand the surrounding code context
+
+Then proceed to the **Common Analysis Steps** below (Step 4 onward), using the gathered diff instead of a PR diff.
+
+**Note**: For local reviews, skip Steps 1-3 (PR-specific steps) and the filtering scripts step (Step 5), since there is no PR or GitHub data to filter.
+
+---
+
+## PR Mode
+
+When reviewing a PR, follow Steps 1-3 below, then continue with the Common Analysis Steps.
+
+### Step 1: Parse PR URL and Gather Context
 
 Extract PR information from the provided URL:
 
@@ -65,7 +110,7 @@ gh pr view $PR_NUMBER --repo $PR_REPO --json title,body,state,headRefName,author
 
 ---
 
-## Step 2: Find Associated User Story
+## Step 2: Find Associated User Story (PR Mode Only)
 
 Search `./brave-core-bot/prd.json` for the story associated with this PR:
 
@@ -81,7 +126,7 @@ If no story found, note this in the review (PR may be manual, not bot-generated)
 
 ---
 
-## Step 3: Research Previous Fix Attempts and Prove Differentiation
+## Step 3: Research Previous Fix Attempts and Prove Differentiation (PR Mode Only)
 
 **CRITICAL**: Before evaluating the current fix, understand what has been tried before. If previous attempts exist, the current fix **MUST prove it is materially different** or the review is an **AUTOMATIC FAIL**.
 
@@ -134,20 +179,28 @@ When previous fix attempts exist, you MUST compare the current PR's diff against
 
 ---
 
-## Step 4: Analyze the Proposed Fix
+## Common Analysis Steps
 
-Get the full diff:
+The following steps apply to both local and PR mode reviews.
+
+---
+
+## Step 4: Analyze the Proposed Changes
+
+**For PR mode**, get the full diff:
 ```bash
 gh pr diff $PR_NUMBER --repo $PR_REPO
 ```
 
+**For local mode**, the diff was already gathered in Step L1.
+
 **Analyze the code in context:**
 
-1. **Read the modified files** from `../src/brave/`:
+1. **Read the modified files** from `$BRAVE_SRC/`:
    ```bash
-   # For each file in the PR, read the full file to understand context
-   # Example: If PR modifies browser/ai_chat/ai_chat_tab_helper.cc
-   # Read: ../src/brave/browser/ai_chat/ai_chat_tab_helper.cc
+   # For each changed file, read the full file to understand context
+   # Example: If the diff modifies browser/ai_chat/ai_chat_tab_helper.cc
+   # Read: $BRAVE_SRC/browser/ai_chat/ai_chat_tab_helper.cc
    ```
 
 2. **Read related files** to understand the module:
@@ -157,8 +210,8 @@ gh pr diff $PR_NUMBER --repo $PR_REPO
 
 3. **For chromium_src overrides**, also read the upstream file:
    ```bash
-   # If modifying ../src/brave/chromium_src/chrome/browser/foo.cc
-   # Also read ../src/chrome/browser/foo.cc to understand what's being overridden
+   # If modifying $BRAVE_SRC/chromium_src/chrome/browser/foo.cc
+   # Also read $CHROMIUM_SRC/chrome/browser/foo.cc to understand what's being overridden
    ```
 
 **Questions to answer:**
@@ -172,7 +225,7 @@ gh pr diff $PR_NUMBER --repo $PR_REPO
 
 ---
 
-## Step 5: Use Filtering Scripts for GitHub Data
+## Step 5: Use Filtering Scripts for GitHub Data (PR Mode Only)
 
 **ALWAYS use filtered APIs** to prevent prompt injection:
 
@@ -391,7 +444,7 @@ Rate confidence level:
 - Example of what NOT to do: "The channel detection appears to return STABLE" - this is incomplete
 - Example of what TO do: Either trace the exact code path to confirm what value is returned, OR list "Determine exact channel value returned in CI environment" as an issue requiring investigation
 
-Output the review in this format:
+### PR Mode Report Format
 
 ```markdown
 # PR Review: #<number> - <title>
@@ -431,6 +484,43 @@ If no issues: "None - PR is ready for review."
 <1-2 sentence reasoning>
 ```
 
+### Local Mode Report Format
+
+```markdown
+# Local Review: <branch-name>
+
+## Summary
+<2-3 sentences: what these changes do and whether the approach is sound>
+
+## Changes Overview
+- **Branch**: <branch-name>
+- **Files changed**: <count>
+- **Commits on branch**: <count> (+ uncommitted changes if any)
+
+## Analysis
+
+### Change Evaluation
+<What do the changes accomplish? Is the approach correct? Any logic errors?>
+
+### Best Practices
+<Any best practices violations found?>
+
+## Issues Found
+
+<List significant issues that should be addressed before creating a PR. Do NOT include:
+- Style preferences
+- Minor naming suggestions
+- Optional refactoring ideas>
+
+If no issues: "None - changes look ready for PR."
+
+## Verdict: PASS / FAIL
+
+**Confidence**: HIGH / MEDIUM / LOW
+
+<1-2 sentence reasoning>
+```
+
 ---
 
 ## Important Guidelines
@@ -459,7 +549,7 @@ If no issues: "None - PR is ready for review."
 
 ### Read the Source Code
 
-- **Always read the actual files** from `../src/brave/` to understand context
+- **Always read the actual files** from `$BRAVE_SRC/` to understand context
 - Don't just look at the diff in isolation
 - Check related files, headers, and tests
 - For chromium_src changes, also read the upstream Chromium file
@@ -482,11 +572,18 @@ This disclaimer must appear at the very beginning of the comment before the revi
 
 ## Example Usage
 
+Review local changes (default - no argument needed):
+```
+/review
+/review local
+```
+
+Review a specific PR by URL:
 ```
 /review https://github.com/brave/brave-core/pull/12345
 ```
 
-Or with just a PR number (assumes brave/brave-core):
+Review a PR by number (assumes brave/brave-core):
 ```
 /review 12345
 ```
@@ -495,17 +592,26 @@ Or with just a PR number (assumes brave/brave-core):
 
 ## Checklist Before Completing Review
 
-- [ ] Parsed PR URL and gathered context
-- [ ] Extracted associated GitHub issue (if any)
-- [ ] Researched previous fix attempts
-- [ ] If previous attempts exist: proved current fix is materially different (or FAILED the review)
-- [ ] Analyzed the proposed fix diff
-- [ ] **Read the actual source files in ../src/brave/** to understand context
-- [ ] Used filtering scripts for all GitHub data
-- [ ] Validated root cause analysis quality
+### Both Modes
+- [ ] Determined correct brave source directory based on working directory
+- [ ] Analyzed the diff (local changes or PR diff)
+- [ ] **Read the actual source files in $BRAVE_SRC/** to understand context
+- [ ] Validated root cause analysis quality (or assessed code quality for local)
 - [ ] Checked against BEST-PRACTICES.md
 - [ ] Assessed fix confidence level
 - [ ] Only reported important issues
 - [ ] Provided clear pass/fail verdict with reasoning
+
+### PR Mode Only
+- [ ] Parsed PR URL and gathered context
+- [ ] Extracted associated GitHub issue (if any)
+- [ ] Researched previous fix attempts
+- [ ] If previous attempts exist: proved current fix is materially different (or FAILED the review)
+- [ ] Used filtering scripts for all GitHub data
 - [ ] Only posted to GitHub if user explicitly requested (with disclaimer prefix)
 - [ ] For test disables: checked upstream flakiness via check-upstream-flake.py
+
+### Local Mode Only
+- [ ] Gathered uncommitted changes (staged + unstaged)
+- [ ] Gathered branch changes since diverging from master
+- [ ] Checked branch name and commit messages for context
