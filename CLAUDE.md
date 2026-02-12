@@ -37,7 +37,7 @@ Each iteration:
 1. Pick ONE story based on priority (see workflow-state-machine.md)
 2. Execute the workflow for that story's status
 3. Update the PRD and progress.txt
-4. **END THE ITERATION**
+4. **END THE ITERATION** - Run `/exit` to end the session so the next iteration can start
 
 The next iteration will pick the next highest-priority story.
 
