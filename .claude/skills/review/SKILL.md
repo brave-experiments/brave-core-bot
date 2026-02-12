@@ -50,13 +50,35 @@ CURRENT_DIR=$(pwd)
 
 When reviewing local changes, gather the diff from two sources:
 
-### Step L1: Gather Local Changes
+### Step L1: Determine the Base Branch
+
+The base branch is what this branch's changes should be compared against. Do NOT assume `master` — the branch may depend on another feature branch.
+
+Detect the base branch in this order:
+
+1. **Check for an existing PR**: If a PR exists for this branch, use its base branch:
+   ```bash
+   CURRENT_BRANCH=$(git -C $BRAVE_SRC branch --show-current)
+   PR_BASE=$(gh pr view "$CURRENT_BRANCH" --repo brave/brave-core \
+     --json baseRefName --jq '.baseRefName' 2>/dev/null) || true
+   ```
+
+2. **Check the upstream tracking branch**: If no PR exists, check what the branch tracks:
+   ```bash
+   TRACKING=$(git -C $BRAVE_SRC rev-parse --abbrev-ref \
+     "$CURRENT_BRANCH@{upstream}" 2>/dev/null) || true
+   # Strip the remote prefix (e.g., "origin/branch-A" -> "branch-A")
+   ```
+
+3. **Fall back to `master`**: If neither method yields a result, use `master`.
+
+### Step L2: Gather Local Changes
 
 ```bash
-# 1. Get the merge base with master
-MERGE_BASE=$(git -C $BRAVE_SRC merge-base HEAD master)
+# 1. Get the merge base with the detected base branch
+MERGE_BASE=$(git -C $BRAVE_SRC merge-base HEAD $BASE_BRANCH)
 
-# 2. Get all committed changes on this branch since diverging from master
+# 2. Get all committed changes on this branch since diverging from base
 git -C $BRAVE_SRC diff $MERGE_BASE..HEAD
 
 # 3. Get uncommitted changes (staged + unstaged)
@@ -67,9 +89,11 @@ git -C $BRAVE_SRC diff --name-only $MERGE_BASE..HEAD
 git -C $BRAVE_SRC diff --name-only HEAD
 ```
 
-Combine these diffs to form the complete set of changes to review. The combined diff represents what would be in a PR if one were created right now.
+Combine these diffs to form the complete set of changes to review. The combined diff represents what would be in a PR against `$BASE_BRANCH` if one were created right now.
 
-### Step L2: Gather Context
+**Report the base branch** at the start of the review so it's clear what the changes are compared against (e.g., "Reviewing against base branch: `branch-A`").
+
+### Step L3: Gather Context
 
 1. **Check the branch name** for hints about what the change does:
    ```bash
@@ -494,6 +518,7 @@ If no issues: "None - PR is ready for review."
 
 ## Changes Overview
 - **Branch**: <branch-name>
+- **Base branch**: <base-branch> (how it was detected: PR / tracking / default master)
 - **Files changed**: <count>
 - **Commits on branch**: <count> (+ uncommitted changes if any)
 
@@ -612,6 +637,7 @@ Review a PR by number (assumes brave/brave-core):
 - [ ] For test disables: checked upstream flakiness via check-upstream-flake.py
 
 ### Local Mode Only
+- [ ] Detected correct base branch (PR base > tracking branch > master)
 - [ ] Gathered uncommitted changes (staged + unstaged)
-- [ ] Gathered branch changes since diverging from master
+- [ ] Gathered branch changes since diverging from base branch
 - [ ] Checked branch name and commit messages for context
