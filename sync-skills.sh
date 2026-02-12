@@ -43,8 +43,13 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   fi
 
   if [ -L "$dest" ]; then
-    echo "✓ $skill_name (already symlinked)"
-    continue
+    if [ -e "$dest" ]; then
+      echo "✓ $skill_name (already symlinked)"
+      continue
+    else
+      echo "⚠ $skill_name (broken symlink, recreating)"
+      rm "$dest"
+    fi
   fi
 
   if [ -d "$dest" ]; then
@@ -55,7 +60,7 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   read -p "Symlink $skill_name? (y/N) " -n 1 -r
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    ln -s "../../../brave-core-bot/.claude/skills/$skill_name" "$dest"
+    ln -s "../../../../brave-core-bot/.claude/skills/$skill_name" "$dest"
     echo "  ✓ Linked"
   else
     echo "  ✗ Skipped"
