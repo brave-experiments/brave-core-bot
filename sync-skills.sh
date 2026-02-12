@@ -8,6 +8,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILLS_SRC="$SCRIPT_DIR/.claude/skills"
 SKILLS_DEST="$SCRIPT_DIR/../src/brave/.claude/skills"
 
+# Skills to skip (project-specific, not for general use)
+SKIP_SKILLS=(
+  add-backlog-to-prd
+  check-milestones
+  prd
+  prd-clean
+  prd-json
+)
+
 if [ ! -d "$SKILLS_SRC" ]; then
   echo "No skills found in $SKILLS_SRC"
   exit 1
@@ -19,6 +28,18 @@ mkdir -p "$SKILLS_DEST"
 for skill_dir in "$SKILLS_SRC"/*/; do
   skill_name=$(basename "$skill_dir")
   dest="$SKILLS_DEST/$skill_name"
+
+  # Check if skill is in the skip list
+  skip=false
+  for s in "${SKIP_SKILLS[@]}"; do
+    if [ "$skill_name" = "$s" ]; then
+      skip=true
+      break
+    fi
+  done
+  if $skip; then
+    continue
+  fi
 
   if [ -L "$dest" ]; then
     echo "✓ $skill_name (already symlinked)"
