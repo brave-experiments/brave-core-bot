@@ -259,12 +259,14 @@ Only read the docs relevant to your story — don't load all of them every time.
    cd [workingDirectory from prd.json config]
    npm run format      # Check/fix formatting
    npm run presubmit   # Run presubmit checks
-   npm run gn_check    # Verify GN configuration
+   npm run gn_check    # Verify GN configuration (skip for filter-file-only changes)
    npm run build       # Verify build succeeds
    # If any .ts/.tsx/.js files were changed:
    npm run test-unit        # Run front-end unit tests
    npm run build-storybook  # Verify Storybook builds
    ```
+
+   **Skip `gn_check`** if the only changes are to test filter files (`test/filters/*.filter`) — filter files don't affect GN build configuration.
 
    **If presubmit or any verification fails:**
    - Fix the issues
