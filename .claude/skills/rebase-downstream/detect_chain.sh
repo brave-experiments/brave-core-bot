@@ -77,8 +77,9 @@ for branch in $all_branches; do
     parent="${BASH_REMATCH[1]}"
   elif [[ "$creation_line" =~ branch:\ Created\ from\ (.+) ]]; then
     candidate="${BASH_REMATCH[1]}"
-    # Only use if it matches a known branch name (not a SHA)
-    if git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
+    # Only use if it matches a known branch name (not a SHA or HEAD)
+    if [[ "$candidate" != "HEAD" ]] && \
+       git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
       parent="$candidate"
     fi
   fi
@@ -88,19 +89,35 @@ for branch in $all_branches; do
   fi
 done
 
-# Fallback: for branches without reflog creation entries, use merge-base
-# heuristic. If merge-base(start, candidate) == HEAD of start, the candidate
-# likely branched from start (or a descendant).
+# Fallback: for branches without reflog parent, use merge-base + ancestor
+# checks. Collect all candidates that descend from start_branch, then
+# determine the closest parent for each using --is-ancestor.
+candidates=()
 for branch in $all_branches; do
   [[ "$branch" == "$start_branch" ]] && continue
   has_parent "$branch" && continue
 
-  mb=$(git merge-base "$start_branch" "$branch" 2>/dev/null) || continue
-  start_head=$(git rev-parse "$start_branch" 2>/dev/null) || continue
-
-  if [[ "$mb" == "$start_head" ]]; then
-    set_parent "$branch" "$start_branch"
+  # Check if start_branch is an ancestor of this branch
+  if git merge-base --is-ancestor "$start_branch" "$branch" 2>/dev/null; then
+    candidates+=("$branch")
   fi
+done
+
+# For each candidate, find its closest parent among start_branch + other
+# candidates. The closest parent is the one whose HEAD is an ancestor of
+# the candidate AND is not an ancestor of any other ancestor candidate.
+for branch in "${candidates[@]+"${candidates[@]}"}"; do
+  closest_parent="$start_branch"
+  for other in "${candidates[@]+"${candidates[@]}"}"; do
+    [[ "$other" == "$branch" ]] && continue
+    # If other is an ancestor of branch AND other is a descendant of
+    # our current closest_parent, then other is a closer parent.
+    if git merge-base --is-ancestor "$other" "$branch" 2>/dev/null && \
+       git merge-base --is-ancestor "$closest_parent" "$other" 2>/dev/null; then
+      closest_parent="$other"
+    fi
+  done
+  set_parent "$branch" "$closest_parent"
 done
 
 # Build children map from parent map
