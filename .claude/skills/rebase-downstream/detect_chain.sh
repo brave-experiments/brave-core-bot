@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# detect_chain.sh - Detect downstream branch chain from a starting branch.
+# detect_chain.sh - Detect downstream branch tree from a starting branch.
 #
 # Usage: detect_chain.sh [starting-branch]
 #
-# Outputs one branch per line in rebase order (direct child first).
-# Warnings about forks (multiple children) go to stderr.
+# Outputs "branch:parent" per line in rebase order (depth-first pre-order).
+# Handles trees with sibling branches (forks).
 #
 # Compatible with bash 3+ (no associative arrays).
 
@@ -128,8 +128,8 @@ for f in "$parent_dir"/*; do
   add_child "$parent" "$branch"
 done
 
-# Walk the chain starting from start_branch
-walk_chain() {
+# Walk the tree starting from start_branch (depth-first pre-order)
+walk_tree() {
   local current="$1"
   local kids
   kids=$(get_children "$current")
@@ -144,17 +144,11 @@ walk_chain() {
     [[ -n "$k" ]] && kid_array+=("$k")
   done <<< "$kids"
 
-  if [[ ${#kid_array[@]} -gt 1 ]]; then
-    echo "WARNING: Branch '$current' has multiple children:" \
-      "${kid_array[*]}" >&2
-    echo "WARNING: Following first child '${kid_array[0]}' only." \
-      "Other branches: ${kid_array[*]:1}" >&2
-  fi
-
-  # Follow the first child (or only child)
-  local next="${kid_array[0]}"
-  echo "$next"
-  walk_chain "$next"
+  # Visit each child and recurse (parents always before children)
+  for child in "${kid_array[@]}"; do
+    echo "$child:$current"
+    walk_tree "$child"
+  done
 }
 
-walk_chain "$start_branch"
+walk_tree "$start_branch"

@@ -1,11 +1,11 @@
 ---
 name: rebase-downstream
-description: "Rebase a chain of dependent branches after upstream changes. Auto-detects downstream branches and rebases each in order. Triggers on: rebase downstream, rebase chain, propagate changes downstream."
+description: "Rebase a tree of dependent branches (including siblings) after upstream changes. Auto-detects downstream branches and rebases each in order. Triggers on: rebase downstream, rebase chain, propagate changes downstream."
 ---
 
-# Rebase Downstream Chain
+# Rebase Downstream Tree
 
-Rebase a chain of dependent branches after upstream changes have been made. Auto-detects the downstream branch chain, rebases each branch in order, resolves conflicts when possible, and runs preflight checks on each branch.
+Rebase a tree of dependent branches after upstream changes have been made. Auto-detects the downstream branch tree (including sibling branches), rebases each branch in order, resolves conflicts when possible, and runs preflight checks on each branch.
 
 ## Current State
 
@@ -30,7 +30,7 @@ Run the `detect_chain.sh` helper script to find all downstream branches:
 bash .claude/skills/rebase-downstream/detect_chain.sh <current-branch>
 ```
 
-The script outputs one branch per line in rebase order (direct child first, furthest descendant last). If it outputs warnings about forks (multiple children), present them to the user.
+The script outputs `branch:parent` per line in rebase order (depth-first pre-order). This handles both linear chains and trees with sibling branches.
 
 ### 3. Confirm the chain
 
@@ -38,10 +38,13 @@ Display the detected chain to the user and ask for confirmation before proceedin
 
 **If no downstream branches are detected**, report this to the user and stop.
 
-**If branches are detected**, show the chain visually:
+**If branches are detected**, show the tree visually:
 
 ```
-Detected chain: <current-branch> -> <child1> -> <child2> -> ...
+<current-branch>
+  → <child1>
+    → <grandchild1>
+  → <child2> (sibling)
 ```
 
 Ask the user to confirm before rebasing. If the user declines, stop.
@@ -55,11 +58,11 @@ For each downstream branch (closest to the current branch first):
    git checkout <downstream-branch>
    ```
 
-2. **Rebase onto its parent**:
+2. **Rebase onto its parent** (from the `branch:parent` output):
    ```bash
    git rebase <parent-branch>
    ```
-   The parent is either the original current branch (for the first child) or the previously rebased branch.
+   The parent for each branch is provided by the detect script. For sibling branches, both share the same parent.
 
 3. **Handle conflicts** (if any):
    - Inspect each conflicted file to understand both sides
@@ -94,7 +97,7 @@ Summarize the results:
 - **Rebased branches**: List each branch that was successfully rebased
 - **Conflicts resolved**: Note any conflicts that were auto-resolved and how
 - **Preflight results**: Summary of preflight status for each branch
-- **Chain**: Show the full rebased chain
+- **Tree**: Show the full rebased tree structure
 
 ## Important
 
