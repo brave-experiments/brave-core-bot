@@ -187,3 +187,17 @@ if ('text' in value && 'role' in value) { ... }
 ## ✅ WebUI Resource Files Must Be in Correct Top-Level Directory
 
 **WebUI resource files must be placed in the correct top-level directory under `resources/` matching the WebUI host name.** Misplaced resources won't be found at runtime.
+
+---
+
+## ✅ Use TypeScript Entry Points Instead of Inline Scripts
+
+**When adding JavaScript to WebUI pages, always use compiled TypeScript entry points rather than inline `<script>` tags.** This gives you type checking, code analysis, and consistent bundling. Add additional entry points to the GN build configuration.
+
+```gn
+# ✅ CORRECT - additional entry point in GN
+entry_points = [
+  ["main", rebase_path("main.ts")],
+  ["patches", rebase_path("patches.ts")],
+]
+```

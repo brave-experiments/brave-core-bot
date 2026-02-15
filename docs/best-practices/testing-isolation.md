@@ -298,6 +298,25 @@ void VerifyTabCount(Browser* browser, int expected,
 
 ---
 
+## ✅ Use `EXPECT_MOJO_EQ` for Mojom Type Assertions
+
+**When writing tests that verify mojom struct values, use `EXPECT_MOJO_EQ` with expected mojom objects** rather than manually checking individual fields. Combined with `PrintTo` functions in test printer files, this produces readable failure messages.
+
+```cpp
+// ❌ WRONG - manually checking individual fields
+EXPECT_TRUE(block->is_text_content_block());
+EXPECT_EQ(block->get_text_content_block()->text, "hello");
+
+// ✅ CORRECT - compare full mojom objects
+auto expected = mojom::ContentBlock::NewTextContentBlock(
+    mojom::TextContentBlock::New("hello"));
+EXPECT_MOJO_EQ(block, expected);
+```
+
+When adding fields or variants to mojom types, update the corresponding `PrintTo` functions in `test_mojom_printers.cc` to keep test output readable.
+
+---
+
 ## ✅ Use `base::test::ParseJsonDict` for Test Comparisons
 
 **In tests comparing JSON values, use `base::test::ParseJsonDict()`** for simpler, more readable assertions. **Never use `testing::HasSubstr`** to validate JSON -- it is fragile and doesn't verify structure.
