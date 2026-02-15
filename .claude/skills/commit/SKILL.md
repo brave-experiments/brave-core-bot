@@ -1,11 +1,27 @@
 ---
 name: commit
 description: "Commit changes without Co-Authored-By attribution. Creates logical, atomic commits."
+argument-hint: "[branch] [push]"
 ---
 
 # Commit Without Attribution
 
 Create git commits without the Co-Authored-By attribution line. Each commit should be a logical unit of work.
+
+## Arguments
+
+Parse the arguments string for these keywords (order doesn't matter):
+
+| Keyword | Effect |
+|---------|--------|
+| `branch` | Create a new branch off the current branch before committing (descriptive name based on changes) |
+| `push` | Push after all commits succeed |
+
+Examples:
+- `/commit` — commit on current branch, no push
+- `/commit push` — commit on current branch, then push
+- `/commit branch push` — create new branch, commit, then push
+- `/commit branch` — create new branch, commit, no push
 
 ## Current State
 
@@ -14,7 +30,7 @@ Create git commits without the Co-Authored-By attribution line. Each commit shou
 
 ## Steps
 
-1. If on `master`, create a new branch off of master before proceeding (use a descriptive branch name based on the changes).
+1. If `branch` was passed, create a new branch off the current branch before proceeding (use a descriptive branch name based on the changes).
 2. Run `git diff` to review the changes.
 3. Identify logical units of work (may require multiple commits).
 4. For each logical unit:
@@ -23,7 +39,7 @@ Create git commits without the Co-Authored-By attribution line. Each commit shou
    - Commit with the message **WITHOUT** the Co-Authored-By line
    - **DO NOT** use any flags like `--no-verify`, `--no-gpg-sign`, etc.
 5. Run `git status` to verify all commits succeeded.
-6. If the user passed `push` as an argument (e.g., `/commit push`), run `git push` after all commits succeed.
+6. If `push` was passed, run `git push` (with `-u origin <branch>` if the branch has no upstream) after all commits succeed.
 
 ## Multiple Commits
 
