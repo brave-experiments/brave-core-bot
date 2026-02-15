@@ -97,6 +97,15 @@ After running the script, present the results to the user in a clear format:
 - Note code origin — crashes in Brave code are directly fixable
 - When prioritizing what to fix, recommend focusing on: actual crashes (not dumps) that affect Nightly (current code) in Brave code
 
+### GitHub Formatting Rules
+
+When mentioning a crasher's rank in GitHub issues, PR descriptions, or comments, **never** use `#N` syntax (e.g., `#8`). GitHub automatically converts `#N` into a link to issue or PR number N, which is misleading.
+
+- **Bad:** "This is the #8 crasher this week" — GitHub links to issue/PR 8
+- **Good:** "This is the No. 8 crasher this week", "This is crasher rank 8", "the 8th top crasher"
+
+This applies to issue titles, bodies, PR descriptions, and comments — anywhere GitHub renders markdown.
+
 ### Step 4: Offer Follow-Up Actions
 
 After presenting results, suggest relevant follow-up actions:
