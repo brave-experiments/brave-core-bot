@@ -1,16 +1,22 @@
 ---
 name: learnable-pattern-search
 description: "Analyze review comments from brave-core PRs to discover learnable patterns for improving bot documentation and best practices. Triggers on: learnable-pattern-search, learn from prs, analyze reviews, find patterns in prs."
-argument-hint: <pr-numbers...>
+argument-hint: <pr-numbers... | --username <github-user>>
 ---
 
 # Learnable Pattern Search
 
-Analyze review comments from a list of brave-core PRs by a specific reviewer to discover learnable patterns. Extracts coding conventions, best practices, common review feedback themes, and architectural insights that can improve bot documentation.
+Analyze review comments from brave-core PRs to discover learnable patterns. Extracts coding conventions, best practices, common review feedback themes, and architectural insights that can improve bot documentation.
+
+Supports two modes:
+- **PR list mode:** Provide specific PR numbers to analyze
+- **Username mode:** Provide a GitHub username to find and analyze all PRs they reviewed
 
 ---
 
 ## The Job
+
+### Mode 1: PR Numbers
 
 When the user invokes `/learnable-pattern-search <pr-numbers>`:
 
@@ -19,6 +25,41 @@ When the user invokes `/learnable-pattern-search <pr-numbers>`:
 3. **Identify learnable patterns** across the reviews
 4. **Update documentation** with discovered patterns
 5. **Generate a report** of findings
+
+### Mode 2: Username
+
+When the user invokes `/learnable-pattern-search --username <github-user>`:
+
+1. **Fetch all PRs reviewed by the user** in brave/brave-core (see "Fetching PRs by Reviewer" below)
+2. **For each PR**, fetch review data and analyze it (focus on comments by the specified user)
+3. **Identify learnable patterns** across the reviews
+4. **Update documentation** with discovered patterns
+5. **Generate a report** of findings
+
+---
+
+## Fetching PRs by Reviewer
+
+When `--username <user>` is provided, use the GitHub search API to find merged PRs the user reviewed:
+
+```bash
+# Fetch all merged PRs reviewed by the user (paginated, fetch all pages)
+gh search prs --repo brave/brave-core --reviewed-by <username> --state merged --sort updated --order desc --limit 1000 --json number,title,updatedAt
+```
+
+If `gh search prs` doesn't work or returns errors, fall back to the search API with pagination:
+
+```bash
+# Page through all results (100 per page)
+gh api 'search/issues?q=repo:brave/brave-core+type:pr+is:merged+reviewed-by:<username>&sort=updated&order=desc&per_page=100&page=1' --jq '.items[] | {number: .number, title: .title}'
+# Continue incrementing &page=2, &page=3, etc. until no more results
+```
+
+**Important notes:**
+- Fetch **all** PRs reviewed by the user — do not cap or limit results.
+- Process PRs in batches of 10 to avoid rate limiting. After each batch, check `gh api rate_limit` and pause if needed.
+- Skip PRs where the user left no substantive review comments (only approvals with no body text).
+- When analyzing, **focus on comments from the specified user** rather than all reviewers.
 
 ---
 
@@ -109,12 +150,13 @@ Only capture patterns that meet ALL of these criteria:
 
 ### Report File
 
-Write findings to `.ignore/learnable-patterns-report.md` with this format:
+Write findings to `.ignore/learnable-patterns-report.md` (or `.ignore/learnable-patterns-report-<username>.md` when using `--username` mode) with this format:
 
 ```markdown
 # Learnable Patterns Report
 
 Generated: <date>
+Reviewer: <username> (if username mode)
 PRs analyzed: <list>
 
 ## Patterns Found
