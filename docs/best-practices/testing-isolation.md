@@ -298,6 +298,25 @@ void VerifyTabCount(Browser* browser, int expected,
 
 ---
 
+## ✅ Verify Ordering in Tests That Return Ordered Data
+
+**When testing functions that return ordered data, explicitly verify the order of results in the test,** not just the content. If the function is supposed to return results in a specific order (e.g., most recent first), the test should assert that order.
+
+```cpp
+// ❌ WRONG - only checks content exists
+EXPECT_EQ(results.size(), 3u);
+EXPECT_TRUE(ContainsUrl(results, "https://a.com"));
+EXPECT_TRUE(ContainsUrl(results, "https://b.com"));
+
+// ✅ CORRECT - verifies order
+EXPECT_EQ(results.size(), 3u);
+EXPECT_EQ(results[0].url, "https://c.com");  // most recent
+EXPECT_EQ(results[1].url, "https://b.com");
+EXPECT_EQ(results[2].url, "https://a.com");  // oldest
+```
+
+---
+
 ## ✅ Use `EXPECT_MOJO_EQ` for Mojom Type Assertions
 
 **When writing tests that verify mojom struct values, use `EXPECT_MOJO_EQ` with expected mojom objects** rather than manually checking individual fields. Combined with `PrintTo` functions in test printer files, this produces readable failure messages.

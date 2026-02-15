@@ -190,6 +190,18 @@ if ('text' in value && 'role' in value) { ... }
 
 ---
 
+## ✅ Use Proper Ellipsis Characters in UI Strings
+
+**In user-facing strings, use the proper Unicode ellipsis character (`…`) instead of three periods (`...`).** This is a standard typographic convention for UI text.
+
+---
+
+## ✅ Provide Sufficient Context in Localization String Descriptions
+
+**Localization string descriptions must contain enough context for translators who only see the description.** For example, "History" alone might be ambiguous across languages (browser history vs. event history). Add specifics like "Title for the browser visits history section of a URL picker".
+
+---
+
 ## ✅ Use TypeScript Entry Points Instead of Inline Scripts
 
 **When adding JavaScript to WebUI pages, always use compiled TypeScript entry points rather than inline `<script>` tags.** This gives you type checking, code analysis, and consistent bundling. Add additional entry points to the GN build configuration.

@@ -671,6 +671,20 @@ void FetchData(const std::string& url, Callback cb);
 
 ---
 
+## ✅ Mojom Interface Naming Should Be UI-Framework Agnostic
+
+**When defining Mojom interfaces that could be consumed by different UI frameworks (WebUI, native iOS, etc.), avoid framework-specific naming like "PageHandler".** Use more neutral naming like "UIHandler" to remain consistent and not imply a web-only interface.
+
+```mojom
+// ❌ WRONG - implies web-only
+interface HistoryPageHandler { ... };
+
+// ✅ CORRECT - framework-agnostic
+interface HistoryUIHandler { ... };
+```
+
+---
+
 ## ✅ Use Mojo Interfaces for Trusted/Untrusted WebUI Communication
 
 **When communicating between trusted and untrusted WebUI frames, use a mojo interface rather than `postMessage`.** The Chromium documentation advises against `postMessage` across trust boundaries. Only avoid mojo when the frame intentionally executes untrusted code and reducing API surface is a deliberate security choice.
