@@ -20,10 +20,36 @@ When invoked with `/review-prs [days|page<N>] [open|closed|all]`:
    - Second argument controls PR state filter: `open` (default), `closed`, or `all`
 2. **Fetch non-draft PRs** matching the state filter, using date cutoff (days mode) or positional slice (page mode)
 3. **Skip PRs** that are drafts, uplifts, CI runs, l10n updates, or dependency bumps
-4. **Skip already-reviewed PRs** where the configured git user posted a review and no new pushes since
+4. **Skip already-reviewed PRs** whose `headRefOid` matches the locally cached SHA (see Review Cache below)
 5. **Review each PR** one at a time using a Task subagent per PR (see Subagent Review Workflow below)
 6. **Present findings** from each subagent interactively as they complete
 7. **For each violation**, draft a short comment and ask user to approve before posting
+
+---
+
+## Review Cache
+
+A local cache at `.ignore/review-prs-cache.json` tracks which PRs have been reviewed and the HEAD commit SHA at the time of review. This avoids redundant re-reviews across invocations.
+
+**Cache format:**
+```json
+{
+  "42001": "a1b2c3d4e5f6...",
+  "42002": "f6e5d4c3b2a1..."
+}
+```
+
+Keys are PR numbers (as strings), values are the `headRefOid` (HEAD SHA) of the PR at the time it was reviewed.
+
+**Cache logic (applied per PR after basic filtering):**
+1. Load the cache from `.ignore/review-prs-cache.json` (create `{}` if it doesn't exist)
+2. Compare the PR's current `headRefOid` against the cached SHA for that PR number
+3. **Skip** the PR if the cached SHA matches the current `headRefOid` — it was already reviewed at this exact state
+4. **Re-review** if the PR is not in the cache, or the cached SHA differs (author pushed new commits or force-pushed)
+5. After a PR is reviewed (subagent returns results), **update the cache** with the PR's current `headRefOid` regardless of whether violations were found
+6. Write the updated cache back to `.ignore/review-prs-cache.json`
+
+**Important:** Update the cache entry even when `NO_VIOLATIONS` is returned — the point is to track that we've looked at this SHA, not whether we found issues.
 
 ---
 
@@ -32,7 +58,8 @@ When invoked with `/review-prs [days|page<N>] [open|closed|all]`:
 **Days mode** (default):
 ```bash
 # Use the parsed state argument (open, closed, or all). Default: open
-gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft --limit 200 > /tmp/brave_prs.json
+# Include headRefOid for cache comparison
+gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft,headRefOid --limit 200 > /tmp/brave_prs.json
 ```
 
 **Page mode** (`page<N>`):
@@ -40,10 +67,22 @@ gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt
 # Fetch exactly 20 PRs for the requested page. Page 1 = first 20, page 2 = next 20, etc.
 # gh pr list doesn't support offset, so fetch enough PRs to cover the page and slice in jq.
 LIMIT=$((PAGE * 20))
-gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft --limit $LIMIT > /tmp/brave_prs_all.json
+gh pr list --repo brave/brave-core --state <STATE> --json number,title,createdAt,author,isDraft,headRefOid --limit $LIMIT > /tmp/brave_prs_all.json
 # Slice to just the requested page (0-indexed: page 1 = items 0-19, page 2 = items 20-39)
 START=$(((PAGE - 1) * 20))
 jq ".[$START:$START+20]" /tmp/brave_prs_all.json > /tmp/brave_prs.json
+```
+
+**Load the review cache:**
+```bash
+# Ensure .ignore directory exists
+mkdir -p .ignore
+# Load cache or create empty one
+if [ -f .ignore/review-prs-cache.json ]; then
+  CACHE=$(cat .ignore/review-prs-cache.json)
+else
+  CACHE='{}'
+fi
 ```
 
 **Skip if:**
@@ -53,19 +92,29 @@ jq ".[$START:$START+20]" /tmp/brave_prs_all.json > /tmp/brave_prs.json
 - Title contains `uplift to`
 - Title contains `Just to test CI` or similar CI test patterns
 - Author is the reviewing user's own GitHub login (don't review own PRs)
+- **PR's `headRefOid` matches the cached SHA** for that PR number (already reviewed at this state)
 
-**Check for prior reviews:**
-```bash
-GIT_USER=$(git config user.name)
-# Get last review by this user
-gh api repos/brave/brave-core/pulls/{number}/reviews --jq '[.[] | select(.user.login == "USERNAME")] | sort_by(.submitted_at) | last | .submitted_at'
-# Get last push time from timeline (more reliable than events API which returns 404)
-gh api repos/brave/brave-core/issues/{number}/timeline --paginate --jq '[.[] | select(.event == "committed")] | sort_by(.committer.date) | last | .committer.date'
+When a PR is skipped due to cache hit, briefly note it: `Skipping PR #NNNNN (already reviewed at this SHA)`
+
+**Note:** The local cache replaces the previous GitHub API-based "prior review" check. There is no longer a need to query `/pulls/{number}/reviews` or `/issues/{number}/timeline` to determine if a re-review is needed.
+
+---
+
+## Progress Reporting
+
+After filtering is complete, print a summary so the user knows what to expect:
+
+```
+Found N PRs to review (M skipped: X drafts/filtered, Y cached)
 ```
 
-Skip if user already reviewed AND no commits after that review.
+Then before each PR review, print a progress line with a clickable link:
 
-**Note:** The `/pulls/{number}/events` endpoint returns 404 for some PRs. Use the `/issues/{number}/timeline` endpoint instead, which reliably includes commit events.
+```
+[1/N] Reviewing PR #NNNNN: <title> — https://github.com/brave/brave-core/pull/NNNNN
+```
+
+This lets the user see how far along the process is, how many remain, and click through to the PR.
 
 ---
 
@@ -105,7 +154,10 @@ For each PR, launch a **Task subagent** (subagent_type: "general-purpose") with 
 
 **Optimization:** The subagent can check which file types are in the diff first. If no test files are changed, it can skip the testing docs (`testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md`). If no `chromium_src/` files, skip `chromium-src-overrides.md`. If no `BUILD.gn`/`DEPS` files, skip `build-system.md`.
 
-Process PRs **one at a time** (sequentially). After each subagent returns, if violations were found, present them to the user for interactive approval before moving to the next PR. If no violations, briefly note that and move on.
+Process PRs **one at a time** (sequentially). After each subagent returns:
+1. **Update the cache** — write the PR's `headRefOid` to the cache file immediately (regardless of violations found)
+2. If violations were found, present them to the user for interactive approval before moving to the next PR
+3. If no violations, briefly note that and move on
 
 ---
 
