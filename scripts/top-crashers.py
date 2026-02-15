@@ -1273,8 +1273,9 @@ def main():
              "real user-impacting crashes",
     )
     parser.add_argument(
-        "--nightly-only", action="store_true",
-        help="Only show crashes that appear on the current Nightly version",
+        "--channels", default="all",
+        help="Only show crashes appearing on these channels "
+             "(comma-separated: nightly,beta,release, or 'all'; default: all)",
     )
     parser.add_argument(
         "--brave-only", action="store_true",
@@ -1459,8 +1460,11 @@ def main():
     # Apply post-query filters
     if args.crashes_only:
         crashers = [c for c in crashers if c.get("crash_type") != "dump"]
-    if args.nightly_only:
-        crashers = [c for c in crashers if c.get("affects_nightly")]
+    if args.channels and args.channels.lower() != "all":
+        selected_channels = [ch.strip().lower() for ch in args.channels.split(",")]
+        crashers = [c for c in crashers
+                    if any(c.get("channel_breakdown", {}).get(ch, 0) > 0
+                           for ch in selected_channels)]
     if args.brave_only:
         crashers = [c for c in crashers
                     if c.get("code_origin") in ("brave", "mixed")]

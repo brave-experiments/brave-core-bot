@@ -1,7 +1,7 @@
 ---
 name: top-crashers
 description: "Get top crashers from Brave's Backtrace crash reporting. Shows crash signatures, stacks, platforms, versions, channel breakdown, code origin, and regression detection. Triggers on: top crashers, crash report, what's crashing, top crashes, crash analysis, regression crashers, new crashes."
-argument-hint: "[--days 7] [--platform Windows] [--compare 2] [--new-only] [--crashes-only] [--nightly-only] [--brave-only]"
+argument-hint: "[--days 7] [--platform Windows] [--compare 2] [--new-only] [--crashes-only] [--channels nightly,beta] [--brave-only]"
 ---
 
 # Top Crashers
@@ -58,9 +58,11 @@ Map the user's request to script arguments:
 | "worst crashers" | `--order count` (default) |
 | "most recent crashers" | `--order last-seen` |
 | "actual crashes" or "real crashes" | `--crashes-only` |
-| "crashes on nightly" or "nightly crashers" | `--nightly-only` |
+| "crashes on nightly" or "nightly crashers" | `--channels nightly` |
+| "crashes on nightly and beta" | `--channels nightly,beta` |
+| "release crashes" | `--channels release` |
 | "brave code crashes" or "our crashes" | `--brave-only` |
-| "what should we fix" or "actionable crashes" | `--crashes-only --nightly-only` |
+| "what should we fix" or "actionable crashes" | `--crashes-only --channels nightly` |
 
 If the user provides explicit flags (e.g., `/top-crashers --compare 3 --platform Windows`), pass them through directly.
 
@@ -114,7 +116,7 @@ After presenting results, suggest relevant follow-up actions:
 - "I can filter by a specific platform or version"
 - "I can check if any of these are regressions with `--compare`"
 - "I can show only actual crashes with `--crashes-only`"
-- "I can show only crashes affecting Nightly with `--nightly-only`"
+- "I can filter by channel with `--channels nightly`, `--channels nightly,beta`, etc."
 - "I can show only Brave code crashes with `--brave-only`"
 - "I can draft GitHub issues for the top crashers"
 
@@ -133,13 +135,16 @@ python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --format json -
 python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --crashes-only
 
 # Crashes affecting current Nightly
-python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --nightly-only
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --channels nightly
+
+# Crashes on Nightly and Beta
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --channels nightly,beta
 
 # Brave-specific code crashes only
 python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --brave-only
 
 # Actionable crashes: real crashes on Nightly in Brave code
-python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --crashes-only --nightly-only --brave-only
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --crashes-only --channels nightly --brave-only
 
 # Windows-only crashers
 python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --platform Windows
@@ -194,7 +199,7 @@ python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --format ndjson
 | `--frames` | Stack frames to show | 8 |
 | `--new-only` | Only first-seen-in-window crashers | false |
 | `--crashes-only` | Exclude DumpWithoutCrashing entries | false |
-| `--nightly-only` | Only crashes on current Nightly | false |
+| `--channels` | Filter by channels (comma-separated: nightly,beta,release, or 'all') | all |
 | `--brave-only` | Only crashes in Brave code | false |
 | `--brave-src` | Path to src/brave for code origin grep | auto-discovered |
 | `--compare` | Regression: compare N days vs prior N | — |
