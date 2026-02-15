@@ -1,12 +1,12 @@
 ---
 name: top-crashers
-description: "Get top crashers from Brave's Backtrace crash reporting. Shows crash signatures, stacks, platforms, versions, and regression detection. Triggers on: top crashers, crash report, what's crashing, top crashes, crash analysis, regression crashers, new crashes."
-argument-hint: "[--days 7] [--platform Windows] [--compare 2] [--new-only]"
+description: "Get top crashers from Brave's Backtrace crash reporting. Shows crash signatures, stacks, platforms, versions, channel breakdown, code origin, and regression detection. Triggers on: top crashers, crash report, what's crashing, top crashes, crash analysis, regression crashers, new crashes."
+argument-hint: "[--days 7] [--platform Windows] [--compare 2] [--new-only] [--crashes-only] [--nightly-only] [--brave-only]"
 ---
 
 # Top Crashers
 
-Query Brave's Backtrace crash reporting instance for top crashers. Returns developer-actionable data including crash signatures, stack traces, platform/version breakdowns, and triage URLs.
+Query Brave's Backtrace crash reporting instance for top crashers. Returns developer-actionable data including crash signatures, stack traces, platform/version breakdowns, channel mapping, code origin classification, and triage URLs.
 
 **PII-safe**: Only aggregate data is output. Use the triage URLs for full crash details.
 
@@ -57,6 +57,10 @@ Map the user's request to script arguments:
 | "crashers since 2025-02-01" | `--since 2025-02-01` |
 | "worst crashers" | `--order count` (default) |
 | "most recent crashers" | `--order last-seen` |
+| "actual crashes" or "real crashes" | `--crashes-only` |
+| "crashes on nightly" or "nightly crashers" | `--nightly-only` |
+| "brave code crashes" or "our crashes" | `--brave-only` |
+| "what should we fix" or "actionable crashes" | `--crashes-only --nightly-only` |
 
 If the user provides explicit flags (e.g., `/top-crashers --compare 3 --platform Windows`), pass them through directly.
 
@@ -74,14 +78,24 @@ After running the script, present the results to the user in a clear format:
 
 1. **Summary header**: "Found N crash groups in the last M days"
 2. **For each crasher** (in order):
-   - Rank, suggested title, and any badges ([NEW], [RISING])
+   - Rank, suggested title, and badges:
+     - **[CRASH]** or **[DUMP_WITHOUT_CRASHING]** — whether this is an actual crash or DumpWithoutCrashing. DumpWithoutCrashing is a non-fatal diagnostic that does NOT affect users.
+     - **[BRAVE]**, **[CHROMIUM]**, or **[MIXED]** — whether the crashing code is in Brave's codebase (`src/brave`) or upstream Chromium (`src/`). Only Brave code crashes are directly fixable by the Brave team.
+     - **[NEW]**, **[RISING]** — regression indicators
    - Crash count and rate (crashes/day)
+   - **Channel breakdown** — which channels are affected (Nightly, Beta, Release, Older). Highlight whether the crash affects **current Nightly** since that represents the latest master code.
    - Top platform with % share
-   - Top version with % share
+   - Top version with % share (displayed as "Brave X.Y.Z (Cr N)")
    - Recency (when last seen)
    - Callstack (top frames)
    - Triage URL for full details
 3. **If compare mode**: Highlight NEW and RISING crashers prominently
+
+**Presentation priorities:**
+- Always clearly distinguish actual crashes from DumpWithoutCrashing
+- Highlight crashes affecting Nightly (current master) — these are the most actionable
+- Note code origin — crashes in Brave code are directly fixable
+- When prioritizing what to fix, recommend focusing on: actual crashes (not dumps) that affect Nightly (current code) in Brave code
 
 ### Step 4: Offer Follow-Up Actions
 
@@ -90,6 +104,9 @@ After presenting results, suggest relevant follow-up actions:
 - "Want me to look into any of these crashes in more detail?"
 - "I can filter by a specific platform or version"
 - "I can check if any of these are regressions with `--compare`"
+- "I can show only actual crashes with `--crashes-only`"
+- "I can show only crashes affecting Nightly with `--nightly-only`"
+- "I can show only Brave code crashes with `--brave-only`"
 - "I can draft GitHub issues for the top crashers"
 
 ---
@@ -102,6 +119,18 @@ python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT"
 
 # Top 10, JSON output for parsing
 python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --format json --limit 10
+
+# Real crashes only (exclude DumpWithoutCrashing)
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --crashes-only
+
+# Crashes affecting current Nightly
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --nightly-only
+
+# Brave-specific code crashes only
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --brave-only
+
+# Actionable crashes: real crashes on Nightly in Brave code
+python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --crashes-only --nightly-only --brave-only
 
 # Windows-only crashers
 python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --platform Windows
@@ -155,6 +184,10 @@ python3 ./scripts/top-crashers.py --project "$BACKTRACE_PROJECT" --format ndjson
 | `--order` | Sort: count, last-seen, rate | count |
 | `--frames` | Stack frames to show | 8 |
 | `--new-only` | Only first-seen-in-window crashers | false |
+| `--crashes-only` | Exclude DumpWithoutCrashing entries | false |
+| `--nightly-only` | Only crashes on current Nightly | false |
+| `--brave-only` | Only crashes in Brave code | false |
+| `--brave-src` | Path to src/brave for code origin grep | auto-discovered |
 | `--compare` | Regression: compare N days vs prior N | — |
 | `--dry-run` | Print query without executing | false |
 | `--verbose` | Print timing/debug info | false |
@@ -167,12 +200,17 @@ Each crash group includes these **allowlisted fields only** (PII-safe):
 
 - **fingerprint** — SHA256 group ID (safe to reference in issues)
 - **count** / **crashes_per_day** — Occurrence counts
-- **classifier** — Crash signal (SIGSEGV, ACCESS_VIOLATION, etc.)
+- **classifier** — Crash signal (e.g. dump, invalid-access, breakpoint, abort)
+- **crash_type** — `"crash"` (actual user-impacting) or `"dump"` (DumpWithoutCrashing diagnostic)
+- **code_origin** — `"brave"` (Brave-specific code), `"chromium"` (upstream), or `"mixed"`
 - **top_frame** — First meaningful crashing function
 - **signature** — Combined `TopFrame (Classifier) on Platform Version`
 - **callstack** — Top N sanitized stack frames
 - **top_platform** / **platform_pct** — Most affected platform + % share
 - **top_version** / **version_pct** — Most affected version + % share
+- **channel_breakdown** — `{"nightly": N, "beta": N, "release": N, "older": N}`
+- **top_channel** — Channel with most crashes
+- **affects_nightly** — Whether this crash appears on current Nightly
 - **first_seen** / **last_seen** / **recency** — Timestamps
 - **is_new** — Whether first seen within the lookback window
 - **triage_url** — Link to Backtrace UI for full details
@@ -186,10 +224,19 @@ In compare mode, also:
 
 ---
 
+## Version Format
+
+Brave versions follow the format `CHROMIUM_MAJOR.BRAVE_MAJOR.BRAVE_MINOR.BRAVE_PATCH`:
+- `145.1.87.42` = Brave 1.87.42 on Chromium 145
+- Channel mapping is fetched from the Brave Release Schedule wiki at runtime
+
+---
+
 ## Limitations
 
 - Requires `BACKTRACE_API_KEY` with `query:post` capability
 - Stack frames are sanitized (paths stripped, truncated at 200 chars)
 - Histograms show top 5 values; use triage URL for full breakdown
 - Compare mode uses a simple 2x threshold for RISING detection
-- Version/channel field names may vary by project configuration
+- Code origin detection greps for crashing symbols in `src/brave` when the directory is found, with namespace heuristic fallback
+- Channel versions are fetched from the wiki with hardcoded fallback defaults

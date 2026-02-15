@@ -26,6 +26,8 @@ import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -41,6 +43,41 @@ RETRY_BACKOFF = [1, 3]  # seconds
 REQUEST_TIMEOUT = 20  # seconds
 MAX_FRAME_LENGTH = 200
 
+# Brave-specific namespace/prefix patterns for code origin classification
+BRAVE_CODE_PATTERNS = [
+    re.compile(r'\bbrave[:_]', re.IGNORECASE),
+    re.compile(r'\bntp_background_images::', re.IGNORECASE),
+    re.compile(r'\bbrave_ads::', re.IGNORECASE),
+    re.compile(r'\bbrave_new_tab_page', re.IGNORECASE),
+    re.compile(r'\bbrave_wallet::', re.IGNORECASE),
+    re.compile(r'\bbrave_rewards::', re.IGNORECASE),
+    re.compile(r'\bbrave_shields::', re.IGNORECASE),
+    re.compile(r'\bmisc_metrics::', re.IGNORECASE),
+    re.compile(r'\bBraveProfile', re.IGNORECASE),
+    re.compile(r'\bBraveBrowser', re.IGNORECASE),
+    re.compile(r'\bspeedreader::', re.IGNORECASE),
+    re.compile(r'\bipfs::', re.IGNORECASE),
+    re.compile(r'\btor::', re.IGNORECASE),
+    re.compile(r'\bai_chat::', re.IGNORECASE),
+    re.compile(r'\bskus::', re.IGNORECASE),
+    re.compile(r'\bplaylist::', re.IGNORECASE),
+    re.compile(r'\bdecentralized_dns::', re.IGNORECASE),
+    re.compile(r'\bbrave_vpn::', re.IGNORECASE),
+    re.compile(r'\bbrave_sync::', re.IGNORECASE),
+    re.compile(r'\bbrave_search', re.IGNORECASE),
+    re.compile(r'\bbrave_news::', re.IGNORECASE),
+    re.compile(r'\bbrave_federated::', re.IGNORECASE),
+]
+
+# Fallback channel versions if wiki fetch fails
+DEFAULT_CHANNEL_VERSIONS = {
+    "nightly": "1.89",
+    "beta": "1.88",
+    "release": "1.87",
+}
+
+WIKI_URL = "https://raw.githubusercontent.com/wiki/brave/brave-browser/Brave-Release-Schedule.md"
+
 # Patterns to strip from stack frames for PII safety
 PII_PATH_PATTERNS = [
     re.compile(r"/Users/[^\s/]+"),
@@ -48,6 +85,311 @@ PII_PATH_PATTERNS = [
     re.compile(r"C:\\Users\\[^\s\\]+"),
     re.compile(r"/var/[^\s/]*/[^\s/]+"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Code origin classification
+# ---------------------------------------------------------------------------
+
+def find_brave_src(explicit_path=None):
+    """Find the brave source directory (src/brave).
+
+    Args:
+        explicit_path: Explicit path from --brave-src flag.
+
+    Returns:
+        Absolute path to src/brave directory, or None if not found.
+    """
+    if explicit_path:
+        normalized = os.path.normpath(explicit_path)
+        if os.path.isdir(normalized):
+            return normalized
+        return None
+
+    # Auto-discover relative to script location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    candidates = [
+        os.path.join(script_dir, "..", "..", "src", "brave"),
+        os.path.join(script_dir, "..", "src", "brave"),
+    ]
+    for path in candidates:
+        normalized = os.path.normpath(path)
+        if os.path.isdir(normalized):
+            return normalized
+    return None
+
+
+_symbol_grep_cache = {}
+
+
+def symbol_in_brave_src(symbol, brave_src_path):
+    """Check if a crashing symbol is defined/implemented in brave source.
+
+    Extracts the short function name from a qualified C++ symbol and greps
+    for it in the brave source tree. Uses ripgrep if available, falls back
+    to grep.
+
+    Args:
+        symbol: Qualified C++ symbol (e.g. "BrowserView::NonClientHitTest").
+        brave_src_path: Path to the src/brave directory.
+
+    Returns:
+        True if the symbol is found in brave source.
+    """
+    if not brave_src_path or not symbol or symbol == "unknown":
+        return False
+
+    # Skip unqualified C/system function names (no :: means it's likely a
+    # system function like g_log, clone, start_thread, main, etc.)
+    if "::" not in symbol:
+        return False
+
+    # Strip template params and function args before extracting name
+    clean = re.sub(r'<[^>]*>', '', symbol)
+    clean = clean.split("(")[0].strip()
+    parts = [p for p in clean.split("::") if p]
+
+    # Use the last two segments (Class::Method) for a more specific grep
+    # "content::ChildThreadImpl::IOThreadState::CrashHungProcess"
+    #   -> "CrashHungProcess" (method only, since IOThreadState is an inner class)
+    # "BrowserView::NonClientHitTest" -> "NonClientHitTest"
+    if len(parts) >= 2:
+        search_name = parts[-1]
+    else:
+        search_name = parts[-1] if parts else ""
+
+    # Skip very short or generic names that would match too broadly
+    if not search_name or len(search_name) < 6:
+        return False
+
+    # Skip known system/library symbols
+    if search_name.startswith("lib") or search_name.startswith("__"):
+        return False
+
+    if search_name in _symbol_grep_cache:
+        return _symbol_grep_cache[search_name]
+
+    rg_path = shutil.which("rg")
+    try:
+        if rg_path:
+            result = subprocess.run(
+                [rg_path, "-l", "--type", "cpp", "--type-add", "cpp:*.mm",
+                 "-m", "1", search_name, brave_src_path],
+                capture_output=True, text=True, timeout=10,
+            )
+        else:
+            result = subprocess.run(
+                ["grep", "-rl", "-m", "1",
+                 "--include=*.cc", "--include=*.h", "--include=*.mm",
+                 search_name, brave_src_path],
+                capture_output=True, text=True, timeout=10,
+            )
+        found = result.returncode == 0 and bool(result.stdout.strip())
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        found = False
+
+    _symbol_grep_cache[search_name] = found
+    return found
+
+
+def is_brave_frame(frame):
+    """Check if a stack frame belongs to Brave-specific code (by namespace)."""
+    for pattern in BRAVE_CODE_PATTERNS:
+        if pattern.search(frame):
+            return True
+    return False
+
+
+def classify_code_origin(frames, brave_src_path=None):
+    """Classify whether a crash is in Brave or Chromium code.
+
+    Uses two strategies:
+    1. Namespace heuristics (fast check for brave_*, brave::, etc.)
+    2. Source grep (greps for the symbol in src/brave/ when available)
+
+    Args:
+        frames: List of sanitized stack frame strings.
+        brave_src_path: Path to src/brave directory for grep-based checking.
+
+    Returns:
+        "brave" if top frame or majority of top frames are brave code,
+        "chromium" if no brave frames found,
+        "mixed" if both brave and non-brave frames in top 3.
+    """
+    if not frames:
+        return "chromium"
+
+    top_frames = frames[:3]
+
+    # Strategy 1: namespace heuristics (fast, checks for brave_ prefixes)
+    brave_count = sum(1 for f in top_frames if is_brave_frame(f))
+
+    # Strategy 2: grep the crashing function (frame[0]) in brave source.
+    # Only checks the top frame to avoid false positives from generic method
+    # names deeper in the stack.
+    if brave_count == 0 and brave_src_path:
+        if symbol_in_brave_src(frames[0], brave_src_path):
+            brave_count = 1
+
+    if brave_count == 0:
+        return "chromium"
+    elif brave_count == len(top_frames):
+        return "brave"
+    else:
+        return "mixed"
+
+
+# ---------------------------------------------------------------------------
+# Channel version mapping
+# ---------------------------------------------------------------------------
+
+def fetch_channel_versions(verbose=False):
+    """Fetch current channel versions from Brave Release Schedule wiki.
+
+    The wiki table format is transposed (channels as columns):
+        | **Channel**     | Release |  Beta  | Nightly |
+        | --------------- | ------- | ------ | ------- |
+        | **Milestone**   | 1.87.x  | 1.88.x | 1.89.x |
+
+    Returns:
+        Dict mapping channel name to Brave major.minor version string,
+        e.g. {"nightly": "1.89", "beta": "1.88", "release": "1.87"}.
+    """
+    try:
+        req = urllib.request.Request(WIKI_URL, method="GET")
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            content = resp.read().decode("utf-8", errors="replace")
+
+        # Find the Channel header row and Milestone row
+        lines = content.split("\n")
+        channel_cols = None
+        versions = {}
+
+        for line in lines:
+            cells = [c.strip().strip("*").strip()
+                     for c in line.split("|") if c.strip()]
+            if not cells:
+                continue
+
+            # Find the header row with channel names
+            cells_lower = [c.lower() for c in cells]
+            if "channel" in cells_lower[0].lower() and any(
+                    ch in cells_lower for ch in ["release", "beta", "nightly"]):
+                channel_cols = cells_lower[1:]  # skip the label column
+                continue
+
+            # Find the Milestone row with version numbers
+            if channel_cols and "milestone" in cells[0].lower():
+                ver_cells = cells[1:]
+                for i, channel in enumerate(channel_cols):
+                    if i < len(ver_cells):
+                        ver_match = re.search(r'(\d+\.\d+)', ver_cells[i])
+                        if ver_match:
+                            versions[channel.strip()] = ver_match.group(1)
+                break
+
+        if len(versions) >= 3:
+            if verbose:
+                print(f"  Channel versions from wiki: {versions}",
+                      file=sys.stderr)
+            return versions
+    except Exception as e:
+        if verbose:
+            print(f"  Could not fetch wiki channel versions: {e}",
+                  file=sys.stderr)
+
+    if verbose:
+        print(f"  Using fallback channel versions: {DEFAULT_CHANNEL_VERSIONS}",
+              file=sys.stderr)
+    return dict(DEFAULT_CHANNEL_VERSIONS)
+
+
+def parse_brave_version(version_str):
+    """Extract Brave major.minor version from full version string.
+
+    Version format: CHROMIUM_MAJOR.BRAVE_MAJOR.BRAVE_MINOR.BRAVE_PATCH
+    e.g. "145.1.87.42" -> "1.87"
+
+    Args:
+        version_str: Full version string.
+
+    Returns:
+        Brave "MAJOR.MINOR" string, or None if unparseable.
+    """
+    parts = str(version_str).split(".")
+    if len(parts) >= 3:
+        try:
+            return f"{parts[1]}.{parts[2]}"
+        except (IndexError, ValueError):
+            pass
+    return None
+
+
+def format_brave_version(version_str):
+    """Format version string for human display.
+
+    "145.1.87.42" -> "Brave 1.87.42 (Cr 145)"
+
+    Args:
+        version_str: Full version string.
+
+    Returns:
+        Human-readable version string.
+    """
+    parts = str(version_str).split(".")
+    if len(parts) >= 4:
+        return f"Brave {parts[1]}.{parts[2]}.{parts[3]} (Cr {parts[0]})"
+    elif len(parts) >= 3:
+        return f"Brave {parts[1]}.{parts[2]} (Cr {parts[0]})"
+    return str(version_str)
+
+
+def build_channel_breakdown(version_hist, channel_versions):
+    """Map a version histogram to channel counts.
+
+    Args:
+        version_hist: Dict of {version_string: count}.
+        channel_versions: Dict of {channel: "MAJOR.MINOR"} from wiki.
+
+    Returns:
+        Tuple of (channel_breakdown_dict, affects_nightly_bool).
+        channel_breakdown has keys: "nightly", "beta", "release", "older".
+    """
+    # Invert channel_versions: "1.87" -> "release"
+    ver_to_channel = {}
+    for channel, ver in channel_versions.items():
+        ver_to_channel[ver] = channel
+
+    breakdown = {"nightly": 0, "beta": 0, "release": 0, "older": 0}
+
+    for version_str, count in version_hist.items():
+        brave_ver = parse_brave_version(version_str)
+        if brave_ver and brave_ver in ver_to_channel:
+            breakdown[ver_to_channel[brave_ver]] += count
+        else:
+            breakdown["older"] += count
+
+    affects_nightly = breakdown["nightly"] > 0
+    return breakdown, affects_nightly
+
+
+# ---------------------------------------------------------------------------
+# Crash type classification
+# ---------------------------------------------------------------------------
+
+def classify_crash_type(classifier):
+    """Classify whether this is a real crash or DumpWithoutCrashing.
+
+    Args:
+        classifier: Classifier string from Backtrace (e.g. "dump",
+                     "invalid-access", "breakpoint", etc.)
+
+    Returns:
+        "dump" for DumpWithoutCrashing, "crash" for actual crashes.
+    """
+    if classifier and classifier.lower() == "dump":
+        return "dump"
+    return "crash"
 
 
 # ---------------------------------------------------------------------------
@@ -326,7 +668,7 @@ def histogram_from_pairs(pairs):
 
 
 def parse_response(response, days, max_frames, min_count, lookback_start_ts,
-                    project):
+                    project, channel_versions=None, brave_src_path=None):
     """Parse the Backtrace query response into a list of crash group dicts.
 
     Handles the RLE-encoded response format (v1.2.0) where results are in
@@ -341,6 +683,7 @@ def parse_response(response, days, max_frames, min_count, lookback_start_ts,
         min_count: Minimum crash count to include.
         lookback_start_ts: Unix timestamp of window start (for new-detection).
         project: Project name (for triage URL).
+        channel_versions: Dict of {channel: "MAJOR.MINOR"} for channel mapping.
 
     Returns:
         List of crash group dicts with standardized fields.
@@ -446,20 +789,41 @@ def parse_response(response, days, max_frames, min_count, lookback_start_ts,
             and first_seen_ts >= lookback_start_ts
         )
 
+        # Crash type: "dump" (DumpWithoutCrashing) vs "crash" (real)
+        crash_type = classify_crash_type(classifier)
+
+        # Code origin: "brave", "chromium", or "mixed"
+        code_origin = classify_code_origin(frames, brave_src_path=brave_src_path)
+
+        # Channel breakdown
+        channel_breakdown = {"nightly": 0, "beta": 0, "release": 0, "older": 0}
+        affects_nightly = False
+        if channel_versions:
+            channel_breakdown, affects_nightly = build_channel_breakdown(
+                version_hist, channel_versions)
+
+        # Top channel
+        top_channel = max(channel_breakdown, key=channel_breakdown.get) if any(
+            channel_breakdown.values()) else "unknown"
+
         # Build signature for issue titles
         platform_label = top_platform or "unknown"
-        version_label = top_version or "unknown"
+        version_label = (format_brave_version(top_version) if top_version
+                         else "unknown")
         sig = f"{top_frame} ({classifier}) on {platform_label} {version_label}"
 
         # Suggested title
-        suggested_title = f"Crash: {sig}"
+        crash_prefix = "Crash" if crash_type == "crash" else "DumpWithoutCrashing"
+        suggested_title = f"{crash_prefix}: {top_frame} on {platform_label}"
 
         # Labels
-        labels = ["crash"]
+        labels = ["crash" if crash_type == "crash" else "dump-without-crashing"]
         if top_platform:
             labels.append(top_platform.lower().replace(" ", "-"))
         if is_new:
             labels.append("regression")
+        if code_origin == "brave":
+            labels.append("brave-code")
 
         # Triage URL
         triage_url = (
@@ -472,6 +836,8 @@ def parse_response(response, days, max_frames, min_count, lookback_start_ts,
             "count": count,
             "crashes_per_day": crashes_per_day,
             "classifier": classifier,
+            "crash_type": crash_type,
+            "code_origin": code_origin,
             "top_frame": top_frame,
             "signature": sig,
             "callstack": frames,
@@ -481,6 +847,9 @@ def parse_response(response, days, max_frames, min_count, lookback_start_ts,
             "versions": version_hist,
             "top_version": top_version,
             "version_pct": round(version_pct * 100, 1),
+            "channel_breakdown": channel_breakdown,
+            "top_channel": top_channel,
+            "affects_nightly": affects_nightly,
             "first_seen": format_timestamp(first_seen_ts),
             "first_seen_ts": first_seen_ts,
             "last_seen": format_timestamp(last_seen_ts),
@@ -592,14 +961,26 @@ def format_markdown(crashers, days, compare_mode=False):
         return "\n".join(lines)
 
     for c in crashers:
-        badge = ""
+        # Build badges
+        badges = []
+        crash_type = c.get("crash_type", "crash")
+        if crash_type == "dump":
+            badges.append("DUMP_WITHOUT_CRASHING")
+        else:
+            badges.append("CRASH")
+
+        code_origin = c.get("code_origin", "chromium")
+        badges.append(code_origin.upper())
+
         if compare_mode and c.get("regression_badge"):
-            badge = f" [{c['regression_badge']}]"
+            badges.append(c["regression_badge"])
         elif c.get("is_new"):
-            badge = " [NEW]"
+            badges.append("NEW")
+
+        badge_str = " ".join(f"[{b}]" for b in badges)
 
         lines.append(
-            f"### #{c['rank']} — {c['suggested_title']}{badge}"
+            f"### #{c['rank']} — {c['suggested_title']} {badge_str}"
         )
         lines.append("")
 
@@ -609,6 +990,11 @@ def format_markdown(crashers, days, compare_mode=False):
         lines.append(
             f"| Count | {c['count']:,} ({c['crashes_per_day']}/day) |"
         )
+        lines.append(
+            f"| Type | {crash_type.upper()} "
+            f"({'DumpWithoutCrashing' if crash_type == 'dump' else 'Actual crash'}) |"
+        )
+        lines.append(f"| Code origin | {code_origin} |")
         lines.append(f"| Classifier | {c['classifier']} |")
 
         if c.get("top_platform"):
@@ -618,9 +1004,26 @@ def format_markdown(crashers, days, compare_mode=False):
             )
         if c.get("top_version"):
             lines.append(
-                f"| Top version | {c['top_version']} "
+                f"| Top version | {format_brave_version(c['top_version'])} "
                 f"({c['version_pct']}%) |"
             )
+
+        # Channel breakdown
+        ch = c.get("channel_breakdown", {})
+        ch_total = sum(ch.values())
+        if ch_total > 0:
+            ch_parts = []
+            for chan in ["nightly", "beta", "release", "older"]:
+                n = ch.get(chan, 0)
+                if n > 0:
+                    pct = round(n / ch_total * 100)
+                    ch_parts.append(f"{chan.capitalize()} {pct}%")
+            lines.append(f"| Channels | {', '.join(ch_parts)} |")
+            lines.append(
+                f"| Affects Nightly | "
+                f"{'Yes' if c.get('affects_nightly') else 'No'} |"
+            )
+
         lines.append(f"| First seen | {c['first_seen']} |")
         lines.append(
             f"| Last seen | {c['last_seen']} ({c['recency']}) |"
@@ -664,7 +1067,7 @@ def format_markdown(crashers, days, compare_mode=False):
             sorted_vers = sorted(c["versions"].items(),
                                  key=lambda x: x[1], reverse=True)
             ver_parts = [
-                f"{v} ({round(n / total * 100)}%)"
+                f"{format_brave_version(v)} ({round(n / total * 100)}%)"
                 for v, n in sorted_vers[:5]
             ]
             lines.append(f"**Versions:** {', '.join(ver_parts)}")
@@ -698,6 +1101,8 @@ def format_json_output(crashers, days, compare_mode=False):
             "count": c["count"],
             "crashes_per_day": c["crashes_per_day"],
             "classifier": c["classifier"],
+            "crash_type": c.get("crash_type", "crash"),
+            "code_origin": c.get("code_origin", "chromium"),
             "top_frame": c["top_frame"],
             "signature": c["signature"],
             "callstack": c["callstack"],
@@ -707,6 +1112,9 @@ def format_json_output(crashers, days, compare_mode=False):
             "top_version": c["top_version"],
             "version_pct": c["version_pct"],
             "versions": c.get("versions", {}),
+            "channel_breakdown": c.get("channel_breakdown", {}),
+            "top_channel": c.get("top_channel", "unknown"),
+            "affects_nightly": c.get("affects_nightly", False),
             "first_seen": c["first_seen"],
             "last_seen": c["last_seen"],
             "recency": c["recency"],
@@ -735,6 +1143,8 @@ def format_ndjson(crashers, compare_mode=False):
             "count": c["count"],
             "crashes_per_day": c["crashes_per_day"],
             "classifier": c["classifier"],
+            "crash_type": c.get("crash_type", "crash"),
+            "code_origin": c.get("code_origin", "chromium"),
             "top_frame": c["top_frame"],
             "signature": c["signature"],
             "callstack": c["callstack"],
@@ -742,6 +1152,9 @@ def format_ndjson(crashers, compare_mode=False):
             "platform_pct": c["platform_pct"],
             "top_version": c["top_version"],
             "version_pct": c["version_pct"],
+            "channel_breakdown": c.get("channel_breakdown", {}),
+            "top_channel": c.get("top_channel", "unknown"),
+            "affects_nightly": c.get("affects_nightly", False),
             "first_seen": c["first_seen"],
             "last_seen": c["last_seen"],
             "recency": c["recency"],
@@ -765,8 +1178,10 @@ def format_csv_output(crashers, compare_mode=False):
     buf = io.StringIO()
     fields = [
         "rank", "fingerprint", "count", "crashes_per_day", "classifier",
+        "crash_type", "code_origin",
         "top_frame", "top_platform", "platform_pct", "top_version",
-        "version_pct", "first_seen", "last_seen", "recency", "is_new",
+        "version_pct", "top_channel", "affects_nightly",
+        "first_seen", "last_seen", "recency", "is_new",
         "triage_url", "suggested_title",
     ]
     if compare_mode:
@@ -851,6 +1266,24 @@ def main():
     parser.add_argument(
         "--new-only", action="store_true",
         help="Only show fingerprints first seen within the lookback window",
+    )
+    parser.add_argument(
+        "--crashes-only", action="store_true",
+        help="Exclude DumpWithoutCrashing (classifier='dump') — show only "
+             "real user-impacting crashes",
+    )
+    parser.add_argument(
+        "--nightly-only", action="store_true",
+        help="Only show crashes that appear on the current Nightly version",
+    )
+    parser.add_argument(
+        "--brave-only", action="store_true",
+        help="Only show crashes in Brave-specific code (not upstream Chromium)",
+    )
+    parser.add_argument(
+        "--brave-src",
+        help="Path to src/brave directory for code origin detection "
+             "(auto-discovered if not set)",
     )
     parser.add_argument(
         "--compare", type=int, metavar="DAYS",
@@ -953,6 +1386,22 @@ def main():
 
         sys.exit(0)
 
+    # Find brave source directory for code origin detection
+    brave_src_path = find_brave_src(explicit_path=args.brave_src)
+    if args.verbose:
+        if brave_src_path:
+            print(f"  Brave source: {brave_src_path}", file=sys.stderr)
+        else:
+            print("  Brave source not found, using namespace heuristics only",
+                  file=sys.stderr)
+    if args.brave_only and not brave_src_path:
+        print("Warning: --brave-only used but src/brave not found. "
+              "Code origin detection will use namespace heuristics only. "
+              "Use --brave-src to specify the path.", file=sys.stderr)
+
+    # Fetch channel versions for version-to-channel mapping
+    channel_versions = fetch_channel_versions(verbose=args.verbose)
+
     # Execute queries
     compare_mode = bool(args.compare)
 
@@ -962,6 +1411,7 @@ def main():
                                verbose=args.verbose)
     crashers = parse_response(
         response, days, args.frames, args.min_count, start_ts, args.project,
+        channel_versions=channel_versions, brave_src_path=brave_src_path,
     )
 
     if args.verbose:
@@ -988,6 +1438,7 @@ def main():
         baseline_crashers = parse_response(
             baseline_response, baseline_days, args.frames, 0,
             baseline_start, args.project,
+            channel_versions=channel_versions, brave_src_path=brave_src_path,
         )
 
         if args.verbose:
@@ -1004,6 +1455,19 @@ def main():
 
         # Sort and rank
         crashers = sort_crashers(crashers, args.order)
+
+    # Apply post-query filters
+    if args.crashes_only:
+        crashers = [c for c in crashers if c.get("crash_type") != "dump"]
+    if args.nightly_only:
+        crashers = [c for c in crashers if c.get("affects_nightly")]
+    if args.brave_only:
+        crashers = [c for c in crashers
+                    if c.get("code_origin") in ("brave", "mixed")]
+
+    # Re-rank after filtering
+    for i, c in enumerate(crashers, 1):
+        c["rank"] = i
 
     if not crashers:
         print("No crashes found matching the criteria.", file=sys.stderr)
