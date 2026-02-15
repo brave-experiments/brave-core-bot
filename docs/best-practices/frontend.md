@@ -190,6 +190,44 @@ if ('text' in value && 'role' in value) { ... }
 
 ---
 
+## ✅ Prefer Semantic HTML Links Over Button+JS Navigation
+
+**When a UI element's only action is navigating to a URL, use a proper `<a>` link element instead of a `<button>` with JavaScript navigation.** This provides better accessibility (users can see the destination on hover) and follows semantic HTML principles.
+
+```tsx
+// ❌ WRONG - button with JS navigation
+<button onClick={() => window.open(url)}>Visit</button>
+
+// ✅ CORRECT - semantic link
+<a href={url} target="_blank" rel="noopener">Visit</a>
+```
+
+---
+
+## ❌ Avoid Unnecessary `waitFor` in React Tests
+
+**In React component tests, if you are using `rerender` to trigger updates, `waitFor` should not be needed** since `rerender` is synchronous. Similarly, wrapping DOM mutations in `act()` applies pending React updates. Using `waitFor` unnecessarily makes tests slower and can mask timing-related bugs.
+
+---
+
+## ❌ Avoid Global State Assumptions for Component-Scoped Operations
+
+**When a function accesses global state (like `window.getSelection()`), consider what happens if multiple instances of the component exist on the page.** If the function is component-scoped, pass a ref to the specific component instance instead of relying on global state.
+
+---
+
+## ✅ Document Exported TypeScript Types
+
+**Exported TypeScript types intended for use outside the component must have documentation comments** explaining their purpose. Complex union types and data shapes used as component APIs especially need explicit documentation for consumers.
+
+---
+
+## ❌ Don't Add `translateable="true"` on GRD Strings
+
+**In `.grdp` string resource files, `translateable="true"` is the default.** Never add it explicitly. The tooling only looks for `translateable="false"` when excluding strings from translation.
+
+---
+
 ## ✅ Use Proper Ellipsis Characters in UI Strings
 
 **In user-facing strings, use the proper Unicode ellipsis character (`…`) instead of three periods (`...`).** This is a standard typographic convention for UI text.
