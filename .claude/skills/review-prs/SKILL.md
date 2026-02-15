@@ -75,9 +75,7 @@ jq ".[$START:$START+20]" /tmp/brave_prs_all.json > /tmp/brave_prs.json
 
 **Load the review cache:**
 ```bash
-# Ensure .ignore directory exists
-mkdir -p .ignore
-# Load cache or create empty one
+# Load cache (will be empty object if file doesn't exist yet)
 if [ -f .ignore/review-prs-cache.json ]; then
   CACHE=$(cat .ignore/review-prs-cache.json)
 else
@@ -155,7 +153,11 @@ For each PR, launch a **Task subagent** (subagent_type: "general-purpose") with 
 **Optimization:** The subagent can check which file types are in the diff first. If no test files are changed, it can skip the testing docs (`testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md`). If no `chromium_src/` files, skip `chromium-src-overrides.md`. If no `BUILD.gn`/`DEPS` files, skip `build-system.md`.
 
 Process PRs **one at a time** (sequentially). After each subagent returns:
-1. **Update the cache** — write the PR's `headRefOid` to the cache file immediately (regardless of violations found)
+1. **Update the cache immediately** — run the cache update script right now, before doing anything else (regardless of violations found):
+   ```bash
+   python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID>
+   ```
+   **This step is mandatory after every single PR review.**
 2. If violations were found, present them to the user for interactive approval before moving to the next PR
 3. If no violations, briefly note that and move on
 
