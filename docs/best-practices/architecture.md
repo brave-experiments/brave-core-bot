@@ -631,6 +631,46 @@ results_[request_index] = std::move(result);
 
 ---
 
+## ✅ Use Existing Mojom Types Instead of Duplicating in C++
+
+**When mojom types already describe the data shape, use them directly in C++ instead of creating redundant C++ struct types.** Duplicating types creates a synchronization burden and increases the risk of the two definitions drifting apart.
+
+```cpp
+// ❌ WRONG - redundant C++ struct
+struct ToolConfig {
+  std::string name;
+  std::string description;
+};
+
+// ✅ CORRECT - use the mojom type directly
+// mojom::ToolConfig already has name and description fields
+void RegisterTool(mojom::ToolConfigPtr config);
+```
+
+---
+
+## ❌ Don't Expose Cache Keys in API Interfaces
+
+**Internal cache keys should not leak into public API interfaces.** Auto-generate unique cache keys internally rather than requiring callers to provide or manage them.
+
+```cpp
+// ❌ WRONG - caller must know about cache keys
+void FetchData(const std::string& url, const std::string& cache_key,
+               Callback cb);
+
+// ✅ CORRECT - cache key generated internally
+void FetchData(const std::string& url, Callback cb);
+// Internally: cache_key = GenerateKey(url, params)
+```
+
+---
+
+## ✅ Reorder Data for UI Presentation on Client Side
+
+**Data reordering for UI presentation (sorting, grouping, prioritizing) belongs in the client/UI layer, not in the core data layer or API response.** The backend should return data in its canonical order; the frontend transforms it for display.
+
+---
+
 ## ✅ Set Default Values in Mojom Struct Fields
 
 **Mojom struct fields should have explicit default values for safety.** Uninitialized mojom fields can lead to unexpected behavior when the struct is partially constructed.

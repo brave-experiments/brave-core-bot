@@ -1993,6 +1993,55 @@ EXPECT_THAT(dict, base::test::DictHasValue("name", "test"));
 
 ---
 
+## ✅ Use `kOsAll` for Cross-Platform Feature Flags
+
+**When registering feature flags in `about_flags.cc` that should be available on all platforms, use `kOsAll`** instead of listing individual platform constants.
+
+```cpp
+// ❌ WRONG - listing platforms individually
+{"brave-my-feature", ..., kOsDesktop | kOsAndroid}
+
+// ✅ CORRECT - use kOsAll
+{"brave-my-feature", ..., kOsAll}
+```
+
+---
+
+## ✅ Workaround Code Must Have Tracking Issues
+
+**Any workaround or hack code must reference a tracking issue with a `TODO(issue-url)` comment** explaining when and why it can be removed. Workarounds without tracking issues become permanent technical debt.
+
+```cpp
+// ❌ WRONG - unexplained workaround
+// HACK: skip validation for now
+if (ShouldSkipValidation()) return;
+
+// ✅ CORRECT - tracked workaround
+// TODO(https://github.com/nicira/nicira/issues/123): Remove this
+// workaround once upstream fixes the validation race condition.
+if (ShouldSkipValidation()) return;
+```
+
+---
+
+## ✅ Use Named Constants for JSON Property Keys
+
+**When accessing JSON object properties in C++, define named constants for the key strings** rather than using inline string literals. This prevents typos and makes refactoring easier.
+
+```cpp
+// ❌ WRONG - inline string literals
+auto* name = dict.FindString("display_name");
+auto* url = dict.FindString("endpoint_url");
+
+// ✅ CORRECT - named constants
+constexpr char kDisplayName[] = "display_name";
+constexpr char kEndpointUrl[] = "endpoint_url";
+auto* name = dict.FindString(kDisplayName);
+auto* url = dict.FindString(kEndpointUrl);
+```
+
+---
+
 ## ✅ Prefer `GlobalFeatures` Over `NoDestructor` for Global Services
 
 **For global/singleton services, prefer registering in `GlobalFeatures` (the Chromium replacement for `BrowserProcessImpl`) over `base::NoDestructor`.** `NoDestructor` makes testing difficult since you can't reset the instance between tests.

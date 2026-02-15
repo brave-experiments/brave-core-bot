@@ -251,6 +251,53 @@ void TearDown() { g_disable_auto_start = false; }
 
 ---
 
+## ✅ Include Diagnostic State in Test Assertions
+
+**Test assertions should include diagnostic context using the `<<` operator** so failures are debuggable without re-running under a debugger.
+
+```cpp
+// ❌ WRONG - no context on failure
+EXPECT_EQ(result.status, Status::kSuccess);
+
+// ✅ CORRECT - diagnostic context
+EXPECT_EQ(result.status, Status::kSuccess)
+    << "Failed for URL: " << url << ", response code: " << result.code;
+```
+
+---
+
+## ✅ Use `SCOPED_TRACE` with `base::Location` in Browser Test Helpers
+
+**Use `SCOPED_TRACE(base::Location::Current())` in browser test helper functions** to get file/line information in failure output. Without this, failures in helpers only show the helper's line, not the caller.
+
+```cpp
+// ❌ WRONG - failure points to helper, not caller
+void VerifyTabCount(Browser* browser, int expected) {
+  EXPECT_EQ(browser->tab_strip_model()->count(), expected);
+}
+
+// ✅ CORRECT - failure shows caller location
+void VerifyTabCount(Browser* browser, int expected,
+                    base::Location location = base::Location::Current()) {
+  SCOPED_TRACE(location.ToString());
+  EXPECT_EQ(browser->tab_strip_model()->count(), expected);
+}
+```
+
+---
+
+## ✅ Unit Tests Required for Bad/Invalid Input
+
+**Tool and handler implementations must have unit tests covering bad/invalid input scenarios,** not just happy paths. Test with malformed data, empty inputs, null values, and out-of-range parameters.
+
+---
+
+## ✅ Relocate Test Checks When Refactoring
+
+**When refactoring removes a test check, that check must be relocated to the appropriate new location, not simply deleted.** Test coverage should never decrease during refactoring. If a check is no longer applicable, document why.
+
+---
+
 ## ✅ Use `base::test::ParseJsonDict` for Test Comparisons
 
 **In tests comparing JSON values, use `base::test::ParseJsonDict()`** for simpler, more readable assertions. **Never use `testing::HasSubstr`** to validate JSON -- it is fragile and doesn't verify structure.
