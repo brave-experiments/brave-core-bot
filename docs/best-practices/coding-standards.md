@@ -1887,3 +1887,123 @@ service->ForEach([](Item&) {});
 ## ✅ Copyright Year in New Files Must Be Current Year
 
 **New files must use the current year in the copyright header.** Don't copy-paste old copyright years from other files.
+
+---
+
+## ✅ Use `base::FindOrNull()` for Map Lookups
+
+**Use `base::FindOrNull()` instead of the manual find-and-check-end pattern for map lookups.** It's more concise and less error-prone.
+
+```cpp
+// ❌ WRONG - verbose find + check
+auto it = metric_configs_.find(metric_name);
+if (it == metric_configs_.end()) {
+  return nullptr;
+}
+return &it->second;
+
+// ✅ CORRECT
+return base::FindOrNull(metric_configs_, metric_name);
+```
+
+---
+
+## ✅ Use `host_piece()` Over `host()` on GURL
+
+**When comparing or checking GURL hosts, prefer `host_piece()` over `host()`.** `host_piece()` returns a `std::string_view` (zero-copy) while `host()` returns a `std::string` (allocates).
+
+```cpp
+// ❌ WRONG - unnecessary allocation
+if (url.host() == "search.brave.com") { ... }
+
+// ✅ CORRECT - zero-copy comparison
+if (url.host_piece() == "search.brave.com") { ... }
+```
+
+---
+
+## ✅ Use `base::Extend` for Appending Ranges to Vectors
+
+**Use `base::Extend(target, source)` instead of manual `insert(end, begin, end)` for appending one collection to another.**
+
+```cpp
+// ❌ WRONG - verbose
+accelerator_list.insert(accelerator_list.end(),
+    brave_accelerators.begin(), brave_accelerators.end());
+
+// ✅ CORRECT
+base::Extend(accelerator_list, base::span(kBraveAcceleratorMap));
+```
+
+---
+
+## ✅ Consider `base::SequenceBound` for Thread-Isolated Operations
+
+**When a class performs blocking or IO operations and needs to be accessed asynchronously from the UI thread, use `base::SequenceBound<T>`.** This binds the object to a specific task runner and automatically posts all calls to that sequence.
+
+```cpp
+// ❌ WRONG - manual thread management
+class ContentScraper {
+  void Process(const std::string& html);  // blocking
+};
+// Caller must manually post to thread pool and bind weak ptr
+
+// ✅ CORRECT - SequenceBound handles threading
+base::SequenceBound<ContentScraper> scraper_;
+scraper_.AsyncCall(&ContentScraper::Process).WithArgs(html);
+```
+
+---
+
+## ✅ Explicitly Specify `base::TaskPriority` in Thread Pool Tasks
+
+**When posting tasks to the thread pool, explicitly specify `base::TaskPriority` and shutdown behavior** rather than relying on defaults. Use `BEST_EFFORT` for non-urgent work and `SKIP_ON_SHUTDOWN` when work can be safely abandoned.
+
+```cpp
+// ❌ WRONG - implicit priority
+base::ThreadPool::PostTask(FROM_HERE, {base::MayBlock()}, task);
+
+// ✅ CORRECT - explicit priority and shutdown behavior
+base::ThreadPool::PostTask(
+    FROM_HERE,
+    {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
+     base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
+    task);
+```
+
+---
+
+## ✅ Use `base::test::ParseJson` and `base::ExpectDict*` in Tests
+
+**Use `base::test::ParseJson()` for parsing JSON in tests, and `base::test::*` utilities from `base/test/values_test_util.h` for asserting dict contents.** These are more readable and produce better error messages than manual JSON parsing.
+
+```cpp
+// ❌ WRONG - manual JSON parsing in tests
+auto value = base::JSONReader::Read(json_str);
+ASSERT_TRUE(value);
+ASSERT_TRUE(value->is_dict());
+auto* name = value->GetDict().FindString("name");
+ASSERT_TRUE(name);
+EXPECT_EQ(*name, "test");
+
+// ✅ CORRECT - test utilities
+auto dict = base::test::ParseJsonDict(json_str);
+EXPECT_THAT(dict, base::test::DictHasValue("name", "test"));
+```
+
+---
+
+## ✅ Prefer `GlobalFeatures` Over `NoDestructor` for Global Services
+
+**For global/singleton services, prefer registering in `GlobalFeatures` (the Chromium replacement for `BrowserProcessImpl`) over `base::NoDestructor`.** `NoDestructor` makes testing difficult since you can't reset the instance between tests.
+
+```cpp
+// ❌ WRONG - hard to test
+BraveOriginState* BraveOriginState::GetInstance() {
+  static base::NoDestructor<BraveOriginState> instance;
+  return instance.get();
+}
+
+// ✅ CORRECT - register in GlobalFeatures for testability
+// Access via g_browser_process or dependency injection
+```
