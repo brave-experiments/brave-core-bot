@@ -671,6 +671,12 @@ void FetchData(const std::string& url, Callback cb);
 
 ---
 
+## ✅ Use Mojo Interfaces for Trusted/Untrusted WebUI Communication
+
+**When communicating between trusted and untrusted WebUI frames, use a mojo interface rather than `postMessage`.** The Chromium documentation advises against `postMessage` across trust boundaries. Only avoid mojo when the frame intentionally executes untrusted code and reducing API surface is a deliberate security choice.
+
+---
+
 ## ✅ Set Default Values in Mojom Struct Fields
 
 **Mojom struct fields should have explicit default values for safety.** Uninitialized mojom fields can lead to unexpected behavior when the struct is partially constructed.
