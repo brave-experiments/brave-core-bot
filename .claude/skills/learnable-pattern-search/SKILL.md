@@ -150,7 +150,9 @@ Only capture patterns that meet ALL of these criteria:
 
 ### Report File
 
-Write findings to `.ignore/learnable-patterns-report.md` (or `.ignore/learnable-patterns-report-<username>.md` when using `--username` mode) with this format:
+Write findings to `.ignore/learnable-patterns-report.md` (or `.ignore/learnable-patterns-report-<username>.md` when using `--username` mode). Do NOT proactively create the `.ignore` directory — just write the file and if it fails because the directory doesn't exist, create it then.
+
+Use this format:
 
 ```markdown
 # Learnable Patterns Report
