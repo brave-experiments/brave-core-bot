@@ -383,6 +383,18 @@ include_rules = [
 
 ---
 
+## ✅ Bump `resource_ids.spec` by 5
+
+**When adding new resource IDs in `resource_ids.spec`, bump the next ID by 5 (not 1)** to leave room for additions without conflicting with adjacent entries.
+
+---
+
+## ✅ Use `component()` Not `static_library()` for Service GN Targets
+
+**Mojo service targets should use `component()` instead of `static_library()` in BUILD.gn.** Components support dynamic linking and are the correct target type for service implementations.
+
+---
+
 ## ❌ Unit Tests for Components Must NOT Live in Browser
 
 **Unit tests for code in `//brave/components` must not be placed in `//brave/browser`.** Tests should live alongside the code they test. Use `content::RenderViewHostTestHarness` for component-level tests that need content layer support.

@@ -378,3 +378,86 @@ EXPECT_EQ(map[entry->uuid.value_or("")], expected_content);
 ASSERT_TRUE(entry->uuid.has_value());
 EXPECT_EQ(map[*entry->uuid], expected_content);
 ```
+
+---
+
+## ✅ Test Both Sides of Guard Conditions
+
+**When testing code with a guard condition (e.g., blocked during loading, enabled after), test both sides:** verify the behavior is blocked when the guard is active AND that it proceeds correctly when the guard is released.
+
+```cpp
+// ❌ WRONG - only tests the happy path
+TEST_F(MyTest, ActionSucceeds) {
+  SetupCompleteState();
+  EXPECT_TRUE(DoAction());
+}
+
+// ✅ CORRECT - tests both sides
+TEST_F(MyTest, ActionBlockedDuringLoad) {
+  EXPECT_FALSE(DoAction());  // Blocked while loading
+}
+TEST_F(MyTest, ActionSucceedsAfterLoad) {
+  CompleteLoading();
+  EXPECT_TRUE(DoAction());  // Proceeds after load
+}
+```
+
+---
+
+## ❌ Don't Simulate Impossible Production States in Tests
+
+**Tests should not construct states that cannot occur in production.** If a test needs to set up a scenario, it should follow the same code path as production rather than directly manipulating internal state into an impossible configuration. Tests for impossible states prove nothing and can give false confidence.
+
+---
+
+## ✅ Use `WillOnce` Instead of `WillRepeatedly` for Single Calls
+
+**When a mock method is expected to be called exactly once, use `WillOnce` instead of `WillRepeatedly`.** `WillRepeatedly` hides bugs where the method is called more times than expected.
+
+```cpp
+// ❌ WRONG - hides extra calls
+EXPECT_CALL(mock, Fetch(_)).WillRepeatedly(Return(result));
+
+// ✅ CORRECT - fails if called more than once
+EXPECT_CALL(mock, Fetch(_)).WillOnce(Return(result));
+```
+
+---
+
+## ✅ Verify Observable Side Effects in Browser Tests
+
+**Browser tests should verify observable side effects** (e.g., a tab actually appeared, a URL actually loaded, a dialog was shown) rather than just checking return values. This catches integration issues that unit tests miss.
+
+```cpp
+// ❌ WRONG - only checks return value
+EXPECT_TRUE(OpenNewTab(url));
+
+// ✅ CORRECT - verifies the tab actually appeared
+EXPECT_TRUE(OpenNewTab(url));
+EXPECT_EQ(browser()->tab_strip_model()->count(), initial_count + 1);
+EXPECT_EQ(GetActiveWebContents()->GetURL(), url);
+```
+
+---
+
+## ✅ Bug-Fix PRs Must Include Test Coverage
+
+**Every bug-fix PR should include a test that reproduces the specific bug scenario being fixed.** Without this, there's no guarantee the bug won't regress. The test should fail without the fix and pass with it.
+
+---
+
+## ✅ Use `DETACH_FROM_SEQUENCE()` in Database Constructors
+
+**Database classes that use `SEQUENCE_CHECKER` should call `DETACH_FROM_SEQUENCE(sequence_checker_)` in their constructor.** This allows the sequence checker to re-bind to whatever sequence first uses the object, which is essential for mock-based testing where objects may be created on a different sequence than they're used on.
+
+```cpp
+// ❌ WRONG - sequence checker binds to construction thread
+MyDatabase::MyDatabase() {
+  // sequence_checker_ bound to current thread
+}
+
+// ✅ CORRECT - detach so it re-binds on first use
+MyDatabase::MyDatabase() {
+  DETACH_FROM_SEQUENCE(sequence_checker_);
+}
+```

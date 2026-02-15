@@ -547,3 +547,104 @@ service1->Fetch(barrier);
 service2->Fetch(barrier);
 service3->Fetch(barrier);
 ```
+
+---
+
+## ❌ Mojom Enums Must Be Top-Level When Targeting iOS
+
+**Mojom enums cannot be nested inside mojom structs when the target includes iOS.** The Objective-C++ code generator produces invalid code for nested enums (`common.mojom.objc.mm` build failure). Always define mojom enums at the top level of the `.mojom` file.
+
+```mojom
+// ❌ WRONG - nested enum breaks iOS build
+struct ModelConfig {
+  enum Category {
+    kChat = 0,
+    kCompletion = 1,
+  };
+  Category category;
+};
+
+// ✅ CORRECT - top-level enum
+enum ModelCategory {
+  kChat = 0,
+  kCompletion = 1,
+};
+
+struct ModelConfig {
+  ModelCategory category;
+};
+```
+
+---
+
+## ❌ No Content-Layer Dependencies for iOS-Targeted Components
+
+**Components that must build for iOS (like `brave_wallet`) cannot depend on content-layer types** (`content::WebContents`, `content::BrowserContext`). iOS uses WebKit, not Chromium's content layer. Pass specific dependencies (`PrefService*`, `URLLoaderFactory`) instead.
+
+---
+
+## ✅ Service/Decoder Code Belongs in `services/` Not `components/.../browser/`
+
+**Mojo service implementations and data decoders should live in a `services/` directory**, not inside `components/.../browser/`. This follows Chromium conventions and keeps service code at the correct architectural layer.
+
+---
+
+## ✅ Prefer Static Singleton Over KeyedService When No Profile Dependency
+
+**When a service has no per-profile state and doesn't depend on profile-specific data, use a static singleton with `base::NoDestructor` instead of a `KeyedService`.** KeyedService adds unnecessary complexity when there's no profile dependency.
+
+```cpp
+// ❌ WRONG - KeyedService for profile-independent data
+class ModelListServiceFactory : public BrowserContextKeyedServiceFactory { ... };
+
+// ✅ CORRECT - static singleton
+class ModelListService {
+ public:
+  static ModelListService& GetInstance() {
+    static base::NoDestructor<ModelListService> instance;
+    return *instance;
+  }
+};
+```
+
+---
+
+## ✅ Flag Destructive Pref Operations for UX Review
+
+**Operations that delete user data (clearing preferences, wiping storage) must be flagged for UX review before implementation.** Silent data deletion is a poor user experience and may violate user expectations.
+
+---
+
+## ✅ Use Pre-Allocated Vectors for Ordered Async Results
+
+**When aggregating results from multiple parallel async calls that must maintain order, pre-allocate a vector and insert results by index** rather than using a map and sorting later.
+
+```cpp
+// ❌ WRONG - map loses original order
+std::map<int, Result> results_by_index_;
+
+// ✅ CORRECT - pre-allocated vector with indexed insertion
+std::vector<Result> results_(num_requests);
+// In each callback:
+results_[request_index] = std::move(result);
+```
+
+---
+
+## ✅ Set Default Values in Mojom Struct Fields
+
+**Mojom struct fields should have explicit default values for safety.** Uninitialized mojom fields can lead to unexpected behavior when the struct is partially constructed.
+
+```mojom
+// ❌ WRONG - no defaults
+struct ModelConfig {
+  string name;
+  bool supports_tools;
+};
+
+// ✅ CORRECT - explicit defaults
+struct ModelConfig {
+  string name = "";
+  bool supports_tools = false;
+};
+```

@@ -1732,3 +1732,158 @@ std::string msg = base::StringPrintf("Error %d: %s", code, desc.c_str());
 // ✅ CORRECT
 std::string msg = absl::StrFormat("Error %d: %s", code, desc);
 ```
+
+---
+
+## ✅ Use `base::expected<T, E>` Over Optional + Error Out-Parameter
+
+**When a function can fail and needs to communicate error details, use `base::expected<T, E>` instead of `std::optional<T>` with a separate error out-parameter.** This bundles success and error into a single return value.
+
+```cpp
+// ❌ WRONG - separate error out-parameter
+std::optional<Result> Parse(const std::string& input, std::string* error);
+
+// ✅ CORRECT - base::expected bundles both
+base::expected<Result, std::string> Parse(const std::string& input);
+```
+
+---
+
+## ❌ Never Bind `std::vector<raw_ptr<T>>` in Callbacks
+
+**Never capture `std::vector<raw_ptr<T>>` in async callbacks.** The raw pointers may dangle by the time the callback runs. Use `std::vector<base::WeakPtr<T>>` instead.
+
+```cpp
+// ❌ WRONG - raw_ptrs may dangle
+base::BindOnce(&OnComplete, std::move(raw_ptr_vector));
+
+// ✅ CORRECT - weak ptrs are safe
+std::vector<base::WeakPtr<Tab>> weak_tabs;
+for (auto* tab : tabs) {
+  weak_tabs.push_back(tab->GetWeakPtr());
+}
+base::BindOnce(&OnComplete, std::move(weak_tabs));
+```
+
+---
+
+## ✅ Place `raw_ptr<>` Members Last in Class Declarations
+
+**In class declarations, place unowned `raw_ptr<>` members after owning members** (like `std::unique_ptr<>`). This follows Chromium convention and makes ownership semantics visually clear.
+
+```cpp
+// ❌ WRONG - mixed ownership order
+class MyService {
+  raw_ptr<PrefService> prefs_;
+  std::unique_ptr<Fetcher> fetcher_;
+  raw_ptr<ProfileManager> profile_manager_;
+};
+
+// ✅ CORRECT - owning members first, then unowned
+class MyService {
+  std::unique_ptr<Fetcher> fetcher_;
+  raw_ptr<PrefService> prefs_;
+  raw_ptr<ProfileManager> profile_manager_;
+};
+```
+
+---
+
+## ✅ Use `base::MakeFixedFlatMap` for Static Enum-to-String Mappings
+
+**For compile-time constant mappings between enums and strings, use `base::MakeFixedFlatMap`.** It provides compile-time verification and is more maintainable than switch statements or runtime-built maps.
+
+```cpp
+// ❌ WRONG - runtime map
+const std::map<ActionType, std::string> kActionNames = {
+    {ActionType::kSummarize, "summarize"},
+    {ActionType::kRewrite, "rewrite"},
+};
+
+// ✅ CORRECT - compile-time fixed flat map
+constexpr auto kActionNames = base::MakeFixedFlatMap<ActionType, std::string_view>({
+    {ActionType::kSummarize, "summarize"},
+    {ActionType::kRewrite, "rewrite"},
+});
+```
+
+---
+
+## ✅ Use `base::JSONReader::ReadDict` for JSON Dictionary Parsing
+
+**When parsing a JSON string expected to be a dictionary, use `base::JSONReader::ReadDict()`** which returns `std::optional<base::Value::Dict>` directly, instead of `base::JSONReader::Read()` followed by manual `GetIfDict()` extraction.
+
+```cpp
+// ❌ WRONG - manual extraction
+auto value = base::JSONReader::Read(json_str);
+if (!value || !value->is_dict()) return;
+auto& dict = value->GetDict();
+
+// ✅ CORRECT - direct dict parsing
+auto dict = base::JSONReader::ReadDict(json_str);
+if (!dict) return;
+```
+
+---
+
+## ✅ Pass-by-Value for Sink Parameters (Google Style)
+
+**Per Google C++ Style Guide, use pass-by-value for parameters that will be moved into the callee** (sink parameters) instead of `T&&`. The caller uses `std::move()` either way, and pass-by-value is simpler.
+
+```cpp
+// ❌ WRONG - rvalue reference parameter
+void SetName(std::string&& name) { name_ = std::move(name); }
+
+// ✅ CORRECT - pass by value
+void SetName(std::string name) { name_ = std::move(name); }
+```
+
+---
+
+## ✅ Use `reset_on_disconnect()` for Simple Mojo Cleanup
+
+**For simple Mojo remote cleanup on disconnection (just resetting the remote), use `remote.reset_on_disconnect()`** instead of setting up a manual disconnect handler.
+
+```cpp
+// ❌ WRONG - manual disconnect handler just to reset
+remote_.set_disconnect_handler(
+    base::BindOnce(&MyClass::OnDisconnect, base::Unretained(this)));
+void OnDisconnect() { remote_.reset(); }
+
+// ✅ CORRECT - built-in reset on disconnect
+remote_.reset_on_disconnect();
+```
+
+---
+
+## ✅ Annotate Obsolete Pref Migration Entries with Dates
+
+**When adding preference migration code that removes deprecated prefs, annotate the entry with the date it was added.** This makes it easy to identify and clean up old migration code later.
+
+```cpp
+// ❌ WRONG - no context for when this was added
+profile_prefs->ClearPref(kOldFeaturePref);
+
+// ✅ CORRECT - annotated with date
+profile_prefs->ClearPref(kOldFeaturePref);  // Added 2025-01 (safe to remove after ~3 releases)
+```
+
+---
+
+## ✅ `base::DoNothing()` Doesn't Match `base::FunctionRef` Signatures
+
+**`base::DoNothing()` cannot be used where a `base::FunctionRef<void(T&)>` is expected.** In those cases, use an explicit no-op lambda instead.
+
+```cpp
+// ❌ WRONG - won't compile
+service->ForEach(base::DoNothing());  // FunctionRef<void(Item&)>
+
+// ✅ CORRECT - explicit lambda
+service->ForEach([](Item&) {});
+```
+
+---
+
+## ✅ Copyright Year in New Files Must Be Current Year
+
+**New files must use the current year in the copyright header.** Don't copy-paste old copyright years from other files.
