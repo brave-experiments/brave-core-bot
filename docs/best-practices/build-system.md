@@ -380,3 +380,41 @@ include_rules = [
   "+brave/components/content_settings/core/browser",
 ]
 ```
+
+---
+
+## ❌ Unit Tests for Components Must NOT Live in Browser
+
+**Unit tests for code in `//brave/components` must not be placed in `//brave/browser`.** Tests should live alongside the code they test. Use `content::RenderViewHostTestHarness` for component-level tests that need content layer support.
+
+```gn
+# ❌ WRONG - component test in browser directory
+# browser/ai_chat/associated_link_content_unittest.cc
+# testing code from components/ai_chat/content/browser/
+
+# ✅ CORRECT - test alongside the code
+# components/ai_chat/content/browser/associated_link_content_unittest.cc
+source_set("unit_tests") {
+  sources = [ "associated_link_content_unittest.cc" ]
+}
+```
+
+---
+
+## ✅ Share Constants via Common Headers
+
+**Shared constants (like limits, URLs, keys) should be defined in a common header** to avoid duplicate definitions across implementation, test, and other files.
+
+```cpp
+// ❌ WRONG - same constant in 3 files
+// model_service.cc
+constexpr char kOllamaEndpoint[] = "http://localhost:11434";
+// model_service_unittest.cc
+constexpr char kOllamaEndpoint[] = "http://localhost:11434";
+// ollama_model_fetcher.cc
+constexpr char kOllamaEndpoint[] = "http://localhost:11434";
+
+// ✅ CORRECT - shared header
+// common/constants.h
+inline constexpr char kOllamaEndpoint[] = "http://localhost:11434";
+```

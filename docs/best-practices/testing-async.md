@@ -171,20 +171,34 @@ DCHECK failed: stack_.size() < static_cast<size_t>(nesting_level_)
 
 ---
 
-## Alternative: TestFuture for Callbacks
+## ✅ Prefer `base::test::TestFuture` Over RunLoop
 
-**PREFERRED for callback-based operations:**
+**PREFERRED for callback-based operations.** `TestFuture` is more concise and less error-prone than `RunLoop` patterns.
+
 ```cpp
-TestFuture<ResultType> future;
-object_under_test.DoSomethingAsync(future.GetCallback());
-const ResultType& actual_result = future.Get();  // Waits for callback
+// ❌ WRONG - verbose RunLoop pattern
+base::RunLoop run_loop;
+bool result = false;
+service->IsConnected(base::BindLambdaForTesting([&](bool connected) {
+  result = connected;
+  run_loop.Quit();
+}));
+run_loop.Run();
+EXPECT_TRUE(result);
+
+// ✅ CORRECT - TestFuture is simpler
+base::test::TestFuture<bool> future;
+service->IsConnected(future.GetCallback());
+EXPECT_TRUE(future.Get());
 ```
+
+Transform existing `RunLoop` patterns to `TestFuture` whenever the async operation uses a callback.
 
 ---
 
 ## Alternative: QuitClosure() + Run()
 
-**For manual control:**
+**For manual control when TestFuture doesn't fit:**
 ```cpp
 base::RunLoop run_loop;
 object_under_test.DoSomethingAsync(run_loop.QuitClosure());

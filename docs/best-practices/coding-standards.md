@@ -1585,3 +1585,150 @@ uint32_t hash = base::FastHash(base::as_byte_span(str));
 ## ✅ Security Review for Unrestricted URL Inputs in Mojom
 
 **When creating mojom interfaces that accept URL parameters from less-privileged processes, consider restricting to an allowlist or enum** rather than accepting arbitrary URLs. An unrestricted URL parameter means the renderer can send requests to any endpoint.
+
+---
+
+## ✅ Use `base::Reversed()` for Reverse Iteration
+
+**Prefer `base::Reversed()` with range-based for loops over explicit reverse iterators.** Always add a comment explaining why reverse order is needed.
+
+```cpp
+// ❌ WRONG - explicit reverse iterators
+for (auto it = history.crbegin(); it != history.crend(); ++it) {
+  ProcessEntry(*it);
+}
+
+// ✅ CORRECT - base::Reversed with comment
+// Process newest entries first to prioritize recent content.
+for (const auto& entry : base::Reversed(history)) {
+  ProcessEntry(entry);
+}
+```
+
+---
+
+## ✅ Use `base::StrAppend` Over `+= base::StrCat`
+
+**When appending to an existing string, use `base::StrAppend(&str, {...})` instead of `str += base::StrCat({...})`.** `StrCat` creates a temporary string that is then copied; `StrAppend` appends directly to the target, avoiding unnecessary allocation.
+
+```cpp
+// ❌ WRONG - temporary string then copy
+result += base::StrCat({kOpenTag, "\n", "=== METADATA ===\n"});
+
+// ✅ CORRECT - append directly
+base::StrAppend(&result, {kOpenTag, "\n", "=== METADATA ===\n"});
+```
+
+---
+
+## ✅ Use `base::DoNothing()` for No-Op Callbacks
+
+**Use `base::DoNothing()` instead of empty lambdas when a no-op callback is needed.** It is the Chromium-idiomatic way and is more readable.
+
+```cpp
+// ❌ WRONG - empty lambda
+service->DoAsync([](const std::string&) {});
+
+// ✅ CORRECT
+service->DoAsync(base::DoNothing());
+```
+
+---
+
+## ✅ Use `DLOG(ERROR)` for Non-Critical Debug-Only Errors
+
+**Use `DLOG(ERROR)` instead of `LOG(ERROR)` for error conditions that are not critical in release builds.** This avoids polluting release build logs with non-actionable errors.
+
+```cpp
+// ❌ WRONG - release log noise for non-critical error
+LOG(ERROR) << "Failed to parse optional field";
+
+// ✅ CORRECT - debug-only logging
+DLOG(ERROR) << "Failed to parse optional field";
+```
+
+---
+
+## ✅ Use `base::saturated_cast` for Safe Numeric Conversions
+
+**When converting between integer types, use `base::saturated_cast<TargetType>()` combined with `.value_or(default)` for safe, concise conversion of optional numeric values.**
+
+```cpp
+// ❌ WRONG - manual null-check and static_cast
+if (value.has_value()) {
+  result = static_cast<uint64_t>(*value);
+}
+
+// ✅ CORRECT - safe saturated cast with value_or
+result = base::saturated_cast<uint64_t>(value.value_or(0));
+```
+
+---
+
+## ✅ Use `std::ranges` Algorithms Over Manual Loops
+
+**Prefer C++20 `std::ranges::any_of`, `std::ranges::all_of`, `std::ranges::find_if` over manual for-loops with break conditions.** The ranges versions are more concise and readable.
+
+```cpp
+// ❌ WRONG - manual loop
+bool found = false;
+for (const auto& item : items) {
+  if (item.IsExpired()) {
+    found = true;
+    break;
+  }
+}
+
+// ✅ CORRECT - ranges algorithm
+bool found = std::ranges::any_of(items,
+    [](const auto& item) { return item.IsExpired(); });
+```
+
+---
+
+## ✅ Guard `substr()` with Size Check
+
+**Only call `substr()` when the content actually exceeds the limit.** For content within the limit, use the original string to avoid unnecessary memory allocation and copying.
+
+```cpp
+// ❌ WRONG - always creates a substring
+std::string truncated = content.substr(0, max_length);
+
+// ✅ CORRECT - only substr when needed
+const std::string& truncated = (content.size() > max_length)
+    ? content.substr(0, max_length)
+    : content;
+```
+
+---
+
+## ✅ Use `CHECK` Only for Invariants Within Code's Control
+
+**Use `CHECK` only for conditions fully within the code's control.** For data from databases, user input, or external sources, use graceful error handling instead. `CHECK` failures crash the user's browser.
+
+```cpp
+// ❌ WRONG - crashes on external data
+CHECK(db_value.has_value());  // Data from database!
+
+// ✅ CORRECT - graceful handling of external data
+if (!db_value.has_value()) {
+  DLOG(ERROR) << "Missing expected database value";
+  return std::nullopt;
+}
+```
+
+See also: [Chromium CHECK style guide](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/styleguide/c++/checks.md)
+
+---
+
+## ✅ Use `absl::StrFormat` Over `base::StringPrintf`
+
+**Prefer `absl::StrFormat` for formatted string construction.** `base::StringPrintf` is being deprecated in favor of `absl::StrFormat`.
+
+```cpp
+// ❌ WRONG - deprecated
+std::string msg = base::StringPrintf("Error %d: %s", code, desc.c_str());
+
+// ✅ CORRECT
+std::string msg = absl::StrFormat("Error %d: %s", code, desc);
+```

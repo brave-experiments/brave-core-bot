@@ -484,3 +484,66 @@ class UnifiedDelegate {
   void DoSharedLogic() { /* uses GetOpenTabs() */ }  // shared
 };
 ```
+
+---
+
+## ❌ Don't Silently Fall Back on Unknown Types
+
+**When handling unknown/unsupported types, prefer an explicit error rather than silently falling back to a default.** Silent fallbacks mask bugs and make debugging harder.
+
+```cpp
+// ❌ WRONG - silently treats unknown files as images
+FileType GetFileType(const std::string& mime) {
+  if (mime == "application/pdf") return FileType::kPDF;
+  return FileType::kImage;  // Silent fallback!
+}
+
+// ✅ CORRECT - explicit error on unknown
+std::optional<FileType> GetFileType(const std::string& mime) {
+  if (mime == "application/pdf") return FileType::kPDF;
+  if (mime.starts_with("image/")) return FileType::kImage;
+  return std::nullopt;  // Caller handles unknown types
+}
+```
+
+---
+
+## ✅ Separate Lifecycle Events from Data Change Events in Mojo
+
+**A Mojo `Changed` event should only fire when actual data changes occur.** Don't conflate lifecycle events (model loading, listener registration) with data mutation events. Provide separate events.
+
+```cpp
+// ❌ WRONG - Changed fires on initialization, not actual change
+interface BookmarksListener {
+  Changed(BookmarksChange change);  // Fires on model load AND data change
+};
+
+// ✅ CORRECT - separate lifecycle and data events
+interface BookmarksListener {
+  OnBookmarksReady();                // Fires once when model is loaded
+  OnBookmarksChanged(BookmarksChange change);  // Only fires on actual changes
+};
+```
+
+---
+
+## ✅ Use `base::BarrierCallback` for Parallel Async Aggregation
+
+**Use `base::BarrierCallback` to aggregate results from multiple parallel async operations** rather than manually tracking completion counts. This simplifies multi-callback aggregation.
+
+```cpp
+// ❌ WRONG - manual tracking
+int pending_count_ = 3;
+std::vector<Result> results_;
+void OnResult(Result r) {
+  results_.push_back(std::move(r));
+  if (--pending_count_ == 0) OnAllComplete();
+}
+
+// ✅ CORRECT - barrier callback
+auto barrier = base::BarrierCallback<Result>(
+    3, base::BindOnce(&MyClass::OnAllComplete, weak_factory_.GetWeakPtr()));
+service1->Fetch(barrier);
+service2->Fetch(barrier);
+service3->Fetch(barrier);
+```

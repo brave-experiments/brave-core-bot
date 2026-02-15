@@ -253,9 +253,12 @@ void TearDown() { g_disable_auto_start = false; }
 
 ## ✅ Use `base::test::ParseJsonDict` for Test Comparisons
 
-**In tests comparing JSON values, use `base::test::ParseJsonDict()`** for simpler, more readable assertions.
+**In tests comparing JSON values, use `base::test::ParseJsonDict()`** for simpler, more readable assertions. **Never use `testing::HasSubstr`** to validate JSON -- it is fragile and doesn't verify structure.
 
 ```cpp
+// ❌ WRONG - substring matching on JSON
+EXPECT_THAT(json_str, testing::HasSubstr("\"role\":\"user\""));
+
 // ❌ WRONG - manually building expected dict
 base::Value::Dict expected;
 expected.Set("method", "chain_getBlockHash");
@@ -265,4 +268,113 @@ EXPECT_EQ(actual, expected);
 // ✅ CORRECT - parse from string
 EXPECT_EQ(actual, base::test::ParseJsonDict(
     R"({"method":"chain_getBlockHash","id":1})"));
+```
+
+---
+
+## ✅ Verify Negative Expectations in Tests
+
+**When testing error/failure paths, verify that side effects that should NOT occur are explicitly checked.** Don't only test the positive path.
+
+```cpp
+// ❌ WRONG - only checks the error is returned, doesn't verify no side effects
+EXPECT_FALSE(result.has_value());
+
+// ✅ CORRECT - also verify no unwanted side effects
+EXPECT_CALL(observer, OnConversationTitleChanged(_)).Times(0);
+EXPECT_FALSE(result.has_value());
+```
+
+---
+
+## ✅ Test All Fields in Serialization Tests
+
+**Verify ALL fields in serialization/deserialization tests, including secondary fields like favicon URLs.** Also always test deserialization of invalid/malformed input.
+
+```cpp
+// ❌ WRONG - only checks primary fields
+EXPECT_EQ(result.title, "Test");
+EXPECT_EQ(result.url, "https://example.com");
+// Missing: favicon_url, description, etc.
+
+// ✅ CORRECT - verify all fields
+EXPECT_EQ(result.title, "Test");
+EXPECT_EQ(result.url, "https://example.com");
+EXPECT_EQ(result.favicon_url, "https://example.com/favicon.ico");
+
+// ✅ ALSO CORRECT - test invalid input
+auto bad_result = Deserialize("{\"url\": \"not-a-valid-url\"}");
+EXPECT_FALSE(bad_result.has_value());
+```
+
+---
+
+## ✅ Use Parameterized Tests for Similar Scenarios
+
+**When testing multiple similar scenarios with different inputs/outputs, use parameterized tests instead of separate test functions.**
+
+```cpp
+// ❌ WRONG - separate tests for each variation
+TEST_F(MyTest, HandleTypeA) { ... }
+TEST_F(MyTest, HandleTypeB) { ... }
+TEST_F(MyTest, HandleTypeC) { ... }
+
+// ✅ CORRECT - parameterized with SCOPED_TRACE
+struct TestCase {
+  std::string name;
+  ActionType type;
+  std::string expected;
+};
+
+TEST_F(MyTest, HandleAllTypes) {
+  const TestCase cases[] = {
+    {"TypeA", ActionType::kA, "expected_a"},
+    {"TypeB", ActionType::kB, "expected_b"},
+    {"TypeC", ActionType::kC, "expected_c"},
+  };
+  for (const auto& tc : cases) {
+    SCOPED_TRACE(tc.name);
+    EXPECT_EQ(Handle(tc.type), tc.expected);
+  }
+}
+
+// ✅ ALSO CORRECT - INSTANTIATE_TEST_SUITE_P for larger test suites
+```
+
+---
+
+## ✅ Extract Repetitive Test Assertions into Helpers
+
+**When tests repeat the same assertion blocks (e.g., checking content block types and fields), extract into reusable helper functions.**
+
+```cpp
+// ❌ WRONG - repeated assertion blocks
+EXPECT_TRUE(blocks[0]->is_text_content_block());
+EXPECT_EQ(blocks[0]->get_text_content_block()->text, "hello");
+EXPECT_TRUE(blocks[1]->is_image_content_block());
+EXPECT_EQ(blocks[1]->get_image_content_block()->url, "img.png");
+
+// ✅ CORRECT - reusable helpers
+void VerifyTextBlock(const ContentBlock& block, const std::string& text) {
+  ASSERT_TRUE(block.is_text_content_block());
+  EXPECT_EQ(block.get_text_content_block()->text, text);
+}
+
+VerifyTextBlock(*blocks[0], "hello");
+VerifyImageBlock(*blocks[1], "img.png");
+```
+
+---
+
+## ✅ Use `ASSERT_TRUE` Before Accessing Optional Values
+
+**In tests, use `ASSERT_TRUE(optional.has_value())` before accessing an optional's value.** Do not use `value_or("")` as a fallback -- it hides bugs.
+
+```cpp
+// ❌ WRONG - hides missing values
+EXPECT_EQ(map[entry->uuid.value_or("")], expected_content);
+
+// ✅ CORRECT - fail fast on missing value
+ASSERT_TRUE(entry->uuid.has_value());
+EXPECT_EQ(map[*entry->uuid], expected_content);
 ```
