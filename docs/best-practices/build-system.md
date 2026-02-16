@@ -141,14 +141,14 @@ deps += [ "//brave/utility" ]
 
 ---
 
-## ✅ Add `#endif` Comments for Nested Conditionals
+## ✅ Add `#endif` Comments for Clarity
 
-**When you have nested `#if`/`#endif` blocks, add comments to clarify what each `#endif` is closing.**
+**Add `#endif` comments to clarify what each `#endif` is closing.** See the "Refined Rule: `#endif` Comments Based on Block Length" section below for specific guidance on when to include vs omit these comments.
 
 ```cpp
 #if BUILDFLAG(ENABLE_SPELLCHECK)
 #include "components/spellcheck/common/spellcheck_features.h"
-#endif  // ENABLE_SPELLCHECK
+#endif  // BUILDFLAG(ENABLE_SPELLCHECK)
 ```
 
 ---
@@ -409,6 +409,180 @@ include_rules = [
 source_set("unit_tests") {
   sources = [ "associated_link_content_unittest.cc" ]
 }
+```
+
+---
+
+## ✅ Place Includes Inside BUILDFLAG Guards When Only Used There
+
+**When an `#include` is only used inside a `#if BUILDFLAG(...)` block, the include must also be inside that guard.** An unconditional include for a conditionally-used header breaks builds when the feature is disabled.
+
+```cpp
+// ❌ WRONG - unconditional include for conditionally-used header
+#include "chrome/browser/extensions/extension_web_ui.h"
+// ...
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  IsChromeURLOverridden(...);  // uses extension_web_ui.h
+#endif
+
+// ✅ CORRECT - include inside the same guard
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/extension_web_ui.h"
+  IsChromeURLOverridden(...);
+#endif
+```
+
+---
+
+## ✅ Merge Consecutive Identical BUILDFLAG Blocks
+
+**When multiple consecutive code regions use the same `#if BUILDFLAG(...)` condition, merge them into a single guard block.**
+
+```cpp
+// ❌ WRONG - redundant guards
+#if BUILDFLAG(ENABLE_BRAVE_REWARDS)
+#include "brave/components/brave_rewards/core/buildflags.h"
+#endif
+
+#if BUILDFLAG(ENABLE_BRAVE_REWARDS)
+namespace rewards { ... }
+#endif
+
+// ✅ CORRECT - single merged block
+#if BUILDFLAG(ENABLE_BRAVE_REWARDS)
+#include "brave/components/brave_rewards/core/buildflags.h"
+namespace rewards { ... }
+#endif
+```
+
+---
+
+## ✅ DEPS Allowlist Paths Must Exactly Match Include Paths
+
+**DEPS file allowlist paths must exactly match the `#include` paths used in source files.** A mismatch (e.g., `common/` vs `core/`) means the DEPS check doesn't validate the right file.
+
+---
+
+## ✅ Use `assert()` at Top of Entire-Feature BUILD.gn Files
+
+**If an entire BUILD.gn file belongs to a feature, use `assert(enable_feature)` at the top** rather than wrapping individual blocks in `if (enable_feature)`.
+
+```gn
+# ❌ WRONG - wrapping everything inside a conditional
+if (enable_brave_wallet) {
+  source_set("wallet_tests") {
+    sources = [ ... ]
+  }
+}
+
+# ✅ CORRECT - assert at top
+assert(enable_brave_wallet)
+source_set("wallet_tests") {
+  sources = [ ... ]
+}
+```
+
+---
+
+## ✅ Add `static_assert` in Public Headers for Build Flag Guards
+
+**When introducing a build flag for a component, add `static_assert` in public-facing headers** to catch accidental inclusion when the feature is disabled.
+
+```cpp
+// In brave/components/brave_wallet/browser/wallet_service.h
+#include "brave/components/brave_wallet/common/buildflags/buildflags.h"
+static_assert(BUILDFLAG(ENABLE_BRAVE_WALLET));
+```
+
+---
+
+## ❌ Don't Use `nogncheck` - Fix the Underlying Dep Guard
+
+**Do not use `nogncheck` to suppress gn check failures.** Instead fix the underlying GN dependency to be correctly conditional. `nogncheck` is a code smell that masks real build dependency issues.
+
+```cpp
+// ❌ WRONG - suppressing the real problem
+#include "brave/components/foo/bar.h"  // nogncheck
+
+// ✅ CORRECT - fix the GN dep to be properly guarded
+// Ensure the dep is conditionally added in BUILD.gn
+```
+
+---
+
+## ✅ GN Deps Guarded by Feature Flags Only, Not Platform Guards
+
+**Within a single GN target, deps should be added behind the relevant buildflags only, not nested inside platform guards.** GN and C++ guards should always match.
+
+```gn
+# ❌ WRONG - nested inside platform guard
+if (is_mac) {
+  if (enable_tor) {
+    deps += [ "//brave/components/tor" ]
+  }
+}
+
+# ✅ CORRECT - feature flag only
+if (enable_tor) {
+  deps += [ "//brave/components/tor" ]
+}
+```
+
+---
+
+## ✅ When Disabling a Feature, Compile Out Its Tests
+
+**When a build flag disables a feature, exclude the feature-specific test files from the build** using conditionals rather than trying to fix compilation errors by adjusting test dependencies.
+
+```gn
+# ❌ WRONG - fixing deps to make disabled feature tests compile
+deps += [ "//brave/components/brave_rewards" ]  # just for tests
+
+# ✅ CORRECT - compile out disabled feature tests
+if (enable_brave_rewards) {
+  sources += [ "rewards_service_unittest.cc" ]
+}
+```
+
+---
+
+## ✅ Build Flag Validation Requires Both States
+
+**When adding a build flag, run `gn_check`, unit tests, component tests, browser tests, and presubmit with the flag both enabled AND disabled.** Issues frequently only appear in the disabled state.
+
+---
+
+## ✅ Use Chromium UI Preprocessor for Conditional WebUI Code
+
+**Use `// <if expr="enable_feature">` in JS and `<if expr="enable_feature">` in HTML to conditionally compile feature-specific WebUI code.** This completely removes the code from the build when the feature is disabled, rather than relying solely on runtime `loadTimeData` checks.
+
+```js
+// ✅ CORRECT - code removed at build time when feature disabled
+// <if expr="enable_speedreader">
+import { SpeedreaderPage } from './speedreader_page.js';
+// </if>
+```
+
+---
+
+## ✅ Refined Rule: `#endif` Comments Based on Block Length
+
+**Clarification of the `#endif` comment rule:**
+- **Always add** for blocks > 3 lines
+- **Always add** when inside nested `#if` blocks
+- **Always add** when surrounding code already uses them (consistency)
+- **Can omit** for short (1-2 line), unambiguous blocks
+
+---
+
+## ✅ Assert Build Flag Dependencies Between Features
+
+**When Feature A depends on Feature B, assert Feature B's build flag is true when Feature A is enabled** rather than making Feature A work without Feature B for unsupported configurations.
+
+```gn
+# In brave/components/brave_rewards/BUILD.gn
+assert(enable_brave_wallet,
+       "Rewards requires Wallet (enable_brave_wallet=true)")
 ```
 
 ---

@@ -240,6 +240,24 @@ if ('text' in value && 'role' in value) { ... }
 
 ---
 
+## ✅ Documentation Code Examples Must Be Valid
+
+**Code examples in README files and documentation must be syntactically valid and compilable.** Developers copy-paste them. Invalid JSX (e.g., missing fragment wrappers for sibling elements, `onClick={fn()}` instead of `onClick={() => fn()}`) causes confusion and compile errors.
+
+```tsx
+// ❌ WRONG - invokes immediately, missing fragment wrapper
+<div>Hello</div>
+<button onClick={api.reset()}>Reset</button>
+
+// ✅ CORRECT - arrow function handler, fragment wrapper
+<>
+  <div>Hello</div>
+  <button onClick={() => api.reset()}>Reset</button>
+</>
+```
+
+---
+
 ## ✅ Use TypeScript Entry Points Instead of Inline Scripts
 
 **When adding JavaScript to WebUI pages, always use compiled TypeScript entry points rather than inline `<script>` tags.** This gives you type checking, code analysis, and consistent bundling. Add additional entry points to the GN build configuration.

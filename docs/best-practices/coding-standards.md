@@ -2042,6 +2042,168 @@ auto* url = dict.FindString(kEndpointUrl);
 
 ---
 
+## ❌ Never Return `std::string_view` from Functions That Build Strings
+
+**Do not return `std::string_view` from a function that constructs or concatenates a string internally.** The view would point into a temporary string's buffer and become a dangling reference after the function returns. Return `std::string` or `std::optional<std::string>` instead.
+
+```cpp
+// ❌ WRONG - dangling reference to temporary
+std::string_view BuildUrl(std::string_view host) {
+  std::string url = base::StrCat({"https://", host, "/api"});
+  return url;  // url destroyed, view dangles!
+}
+
+// ✅ CORRECT - return by value
+std::string BuildUrl(std::string_view host) {
+  return base::StrCat({"https://", host, "/api"});
+}
+```
+
+---
+
+## ✅ Prefer `constexpr int` Over Single-Value Enums
+
+**When a constant is just a single numeric value, use `constexpr int` rather than creating a single-value enum.** Enums are for sets of related values.
+
+```cpp
+// ❌ WRONG - enum for a single value
+enum { kBravePolicySource = 10 };
+
+// ✅ CORRECT - constexpr int
+constexpr int kBravePolicySource = 10;
+```
+
+---
+
+## ✅ Use `base::FilePath` for File Path Parameters
+
+**Parameters representing file system paths should use `base::FilePath` instead of `std::string`.** This provides type safety, simplifies call sites, and makes APIs self-documenting.
+
+```cpp
+// ❌ WRONG - generic string for a path
+std::string GetProfileId(const std::string& profile_path);
+
+// ✅ CORRECT - domain-specific type
+std::string GetProfileId(const base::FilePath& profile_path);
+```
+
+---
+
+## ❌ Don't Use Positional Terms in Code Comments
+
+**Do not use "above" or "below" in comments to reference other code.** Other developers may insert code between the comment and referenced item, breaking the meaning. Reference items explicitly by name or identifier instead.
+
+```cpp
+// ❌ WRONG - fragile positional reference
+// Same root cause as the test above
+-BrowserTest.SomeOtherTest
+
+// ✅ CORRECT - explicit reference by name
+// Same root cause as BrowserTest.FirstTest (kPromptForDownload override)
+-BrowserTest.SomeOtherTest
+```
+
+---
+
+## ✅ Explicitly Assign Enum Values When Conditionally Compiling Out Members
+
+**When conditionally compiling out enum values behind a build flag, explicitly assign numeric values to remaining members.** This prevents value shifts that break serialization, persistence, or IPC.
+
+```cpp
+// ❌ WRONG - values shift when kTalk is compiled out
+enum class SidebarItem {
+  kBookmarks,
+#if BUILDFLAG(ENABLE_BRAVE_TALK)
+  kTalk,
+#endif
+  kHistory,  // value changes depending on build flag!
+};
+
+// ✅ CORRECT - explicit values prevent shifts
+enum class SidebarItem {
+  kBookmarks = 0,
+#if BUILDFLAG(ENABLE_BRAVE_TALK)
+  kTalk = 1,
+#endif
+  kHistory = 2,
+};
+```
+
+---
+
+## ✅ Name All Function Parameters in Header Declarations
+
+**Always name function parameters in header declarations, especially when types alone are ambiguous.** Match the parameter names used in the `.cc` file.
+
+```cpp
+// ❌ WRONG - ambiguous parameters
+void OnSubmitSignedExtrinsic(std::optional<std::string>,
+                             std::optional<std::string>);
+
+// ✅ CORRECT - named parameters
+void OnSubmitSignedExtrinsic(std::optional<std::string> transaction_hash,
+                             std::optional<std::string> error_str);
+```
+
+---
+
+## ✅ Use `observers_.Notify()` Instead of Manual Iteration
+
+**Use `observers_.Notify(&Observer::Method)` instead of manually iterating observer lists.**
+
+```cpp
+// ❌ WRONG - manual iteration
+for (auto& observer : observers_) {
+  observer.OnPoliciesChanged();
+}
+
+// ✅ CORRECT - use Notify helper
+observers_.Notify(&Observer::OnPoliciesChanged);
+```
+
+---
+
+## ✅ Multiply Before Dividing in Integer Percentage Calculations
+
+**When computing percentages with integer arithmetic, multiply by 100 before dividing.** `(used * 100) / total` preserves precision, while `(used / total) * 100` truncates to 0 when `used < total`.
+
+```cpp
+// ❌ WRONG - truncates to 0 for used < total
+int pct = (used / total) * 100;
+
+// ✅ CORRECT - preserves precision
+int pct = (used * 100) / total;
+```
+
+---
+
+## ✅ VLOG Component Name Should Match Directory
+
+**The component name used in VLOG messages should match the component directory name** (e.g., `policy` or `brave/components/brave_policy`).
+
+---
+
+## ❌ Don't Use `public:` in Structs
+
+**Do not use `public:` labels in struct declarations since struct members are public by default.** Either remove the label or change `struct` to `class` if access control is intended.
+
+```cpp
+// ❌ WRONG - redundant public label
+struct TestData {
+ public:
+  std::string name;
+  int value;
+};
+
+// ✅ CORRECT - struct is public by default
+struct TestData {
+  std::string name;
+  int value;
+};
+```
+
+---
+
 ## ✅ Prefer `GlobalFeatures` Over `NoDestructor` for Global Services
 
 **For global/singleton services, prefer registering in `GlobalFeatures` (the Chromium replacement for `BrowserProcessImpl`) over `base::NoDestructor`.** `NoDestructor` makes testing difficult since you can't reset the instance between tests.

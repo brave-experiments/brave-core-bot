@@ -196,6 +196,24 @@ Transform existing `RunLoop` patterns to `TestFuture` whenever the async operati
 
 ---
 
+## ✅ Mojo Message Ordering for Test Synchronization
+
+**Mojo processes messages in order on a given interface.** Making a synchronous mojo call through an interface guarantees that all prior async messages on that same interface have been processed. This is a precise alternative to polling for cross-process test synchronization.
+
+```cpp
+// ❌ WRONG - polling with arbitrary delay
+base::PlatformThread::Sleep(base::Milliseconds(100));
+
+// ✅ CORRECT - use sync mojo call to ensure prior messages processed
+// If Init() was sent async on the Solana provider interface,
+// calling IsConnected() synchronously ensures Init() completed first
+// (since mojo processes messages in order on a given interface)
+EXPECT_EQ(true, content::EvalJs(web_contents,
+    "window.braveSolana.isConnected"));
+```
+
+---
+
 ## Alternative: QuitClosure() + Run()
 
 **For manual control when TestFuture doesn't fit:**

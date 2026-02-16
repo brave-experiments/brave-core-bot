@@ -531,6 +531,51 @@ EXPECT_EQ(GetActiveWebContents()->GetURL(), url);
 
 ---
 
+## ✅ When Disabling Parameterized Tests, Filter Only Specific Flaky Variants
+
+**Do not use wildcard filters that suppress stable variants alongside flaky ones.** Check LUCI Analysis data for each variant individually and only filter the specific variants that are actually flaky.
+
+```
+# ❌ WRONG - wildcard disables all variants including stable ones
+-SomeParameterizedTest/*
+
+# ✅ CORRECT - only disable the specific flaky variants
+-SomeParameterizedTest/0
+-SomeParameterizedTest/2
+-SomeParameterizedTest/3
+# Variant /1 is stable upstream - keep it enabled
+```
+
+---
+
+## ✅ Match Test Filter Specificity to Actual Failure Scope
+
+**Use the most specific/narrow filter approach.** If a test only fails under ASAN on Linux, use a platform-and-sanitizer-specific filter file (e.g., `browser_tests-linux-asan.filter`) rather than an all-platform filter. Look at existing patterns in `build/commands/lib/testUtils.js` for how sanitizer-specific filters are loaded.
+
+---
+
+## ✅ When Fixing a Test, Run All Tests in the Same File
+
+**When fixing a flaky or failing test, run all tests in the same file across all test fixtures,** not just the single test being changed. This catches regressions or interactions between tests that share fixtures.
+
+---
+
+## ✅ Use ASSERT for Preconditions That Subsequent Code Depends On
+
+**When a test check guards state that later code depends on, use `ASSERT_*` (fatal) instead of `EXPECT_*` (non-fatal).** A failing `EXPECT` allows continued execution, which can crash on null dereferences or produce confusing secondary failures.
+
+```cpp
+// ❌ WRONG - EXPECT allows crash on null dereference
+EXPECT_TRUE(item != nullptr);
+item->DoSomething();  // crashes if item is null!
+
+// ✅ CORRECT - ASSERT stops the test on failure
+ASSERT_TRUE(item != nullptr);
+item->DoSomething();  // only reached if item is valid
+```
+
+---
+
 ## ✅ Use `DETACH_FROM_SEQUENCE()` in Database Constructors
 
 **Database classes that use `SEQUENCE_CHECKER` should call `DETACH_FROM_SEQUENCE(sequence_checker_)` in their constructor.** This allows the sequence checker to re-bind to whatever sequence first uses the object, which is essential for mock-based testing where objects may be created on a different sequence than they're used on.

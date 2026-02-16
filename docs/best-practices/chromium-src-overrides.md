@@ -263,6 +263,52 @@ gn check out/Default
 
 ---
 
+## ❌ chromium_src Must Not Depend on Brave Component Targets
+
+**The chromium_src layer must never have GN dependencies on `//brave/components/` targets.** This prevents patch churn when upstream modularizes targets. Use forward declarations in chromium_src with implementations resolved at link time from other targets via `sources.gni`.
+
+```cpp
+// ❌ WRONG - direct include from chromium_src to brave component
+// chromium_src/chrome/browser/policy/profile_policy_connector.cc
+#include "brave/components/brave_policy/brave_policy_manager.h"
+
+// ✅ CORRECT - forward declare, implement in component, link via sources.gni
+// chromium_src/chrome/browser/policy/profile_policy_connector.cc
+std::unique_ptr<policy::ConfigurationPolicyProvider>
+CreateBraveBrowserPolicyProvider();
+// Implementation lives in brave/components/brave_policy/
+```
+
+---
+
+## ✅ Add Comments for Non-Obvious nullptr Assignments in chromium_src
+
+**Add comments explaining non-obvious nullptr assignments in chromium_src overrides,** especially for dangling pointer prevention. Since chromium_src code is out of context from the original file, the intent is not always clear.
+
+```cpp
+// ❌ WRONG - unclear why setting to nullptr
+provider_ = nullptr;
+
+// ✅ CORRECT - explains the intent
+// Reset to prevent dangling pointer after BrowserContext shutdown.
+provider_ = nullptr;
+```
+
+---
+
+## ✅ Use `static_assert` to Protect Against Upstream Enum Changes
+
+**When adding custom values after an upstream enum's last value, add a `static_assert`** to detect if upstream changes their enum count. This prevents value clashes when upstream adds new values.
+
+```cpp
+// ✅ CORRECT - protected against upstream changes
+constexpr int kBravePolicySource = 10;
+static_assert(static_cast<int>(policy::POLICY_SOURCE_COUNT) <= kBravePolicySource,
+              "Upstream added new policy sources - update kBravePolicySource");
+```
+
+---
+
 ## ✅ Use `runtime_enabled_features.override.json5` for Blink Features
 
 **When adding Brave-specific Blink runtime-enabled features, add them to `runtime_enabled_features.override.json5` instead of patching `runtime_enabled_features.json5`.** The override file is designed for downstream additions and never changes upstream, preventing patch conflicts.

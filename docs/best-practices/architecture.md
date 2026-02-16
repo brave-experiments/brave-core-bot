@@ -691,6 +691,64 @@ interface HistoryUIHandler { ... };
 
 ---
 
+## ✅ Gate UI Restrictions at UI Layer, Not in Core Utility Functions
+
+**UI-specific restrictions should be gated at the UI layer, not in core utility functions.** Coupling core logic (like `IsFeatureEnabled()`) to UI state (like WebUI availability) creates unexpected test failures and tight coupling.
+
+```cpp
+// ❌ WRONG - core utility coupled to UI state
+bool IsZCashShieldedTransactionsEnabled() {
+  return IsZCashEnabled() && kShieldedEnabled.Get() && IsWalletWebUIEnabled();
+  //                                                   ^^^^^^^^^^^^^^^^^ UI concern!
+}
+
+// ✅ CORRECT - gate at UI layer
+bool IsZCashShieldedTransactionsEnabled() {
+  return IsZCashEnabled() && kShieldedEnabled.Get();
+}
+// UI layer checks: if (!IsWalletWebUIEnabled()) { hide shielded tx UI }
+```
+
+---
+
+## ✅ Policy-Disabled Features: Hide UI Entirely
+
+**When a feature is disabled by admin policy with ENFORCED enforcement, hide the UI entirely** rather than just disabling/greying out controls. For RECOMMENDED policies, the UI should still be visible since the user can override. On macOS, `defaults write` creates RECOMMENDED level policies, not MANDATORY.
+
+```cpp
+// ❌ WRONG - just disabling controls
+if (IsFeatureManaged()) {
+  button->SetEnabled(false);  // greyed out but visible
+}
+
+// ✅ CORRECT - hide entirely for enforced, visible for recommended
+if (IsFeatureManaged() &&
+    enforcement == Enforcement::kEnforced) {
+  section->SetVisible(false);  // completely hidden
+}
+```
+
+---
+
+## ✅ Check Value Changed Before Firing State Notifications
+
+**Before calling observer notification methods, check if the value actually changed.** Store the old value, update, then compare. This avoids unnecessary observer notifications and potential re-renders.
+
+```cpp
+// ❌ WRONG - always notifies even when value unchanged
+visual_content_used_percentage_ = new_value;
+OnStateForConversationEntriesChanged();
+
+// ✅ CORRECT - only notify on actual change
+auto old_value = visual_content_used_percentage_;
+visual_content_used_percentage_ = new_value;
+if (old_value != visual_content_used_percentage_) {
+  OnStateForConversationEntriesChanged();
+}
+```
+
+---
+
 ## ✅ Set Default Values in Mojom Struct Fields
 
 **Mojom struct fields should have explicit default values for safety.** Uninitialized mojom fields can lead to unexpected behavior when the struct is partially constructed.
