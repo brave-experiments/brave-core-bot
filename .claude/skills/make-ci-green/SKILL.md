@@ -24,8 +24,8 @@ Re-run failed Jenkins CI jobs for a brave/brave-core PR. Automatically detects t
 The following environment variables must be set (e.g., in your `.envrc`):
 
 ```bash
-export JENKINS_BASE_URL=https://ci.brave.com
-export JENKINS_USER=brian@brave.com
+export JENKINS_BASE_URL=https://$JENKINS_BASE_URL
+export JENKINS_USER=<your-jenkins-username>
 export JENKINS_TOKEN=<your-api-token>
 ```
 
@@ -59,11 +59,23 @@ python3 .claude/skills/make-ci-green/retrigger_ci.py <pr-number> --dry-run --for
 Show the user what was found:
 
 - **Failing Jenkins checks**: check name, failed stage, recommended action (normal vs WIPE_WORKSPACE), reason
+- **Test failure analysis** (for test stage failures): per-test details including location, PR correlation, upstream flake verdict, existing issues, and issue filing suggestions
 - **Non-Jenkins failures** (SonarCloud, Socket Security, etc.): listed but not actionable by this tool
 - **Pending checks**: still running, listed for awareness
 - **No failures**: report that CI is already green
 
-**Example output:**
+**Example output (build/infra failure):**
+```
+PR 33936: 1 failing Jenkins check(s)
+
+  [DRY-RUN] continuous-integration/linux-x64/pr-head
+       Stage: build
+       Action: WIPE_WORKSPACE
+       Reason: Pre-test stage failure: "build" -> WIPE_WORKSPACE
+       URL: https://$JENKINS_BASE_URL/job/brave-core-build-pr-linux-x64/job/PR-33936/2/
+```
+
+**Example output (test failure with analysis):**
 ```
 PR 33936: 1 failing Jenkins check(s)
 
@@ -71,8 +83,27 @@ PR 33936: 1 failing Jenkins check(s)
        Stage: test_brave_unit_tests
        Action: normal
        Reason: Test/post-build stage failure: "test_brave_unit_tests" -> normal re-run
-       URL: https://ci.brave.com/job/brave-core-build-pr-linux-x64/job/PR-33936/2/
+       URL: https://$JENKINS_BASE_URL/job/brave-core-build-pr-linux-x64/job/PR-33936/2/
+       Test Failures (2):
+
+         - BraveWalletServiceTest.GetBalance
+           Location: brave
+           PR correlation: likely_from_pr (PR modifies files in same directory as test: browser/brave_wallet/)
+
+         - WebUIURLLoaderFactoryTest.RangeRequest
+           Location: chromium
+           Upstream flake: known_upstream_flake
+           PR correlation: likely_unrelated (Chromium test with no related chromium_src overrides in PR)
+           >> SUGGEST FILING ISSUE: "Test failure: WebUIURLLoaderFactoryTest.RangeRequest"
+           Stack trace (last 20 lines):
+             ...
 ```
+
+**Key decisions shown per test failure:**
+- **likely_from_pr**: The PR changes overlap with the test's source — developer should fix their PR, no issue suggested
+- **likely_unrelated**: The failure appears unrelated to the PR — suggests filing an issue if none exists
+- **Existing issue found**: Shows link to the existing issue instead of suggesting a new one
+- **Upstream flake** (Chromium tests only): Shows LUCI Analysis verdict for upstream flakiness
 
 ### Step 4: Confirm and Trigger
 
@@ -97,6 +128,40 @@ The script examines which pipeline stage failed:
 | Unknown (API error) | **Normal re-run** | Safe default |
 
 Stage matching is case-insensitive substring matching (e.g., "Build (Debug)" matches "build").
+
+---
+
+## Test Failure Analysis
+
+When the failed stage is a **test stage** (not build/infra), the script automatically:
+
+1. **Extracts test failures** from Jenkins console output (GTest `[ FAILED ]` patterns)
+2. **Classifies each test** as Brave (`src/brave/`) or Chromium (`src/` excluding brave) using `git grep`
+3. **Checks upstream flakiness** via LUCI Analysis (Chromium tests only — Brave-specific tests are not in LUCI)
+4. **Correlates with PR changes** to determine if the failure is likely caused by the PR or unrelated
+5. **Searches for existing issues** in `brave/brave-browser` matching the test name
+6. **Suggests filing an issue** only if the failure is likely unrelated to the PR AND no existing issue exists
+
+### PR Correlation Logic
+
+| Scenario | Assessment | Action |
+|----------|-----------|--------|
+| PR modifies the test file itself | **likely_from_pr** | No issue suggestion — developer should fix their PR |
+| PR modifies files in the same directory/module | **likely_from_pr** | No issue suggestion |
+| PR has `chromium_src/` overrides in related paths | **likely_from_pr** | No issue suggestion |
+| Chromium test with no related `chromium_src/` changes | **likely_unrelated** | Suggest filing issue (if none exists) |
+| Brave test with no overlapping PR changes | **likely_unrelated** | Suggest filing issue (if none exists) |
+| Cannot determine (e.g., test source not found) | **unknown** | No suggestion |
+
+### Issue Filing
+
+Issues are **never auto-filed**. The script only suggests filing and provides:
+- Suggested title: `Test failure: <TestSuite.TestMethod>`
+- Body with platform, upstream flake verdict (if applicable), and stack trace
+- Suggested label: `QA/intermittent`
+- Target repo: `brave/brave-browser`
+
+The user must confirm before any issue is created.
 
 ---
 
@@ -129,8 +194,12 @@ python3 .claude/skills/make-ci-green/retrigger_ci.py 33936 --dry-run --format js
 
 ## Limitations
 
-- Only handles Jenkins CI checks (identified by `ci.brave.com` in the URL)
+- Only handles Jenkins CI checks (identified by `$JENKINS_BASE_URL` in the URL)
 - Cannot retrigger GitHub Actions or other CI systems (SonarCloud, Socket Security)
 - Requires Jenkins API access with a valid token
 - Does not handle PENDING checks (still running)
 - WIPE_WORKSPACE detection relies on stage name keyword matching
+- Test failure extraction only supports GTest output format (`[ FAILED ]` markers)
+- Upstream flake check only works for Chromium tests (Brave-specific tests are not in LUCI)
+- PR correlation uses directory-level heuristics; indirect dependencies may not be detected
+- Requires a local chromium `src/` checkout for `git grep` test classification
