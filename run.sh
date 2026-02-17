@@ -1,6 +1,6 @@
 #!/bin/bash
 # Long-running AI agent loop
-# Usage: ./run.sh [max_iterations] [tui]
+# Usage: ./run.sh [max_iterations] [tui] [extra_prompt_info...]
 
 set -e
 
@@ -8,12 +8,22 @@ set -e
 MAX_ITERATIONS=10
 
 USE_TUI=false
+EXTRA_PROMPT=""
+PAST_TUI=false
 
 for arg in "$@"; do
-  if [[ "$arg" =~ ^[0-9]+$ ]]; then
+  if [ "$PAST_TUI" = true ]; then
+    # Everything after 'tui' is extra prompt info
+    if [ -n "$EXTRA_PROMPT" ]; then
+      EXTRA_PROMPT="$EXTRA_PROMPT $arg"
+    else
+      EXTRA_PROMPT="$arg"
+    fi
+  elif [[ "$arg" =~ ^[0-9]+$ ]]; then
     MAX_ITERATIONS="$arg"
   elif [[ "$arg" == "tui" ]]; then
     USE_TUI=true
+    PAST_TUI=true
   fi
 done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -162,6 +172,11 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # In print mode: use stream-json output format with verbose flag to capture detailed execution logs
   # In TUI mode: omit --print to show the interactive TUI
   CLAUDE_PROMPT="Follow the instructions in ./brave-core-bot/CLAUDE.md to execute one iteration of the autonomous agent workflow. The CLAUDE.md file contains the complete workflow and task selection algorithm."
+  if [ -n "$EXTRA_PROMPT" ]; then
+    CLAUDE_PROMPT="$CLAUDE_PROMPT
+
+Additional context: $EXTRA_PROMPT"
+  fi
 
   if [ "$USE_TUI" = true ]; then
     # TUI mode: let Claude own the terminal directly (no piping)
