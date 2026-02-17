@@ -43,16 +43,67 @@ def find_test_location(test_class_name):
 
     return 'unknown'
 
+def has_label(issue, label_name):
+    """Check if an issue has a specific label."""
+    labels = issue.get('labels', [])
+    for label in labels:
+        name = label.get('name', '') if isinstance(label, dict) else str(label)
+        if name == label_name:
+            return True
+    return False
+
 def is_test_issue(issue):
     """Check if an issue is a test failure based on title or labels."""
     if issue['title'].startswith('Test failure: '):
         return True
-    labels = issue.get('labels', [])
-    for label in labels:
-        name = label.get('name', '') if isinstance(label, dict) else str(label)
-        if name == 'bot/type/test':
-            return True
+    if has_label(issue, 'bot/type/test'):
+        return True
     return False
+
+def is_disabled_test_issue(issue):
+    """Check if an issue is about a disabled test based on title or labels."""
+    title = issue['title'].lower()
+    if title.startswith('disabled test:'):
+        return True
+    if has_label(issue, 'disabled-brave-test'):
+        return True
+    return False
+
+def extract_disabled_test_name(title):
+    """Extract test name from various disabled test issue title formats."""
+    # "Disabled test: TestClass.TestMethod"
+    m = re.match(r'^Disabled test:\s*(.+)$', title, re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
+
+    # Backtick-quoted test name: "... `TestClass/TestClass.Method/Param` ..."
+    m = re.search(r'`([^`]+)`', title)
+    if m:
+        return m.group(1).strip()
+
+    # "Re-enable TestName test" or "Re-enable TestName"
+    m = re.search(r'[Rr]e-?enable\s+(\S+?)(?:\s+test)?\.?\s*$', title)
+    if m:
+        return m.group(1).strip()
+
+    # "Investigate failure of TestName"
+    m = re.search(r'failure of\s+(\S+)', title)
+    if m:
+        return m.group(1).strip()
+
+    # Fallback: return full title cleaned up
+    return title.strip()
+
+def extract_disabled_search_term(test_name):
+    """Extract the method name to search for DISABLED_ prefix.
+    Handles parameterized tests like TestClass/TestClass.Method/1 by
+    stripping the parameter suffix and extracting the method name."""
+    # Strip trailing /N parameter suffix (e.g., /1, /0, /SomeParam)
+    name = re.sub(r'/\w+$', '', test_name) if '/' in test_name else test_name
+    # Get the method part after the last dot
+    if '.' in name:
+        return name.split('.')[-1]
+    return name
 
 def build_test_story(story_id, priority, issue):
     """Build a user story for a test failure issue."""
@@ -76,15 +127,63 @@ def build_test_story(story_id, priority, issue):
         "Implement fix for the intermittent failure",
         "Run npm run build from src/brave (must pass)",
         "Run npm run format from src/brave (must pass)",
-        "Run npm run presubmit from src/brave (must pass)",
         "Run npm run gn_check from src/brave (must pass)",
-        f"Run npm run test -- {test_binary} --gtest_filter={test_name} (must pass - run 5 times to verify consistency)"
+        f"Run npm run test -- {test_binary} --gtest_filter={test_name} (must pass - run 5 times to verify consistency)",
+        "Commit changes, then run npm run presubmit from src/brave (must pass)"
     ]
 
     return {
         "id": f"US-{story_id:03d}",
         "title": f"Fix test: {test_name}",
         "description": f"As a developer, I need to fix the intermittent failure in {test_name} (issue #{issue_num}).",
+        "testType": test_type,
+        "testLocation": test_location,
+        "testFilter": test_name,
+        "acceptanceCriteria": acceptance_criteria,
+        "priority": priority,
+        "status": "pending",
+        "prNumber": None,
+        "lastActivityBy": None,
+        "branchName": None,
+        "prUrl": None
+    }
+
+def build_disabled_test_story(story_id, priority, issue):
+    """Build a user story for a disabled test issue."""
+    issue_num = issue['number']
+    title = issue['title']
+    test_name = extract_disabled_test_name(title)
+
+    # For parameterized tests like TestClass/TestClass.Method/1, use the class part
+    class_part = test_name.split('/')[0] if '/' in test_name else test_name.split('.')[0]
+    test_location = find_test_location(class_part)
+
+    # Determine test type heuristic
+    if "UnitTest" in test_name or "AlternateTestParams" in test_name or "PartitionAlloc" in test_name:
+        test_type = "unit_test"
+        test_binary = "brave_unit_tests" if test_location == 'brave' else "unit_tests"
+    else:
+        test_type = "browser_test"
+        test_binary = "brave_browser_tests" if test_location == 'brave' else "browser_tests"
+
+    acceptance_criteria = [
+        "Read ./BEST-PRACTICES.md for async testing patterns and common pitfalls",
+        f"Fetch issue #{issue_num} details from brave/brave-browser GitHub API",
+        f"Find where the test is disabled by searching for DISABLED_{extract_disabled_search_term(test_name)} in the source code using git grep in both src/brave and src directories",
+        "Use git blame on the line that disables the test to find the commit that disabled it, and read the commit message to understand WHY it was disabled",
+        "Investigate whether the original reason for disabling has been resolved (e.g., upstream fix landed, dependency updated, flaky infrastructure fixed)",
+        "If the underlying issue is fixed: re-enable the test by removing the DISABLED_ prefix. If the issue is NOT yet fixed: fix the root cause first, then re-enable the test",
+        "Run npm run build from src/brave (must pass)",
+        "Run npm run format from src/brave (must pass)",
+        "Run npm run gn_check from src/brave (must pass)",
+        f"Run npm run test -- {test_binary} --gtest_filter={test_name} (must pass - run 5 times to verify consistency)",
+        "Commit changes, then run npm run presubmit from src/brave (must pass)"
+    ]
+
+    return {
+        "id": f"US-{story_id:03d}",
+        "title": f"Re-enable disabled test: {test_name}",
+        "description": f"As a developer, I need to investigate and re-enable the disabled test {test_name} (issue #{issue_num}). The test was previously disabled and needs to be investigated to determine if the underlying issue is resolved, then re-enabled.",
         "testType": test_type,
         "testLocation": test_location,
         "testFilter": test_name,
@@ -108,9 +207,9 @@ def build_generic_story(story_id, priority, issue):
         "Implement the fix or feature",
         "Run npm run build from src/brave (must pass)",
         "Run npm run format from src/brave (must pass)",
-        "Run npm run presubmit from src/brave (must pass)",
         "Run npm run gn_check from src/brave (must pass)",
         "Find and run relevant tests to verify the change (must pass)",
+        "Commit changes, then run npm run presubmit from src/brave (must pass)",
     ]
 
     return {
@@ -184,7 +283,9 @@ for issue in github_issues:
     max_id += 1
     max_priority += 1
 
-    if is_test_issue(issue):
+    if is_disabled_test_issue(issue):
+        story = build_disabled_test_story(max_id, max_priority, issue)
+    elif is_test_issue(issue):
         story = build_test_story(max_id, max_priority, issue)
     else:
         story = build_generic_story(max_id, max_priority, issue)
