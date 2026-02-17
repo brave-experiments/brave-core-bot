@@ -2,6 +2,7 @@
 name: review-prs
 description: "Review recent PRs in brave/brave-core for best practices violations. Supports state filter (open/closed/all). Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
 argument-hint: "[days|page<N>] [open|closed|all]"
+allowed-tools: Bash(gh pr diff:*)
 ---
 
 # Review PRs for Best Practices
