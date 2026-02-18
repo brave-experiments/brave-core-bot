@@ -1950,7 +1950,7 @@ service->ForEach([](Item&) {});
 
 ## ✅ Copyright Year in New Files Must Be Current Year
 
-**New files must use the current year in the copyright header.** Don't copy-paste old copyright years from other files.
+**New files must use the current year in the copyright header.** Always determine the current year from the system date (e.g., `date +%Y`), never from training data or memory — the training cutoff year is often outdated. Don't copy-paste old copyright years from other files.
 
 ---
 
