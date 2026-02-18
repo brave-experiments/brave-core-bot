@@ -347,6 +347,78 @@ Always include a comment explaining:
 
 Example: A test with a specific viewport race condition should not be grouped under "# Flaky upstream." - it needs its own section explaining that specific race condition.
 
+## Disabled Test Investigations (Fixing / Re-enabling)
+
+When investigating disabled tests — whether to fix, re-enable, or properly manage them — follow these guidelines.
+
+### Prefer Filter Files Over chromium_src `#define DISABLED_` Overrides
+
+Some chromium_src overrides disable upstream tests using the `#define TestName DISABLED_TestName` pattern, then include the original test file and add Brave-specific replacement tests. This pattern should be avoided. Instead:
+
+1. **Disable upstream tests via filter files** — Add entries to the appropriate `test/filters/*.filter` file instead of using `#define DISABLED_` in a chromium_src override.
+2. **Move Brave-specific tests to Brave test targets** — Any Brave replacement tests should live in the appropriate Brave test target (`brave_unit_tests`, `brave_browser_tests`, or `brave_components_unittests`), not inside a chromium_src override.
+3. **Remove the chromium_src override** — Once the filter entries and Brave tests are relocated, delete the override file entirely.
+
+**Real example — `chromium_src/chrome/browser/metrics/chrome_metrics_service_client_unittest.cc`:**
+
+```cpp
+// ❌ WRONG - chromium_src override that disables + replaces tests
+#define TestRegisterUKMProviders DISABLED_TestRegisterUKMProviders
+#define TestRegisterMetricsServiceProviders \
+  DISABLED_TestRegisterMetricsServiceProviders
+
+#include <chrome/browser/metrics/chrome_metrics_service_client_unittest.cc>
+
+#undef TestRegisterMetricsServiceProviders
+#undef TestRegisterUKMProviders
+
+TEST_F(ChromeMetricsServiceClientTest, BraveTestRegisterUKMProviders) {
+  // Brave-specific test...
+}
+
+TEST_F(ChromeMetricsServiceClientTest, BraveRegisterMetricsServiceProviders) {
+  // Brave-specific test...
+}
+```
+
+**✅ CORRECT approach — split into three changes:**
+
+1. Add filter entries to disable the upstream tests:
+```
+# test/filters/unit_tests.filter
+# Upstream test expects UKM providers; Brave disables UKM entirely.
+-ChromeMetricsServiceClientTest.TestRegisterUKMProviders
+-ChromeMetricsServiceClientTest.TestRegisterMetricsServiceProviders
+```
+
+2. Move Brave replacement tests to the appropriate Brave test target (e.g., `brave_unit_tests`):
+```cpp
+// brave/browser/metrics/chrome_metrics_service_client_unittest.cc
+TEST_F(ChromeMetricsServiceClientTest, BraveTestRegisterUKMProviders) {
+  // ...
+}
+TEST_F(ChromeMetricsServiceClientTest, BraveRegisterMetricsServiceProviders) {
+  // ...
+}
+```
+
+3. Delete the chromium_src override file.
+
+**Why filter files are preferred over chromium_src `#define DISABLED_`:**
+
+- **Visibility** — Filter files are centralized in `test/filters/` and easy to audit for re-enablement
+- **Low maintenance** — No rebase conflicts when upstream renames or moves tests
+- **Specificity** — Can target specific platforms or sanitizer builds
+- **Reversibility** — Removing a filter line is trivial; chromium_src overrides require verifying nothing else depends on them
+
+### Red Flags During Investigation
+
+- ❌ A chromium_src override that uses `#define DISABLED_` — should be filter file entries
+- ❌ Brave-specific tests living inside a chromium_src override — should be in a Brave test target
+- ❌ Keeping a chromium_src override "just in case" when a filter file would suffice
+
+See also: [chromium_src Overrides](./best-practices/chromium-src-overrides.md) for general override guidelines.
+
 ## Presubmit Requirements
 
 **CRITICAL: Presubmit must pass BEFORE creating a pull request.**

@@ -1,5 +1,11 @@
 # chromium_src Overrides
 
+## ❌ Don't Use chromium_src Overrides to Disable Tests
+
+**Never use `#define TestName DISABLED_TestName` in chromium_src overrides to disable upstream tests.** Use filter files in `test/filters/` instead, and move any Brave-specific replacement tests into the appropriate Brave test target (`brave_unit_tests`, `brave_browser_tests`, `brave_components_unittests`). See [Disabled Test Investigations](../testing-requirements.md#disabled-test-investigations-fixing--re-enabling) for the full pattern and examples.
+
+---
+
 ## ✅ Minimize Code Duplication in Overrides
 
 **When overriding Chromium code via `chromium_src/`, prefer wrapping only the changed section and falling back to `ChromiumImpl` for everything else.**
