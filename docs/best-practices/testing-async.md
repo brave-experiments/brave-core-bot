@@ -171,28 +171,29 @@ DCHECK failed: stack_.size() < static_cast<size_t>(nesting_level_)
 
 ---
 
-## ✅ Prefer `base::test::TestFuture` Over RunLoop
+## ✅ ALWAYS Use `base::test::TestFuture` Over RunLoop for Callbacks
 
-**PREFERRED for callback-based operations.** `TestFuture` is more concise and less error-prone than `RunLoop` patterns.
+**REQUIRED for callback-based operations.** `TestFuture` is more concise and less error-prone than `RunLoop` patterns. Reviewers actively enforce this — PRs using `RunLoop` + `BindLambdaForTesting` + `Quit()` when `TestFuture` would work will receive review comments requesting changes.
 
 ```cpp
-// ❌ WRONG - verbose RunLoop pattern
+// ❌ WRONG - verbose RunLoop + lambda pattern (will be flagged in review)
 base::RunLoop run_loop;
 bool result = false;
-service->IsConnected(base::BindLambdaForTesting([&](bool connected) {
-  result = connected;
-  run_loop.Quit();
-}));
+service->CheckPurchaseState(
+    base::BindLambdaForTesting([&](bool is_purchased) {
+      result = is_purchased;
+      run_loop.Quit();
+    }));
 run_loop.Run();
-EXPECT_TRUE(result);
+EXPECT_FALSE(result);
 
-// ✅ CORRECT - TestFuture is simpler
+// ✅ CORRECT - TestFuture is simpler and cleaner
 base::test::TestFuture<bool> future;
-service->IsConnected(future.GetCallback());
-EXPECT_TRUE(future.Get());
+service->CheckPurchaseState(future.GetCallback());
+EXPECT_FALSE(future.Get());
 ```
 
-Transform existing `RunLoop` patterns to `TestFuture` whenever the async operation uses a callback.
+**Always use `TestFuture` when the async operation takes a `base::OnceCallback`.** The only exception is when you need manual run loop control that `TestFuture` cannot provide (e.g., testing timeout behavior or cancellation).
 
 ---
 
