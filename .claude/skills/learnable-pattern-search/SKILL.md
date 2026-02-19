@@ -141,7 +141,7 @@ Only capture patterns that meet ALL of these criteria:
 
 1. **Generalizable** - Applies beyond the specific PR where it was found
 2. **Actionable** - Can be turned into a concrete rule or guideline
-3. **Not already documented** - Check existing docs before adding
+3. **Not already documented, OR existing docs need strengthening** - Check existing docs before adding. If the pattern IS documented but the reviewer is enforcing it more strictly than the docs suggest (e.g., docs say "preferred" but reviewer treats it as mandatory, or docs say "consider" but reviewer requires it), that's a learnable pattern too — strengthen the existing documentation to match actual review enforcement
 4. **Significant** - Would actually prevent mistakes or improve quality
 
 ---
