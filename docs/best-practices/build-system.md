@@ -237,6 +237,41 @@ deps += [ "//brave/components/ai_chat/core:unit_tests" ]
 
 ---
 
+## ✅ Create `test_support` Targets for Reusable Fakes/Mocks
+
+**When creating fake or mock implementations of services for testing, put them in a separate `test_support` BUILD.gn target rather than embedding them directly in a `unit_tests` target.** This allows multiple test targets across the codebase to reuse the same fakes.
+
+```gn
+# ❌ WRONG - fake service only available to one test target
+source_set("unit_tests") {
+  sources = [
+    "my_service_unittest.cc",
+    "test/fake_dependency_service.cc",
+    "test/fake_dependency_service.h",
+  ]
+}
+
+# ✅ CORRECT - separate test_support target for reusable fakes
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "test/fake_dependency_service.cc",
+    "test/fake_dependency_service.h",
+  ]
+  deps = [ ":dependency_service" ]
+}
+
+source_set("unit_tests") {
+  sources = [ "my_service_unittest.cc" ]
+  deps = [
+    ":test_support",
+    ...
+  ]
+}
+```
+
+---
+
 ## ✅ Use `PlatformBrowserTest` for Cross-Platform Browser Tests
 
 **Browser tests that should run on both desktop and Android should use `PlatformBrowserTest` as the base class instead of `InProcessBrowserTest`.**
