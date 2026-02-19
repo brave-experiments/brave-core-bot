@@ -587,11 +587,41 @@ If no issues: "None - changes look ready for PR."
 
 ### Posting to GitHub
 
-If the user asks you to post the review as a comment on GitHub, **always prefix the comment** with:
+If the user asks you to post the review as a comment on GitHub, **always prefix the review body** with:
 
 I generated this review about the changes, sharing here. It should be used for informational purposes only and not as proof of review.
 
-This disclaimer must appear at the very beginning of the comment before the review content (as plain text, not as a blockquote).
+This disclaimer must appear at the very beginning of the review body (as plain text, not as a blockquote).
+
+**Post as inline code comments when possible.** When the review identifies specific issues tied to files and lines, post them as inline review comments on the actual code rather than as a single general comment. Use the GitHub review API to submit a single review with:
+- **Review body**: The summary, verdict, and any general observations (with the disclaimer prefix above)
+- **Inline comments**: Each specific issue placed on its file and line
+
+```bash
+gh api repos/brave/brave-core/pulls/{number}/reviews \
+  --method POST \
+  --input - <<'EOF'
+{
+  "event": "COMMENT",
+  "body": "I generated this review about the changes, sharing here. It should be used for informational purposes only and not as proof of review.\n\n## Summary\n...\n\n## Verdict: PASS/FAIL\n...",
+  "comments": [
+    {
+      "path": "path/to/file.cc",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "specific issue description for this line"
+    }
+  ]
+}
+EOF
+```
+
+**Key details:**
+- `side: "RIGHT"` targets the new version of the file (changed lines)
+- `line` is the line number in the new file
+- All inline comments are batched into one review (one notification to the author)
+- If an issue can't be tied to a specific line in the diff, include it in the review body instead
+- If the inline API call fails for a comment (line outside diff range), fall back to including that issue in the review body
 
 ---
 
