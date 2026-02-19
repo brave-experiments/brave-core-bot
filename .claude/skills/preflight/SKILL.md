@@ -7,6 +7,10 @@ description: "Run all preflight checks (format, gn_check, presubmit, build, test
 
 Run all preflight checks to make sure the current work is ready for review. Execute each step sequentially and stop immediately if any step fails.
 
+## Arguments
+
+- **`all`** — Run all test suites (brave_browser_tests, brave_unit_tests, brave_component_unittests) without filters, instead of only running tests affected by the change. Usage: `/preflight all`
+
 ## Current State
 
 - Branch: !`git branch --show-current`
@@ -34,8 +38,15 @@ Check `git status`. If there are any uncommitted changes (staged, unstaged, or u
 ### 5. Build
 Run `npm run build` to make sure the code builds. If it fails, fix the build errors, amend the commit, and retry.
 
-### 6. Run affected tests
-Determine which test targets are affected by the changes in this branch (compare against `master`). Look at the changed files and identify the corresponding test targets and relevant test filters.
+### 6. Run tests
+
+**If the `all` argument was provided:** Run all test suites without filters:
+
+- `npm run test -- brave_browser_tests`
+- `npm run test -- brave_unit_tests`
+- `npm run test -- brave_component_unittests`
+
+**Otherwise (default):** Determine which test targets are affected by the changes in this branch (compare against `master`). Look at the changed files and identify the corresponding test targets and relevant test filters.
 
 - **Browser tests:** `npm run test -- brave_browser_tests --filter=<TestName>`
 - **Unit tests:** `npm run test -- brave_unit_tests --filter=<TestName>`
