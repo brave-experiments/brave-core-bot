@@ -99,18 +99,50 @@ Process PRs **one at a time** (sequentially). After each subagent returns:
 
 For each violation, present the draft and ask:
 
-> **PR #12345** - [violation description]
+> **PR #12345** - `file:line` - [violation description]
 > Draft: `[short comment]`
 > Post this comment?
 
 Use "nit:" prefix only for genuinely minor/stylistic issues, not for substantive concerns.
 
-Only post after explicit user approval via:
+**All posted comments MUST be prefixed with "Review via brave-core-bot: "** before the actual comment text.
+
+### Posting as Inline Code Comments
+
+After presenting all violations for a PR, collect the approved ones and post them as a **single review with inline comments** using the GitHub API. This places comments directly on the relevant code lines instead of as a general review comment.
+
 ```bash
-gh pr review --repo brave/brave-core {number} --comment --body "Review via brave-core-bot: comment text"
+gh api repos/brave/brave-core/pulls/{number}/reviews \
+  --method POST \
+  --input - <<'EOF'
+{
+  "event": "COMMENT",
+  "comments": [
+    {
+      "path": "path/to/file.cc",
+      "line": 42,
+      "side": "RIGHT",
+      "body": "Review via brave-core-bot: comment text"
+    },
+    {
+      "path": "path/to/other_file.cc",
+      "line": 15,
+      "side": "RIGHT",
+      "body": "Review via brave-core-bot: another comment"
+    }
+  ]
+}
+EOF
 ```
 
-**All posted comments MUST be prefixed with "Review via brave-core-bot: "** before the actual comment text.
+**Key details:**
+- `side: "RIGHT"` targets the new version of the file (added lines)
+- `line` is the line number in the new file, which matches what the subagent reports from `+` lines in the diff
+- All approved violations for a single PR are batched into one review (one notification to the author)
+- If the API call fails (e.g., a line is outside the diff range), retry by splitting: post the valid inline comments and fall back to a general review comment for any that failed:
+  ```bash
+  gh pr review --repo brave/brave-core {number} --comment --body "Review via brave-core-bot: [file:line] comment text"
+  ```
 
 ---
 
@@ -119,7 +151,10 @@ gh pr review --repo brave/brave-core {number} --comment --body "Review via brave
 When reviewing closed or merged PRs and a violation is found:
 
 1. **Present the finding** to the user as usual (draft comment + ask for approval)
-2. **If approved**, post a comment on the closed PR noting the issue (prefixed with "Review via brave-core-bot: ")
+2. **If approved**, try to post inline review comments using the same `gh api` approach as open PRs. If the inline API fails (some merged PRs may not support it), fall back to a general comment:
+   ```bash
+   gh pr comment --repo brave/brave-core {number} --body "Review via brave-core-bot: [file:line] comment text"
+   ```
 3. **Create a follow-up issue** in `brave/brave-core` to track the fix:
    ```bash
    gh issue create --repo brave/brave-core --title "Fix: <brief description of violation>" --body "$(cat <<'EOF'
