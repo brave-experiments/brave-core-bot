@@ -35,6 +35,29 @@ Similarly, code in `components/safe_browsing/` cannot have `brave/browser/` deps
 
 ---
 
+## ✅ Pass the Most Specific Dependency, Not "Bag of Stuff" Objects
+
+**Always pass the most fundamental object a function actually needs, not a broader object it could extract it from.** This follows from the Chromium componentization cookbook: "Pass the most fundamental objects possible, rather than passing more complex 'everything' or 'bag of stuff' objects."
+
+```cpp
+// ❌ WRONG - passing Profile when only prefs are needed
+void MyComponent::Init(Profile* profile) {
+  enabled_ = profile->GetPrefs()->GetBoolean(kMyPref);
+}
+
+// ✅ CORRECT - pass only what's needed
+void MyComponent::Init(PrefService* prefs) {
+  enabled_ = prefs->GetBoolean(kMyPref);
+}
+```
+
+Common substitutions:
+- `Profile*` → `PrefService*` (when only prefs are needed)
+- `Profile*` → `BrowserContext*` (in components)
+- `BrowserContext*` → `scoped_refptr<URLLoaderFactory>` (when only network is needed)
+
+---
+
 ## ✅ Prefer Internal Feature Guards Over External Ifdefs
 
 **Code should handle disabled features internally rather than requiring external `#ifdef` guards.**
@@ -580,6 +603,35 @@ struct ModelConfig {
 ## ❌ No Content-Layer Dependencies for iOS-Targeted Components
 
 **Components that must build for iOS (like `brave_wallet`) cannot depend on content-layer types** (`content::WebContents`, `content::BrowserContext`). iOS uses WebKit, not Chromium's content layer. Pass specific dependencies (`PrefService*`, `URLLoaderFactory`) instead.
+
+---
+
+## ✅ Use Layered Component Structure (`core/` + `content/`) for iOS-Compatible Components
+
+**When a component needs to work on both iOS and content-based platforms, use a layered component structure.** Split the component into `core/` (iOS-compatible, no `//content` dependency) and `content/` (uses `//content` APIs). This follows the Chromium componentization cookbook pattern.
+
+```
+components/brave_shields/
+├── core/           # iOS-compatible code, no //content deps
+│   ├── browser/    # Browser-process logic (no content types)
+│   ├── common/     # Shared across processes
+│   └── test/
+└── content/        # Content-layer integration (WebContents, etc.)
+    ├── browser/    # Browser-process code using content types
+    └── test/
+```
+
+**Rules:**
+- `core/` must never depend on `//content` or `content/` subdirectories
+- `content/` may depend on `core/` and `//content`
+- iOS builds only pull in `core/`
+- Business logic belongs in `core/`; content-layer glue belongs in `content/`
+
+---
+
+## ❌ No Circular Dependencies Between Components
+
+**Component dependencies must form a strictly tree-shaped graph — no circular dependencies.** If component A depends on component B, then B must never depend on A (directly or transitively). Use delegate interfaces or observers to break cycles.
 
 ---
 
