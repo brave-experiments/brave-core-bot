@@ -105,7 +105,7 @@ For each violation, present the draft and ask:
 
 Use "nit:" prefix only for genuinely minor/stylistic issues, not for substantive concerns.
 
-**All posted comments MUST be prefixed with "Review via brave-core-bot: "** before the actual comment text.
+**The "Review via brave-core-bot" attribution MUST appear exactly once per review** — on the top-level review body, NOT on each inline comment. Individual inline comments should contain only the comment text itself.
 
 ### Posting as Inline Code Comments
 
@@ -117,18 +117,19 @@ gh api repos/brave/brave-core/pulls/{number}/reviews \
   --input - <<'EOF'
 {
   "event": "COMMENT",
+  "body": "Review via brave-core-bot",
   "comments": [
     {
       "path": "path/to/file.cc",
       "line": 42,
       "side": "RIGHT",
-      "body": "Review via brave-core-bot: comment text"
+      "body": "comment text"
     },
     {
       "path": "path/to/other_file.cc",
       "line": 15,
       "side": "RIGHT",
-      "body": "Review via brave-core-bot: another comment"
+      "body": "another comment"
     }
   ]
 }
@@ -136,10 +137,12 @@ EOF
 ```
 
 **Key details:**
+- The `"body": "Review via brave-core-bot"` at the top level provides the attribution once for the entire review
+- Individual comment bodies should NOT include the "Review via brave-core-bot: " prefix
 - `side: "RIGHT"` targets the new version of the file (added lines)
 - `line` is the line number in the new file, which matches what the subagent reports from `+` lines in the diff
 - All approved violations for a single PR are batched into one review (one notification to the author)
-- If the API call fails (e.g., a line is outside the diff range), retry by splitting: post the valid inline comments and fall back to a general review comment for any that failed:
+- If the API call fails (e.g., a line is outside the diff range), retry by splitting: post the valid inline comments and fall back to a general review comment for any that failed. **Only the fallback general comment needs the prefix** since it's standalone:
   ```bash
   gh pr review --repo brave/brave-core {number} --comment --body "Review via brave-core-bot: [file:line] comment text"
   ```
