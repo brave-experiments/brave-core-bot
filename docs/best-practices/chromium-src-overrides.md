@@ -243,14 +243,16 @@ Note: This technique does not work when the return type is a pointer or referenc
 
 ## ✅ Add Explanation Comments in chromium_src Override Files
 
-**When creating a chromium_src override, include a comment explaining why the override is needed.** The override's purpose is not always self-evident from the code alone.
+**When creating a chromium_src override, include comments explaining why the override is needed.** The override's purpose is not always self-evident from the code alone. Per-function comments explaining each overridden function are sufficient — a global file-level comment is not required if the per-function comments adequately explain the purpose.
 
 ```cpp
 // chromium_src/chrome/browser/ui/views/tabs/tab_view.cc
 
-// Override to add Brave-specific tab context menu items.
-// The upstream class doesn't support extensibility here,
-// so we replace the menu construction logic.
+// Add Brave-specific tab context menu items. The upstream class doesn't
+// support extensibility here, so we replace the menu construction logic.
+void TabView::BuildContextMenu() {
+  ...
+}
 ```
 
 ---
