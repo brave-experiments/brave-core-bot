@@ -55,62 +55,8 @@ get_children() {
   [[ -f "$f" ]] && cat "$f" || true
 }
 
-# Build parent map by parsing reflog creation entries
+# Collect all local branches
 all_branches=$(git for-each-ref --format='%(refname:short)' refs/heads/)
-
-for branch in $all_branches; do
-  [[ "$branch" == "$start_branch" ]] && continue
-
-  # Look for the creation entry in the reflog
-  creation_line=$(git reflog show "$branch" --format='%gs' 2>/dev/null \
-    | tail -1) || true
-
-  if [[ -z "$creation_line" ]]; then
-    continue
-  fi
-
-  # Match patterns like:
-  #   "branch: Created from refs/heads/<parent>"
-  #   "branch: Created from refs/remotes/origin/<parent>"
-  #   "branch: Created from <parent>"
-  #   "branch: Created from HEAD"
-  parent=""
-  if [[ "$creation_line" =~ branch:\ Created\ from\ refs/heads/(.+) ]]; then
-    parent="${BASH_REMATCH[1]}"
-  elif [[ "$creation_line" =~ branch:\ Created\ from\ refs/remotes/origin/(.+) ]]; then
-    # Created from a remote tracking branch — use the local name
-    candidate="${BASH_REMATCH[1]}"
-    if git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
-      parent="$candidate"
-    fi
-  elif [[ "$creation_line" =~ branch:\ Created\ from\ (.+) ]]; then
-    candidate="${BASH_REMATCH[1]}"
-    if [[ "$candidate" == "HEAD" ]]; then
-      # Resolve HEAD at creation time: get the SHA from the branch's
-      # oldest reflog entry, then find which branch had that SHA.
-      creation_sha=$(git reflog show "$branch" --format='%H' \
-        2>/dev/null | tail -1) || true
-      if [[ -n "$creation_sha" ]]; then
-        for other in $all_branches; do
-          [[ "$other" == "$branch" ]] && continue
-          # Check if the other branch had this exact SHA at its tip
-          # (current or historical via reflog)
-          if git reflog show "$other" --format='%H' 2>/dev/null \
-              | grep -qx "$creation_sha"; then
-            parent="$other"
-            break
-          fi
-        done
-      fi
-    elif git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
-      parent="$candidate"
-    fi
-  fi
-
-  if [[ -n "$parent" ]]; then
-    set_parent "$branch" "$parent"
-  fi
-done
 
 # is_ancestor_of: check if $1 (or any historical tip of $1) is an
 # ancestor of $2. Handles rebased branches by walking the reflog.
@@ -141,26 +87,22 @@ is_ancestor_of() {
   return 1
 }
 
-# Fallback: for branches without reflog parent, use merge-base + ancestor
-# checks. Collect all candidates that descend from start_branch, then
-# determine the closest parent for each using --is-ancestor.
-candidates=()
+# Find all descendant branches of start_branch using ancestor checks.
+descendants=()
 for branch in $all_branches; do
   [[ "$branch" == "$start_branch" ]] && continue
-  has_parent "$branch" && continue
 
-  # Check if start_branch (or origin/start_branch) is an ancestor
   if is_ancestor_of "$start_branch" "$branch"; then
-    candidates+=("$branch")
+    descendants+=("$branch")
   fi
 done
 
-# For each candidate, find its closest parent among start_branch + other
-# candidates. The closest parent is the one whose HEAD is an ancestor of
-# the candidate AND is not an ancestor of any other ancestor candidate.
-for branch in "${candidates[@]+"${candidates[@]}"}"; do
+# For each descendant, find its closest parent among start_branch + other
+# descendants. The closest parent is the one whose HEAD is an ancestor of
+# the branch AND is not an ancestor of any other ancestor candidate.
+for branch in "${descendants[@]+"${descendants[@]}"}"; do
   closest_parent="$start_branch"
-  for other in "${candidates[@]+"${candidates[@]}"}"; do
+  for other in "${descendants[@]+"${descendants[@]}"}"; do
     [[ "$other" == "$branch" ]] && continue
     # If other is an ancestor of branch AND other is a descendant of
     # our current closest_parent, then other is a closer parent.
