@@ -55,6 +55,23 @@ Classify the changed files:
 - **has_build_files**: `BUILD.gn`, `DEPS`, `*.gni`
 - **has_frontend_files**: `.ts`, `.tsx`, `.html`, `.css`
 
+### Step 1.5: Fetch Existing PR Comments (Re-review Context)
+
+Before launching subagents, fetch all existing review comments and discussion on the PR using the filter script:
+
+```bash
+./brave-core-bot/scripts/filter-pr-reviews.sh {number} markdown
+```
+
+This returns all past review comments, inline code comments, and discussion comments from Brave org members (filtered for security). Pass this output to each subagent as `PRIOR_COMMENTS` context (see Step 3).
+
+**Why this matters:** When re-reviewing a PR after new commits, the bot must be aware of:
+- Its own previous comments (from "brave-core-bot" or "Review via brave-core-bot") to avoid repeating the same feedback
+- Author and reviewer responses that explain or justify a design choice
+- Issues that were already acknowledged and addressed
+
+If there are no prior comments (first review), skip this step and omit the prior comments section from the subagent prompt.
+
 ### Step 2: Launch Category Subagents in Parallel
 
 Launch one **Task subagent** (subagent_type: "general-purpose") per applicable category. **Use multiple Task tool calls in a single message** so they run in parallel.
@@ -90,8 +107,13 @@ Each subagent prompt MUST include:
    https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/<doc>.md#<heading-anchor>
    ```
    Where `<heading-anchor>` is the `##` heading converted to a GitHub anchor (lowercase, spaces to hyphens, special characters removed). For example, `## Don't Use rapidjson` becomes `#dont-use-rapidjson`.
-6. **The systematic audit requirement** (below)
-7. **Required output format** (below)
+6. **Prior comments context (re-review awareness)** — if prior comments exist from Step 1.5, include them in the subagent prompt with these rules:
+   - **Do NOT re-raise issues that the author or a reviewer has already explained or justified.** If a prior comment thread shows the author explaining why a design choice was made (e.g., "only two subclasses will ever use this, both pass constants"), accept that explanation and do not flag the same issue again.
+   - **Do NOT repeat your own previous comments.** If a comment from "brave-core-bot" or containing "Review via brave-core-bot" already raised the same point, skip it — even if the code hasn't changed. The author has already seen it.
+   - **DO re-raise an issue only if:** (a) the author's explanation is factually incorrect or introduces a real risk, OR (b) new code in the latest diff introduces a new instance of the same problem that wasn't previously discussed.
+   - When in doubt about whether an issue was addressed, err on the side of NOT re-raising it. Repeating resolved feedback is more disruptive than missing a marginal issue.
+7. **The systematic audit requirement** (below)
+8. **Required output format** (below)
 
 ### Step 4: Systematic Audit Requirement
 
@@ -130,11 +152,17 @@ N/A: <rule heading>
 FAIL: <rule heading>
 ... (one line per ## heading in the doc(s))
 
+SKIPPED_PRIOR:
+- file: <path>, issue: <brief description>, reason: <why not re-raised — e.g., "author explained in prior comment that only constant strings are passed", "already flagged in previous review">
+NONE (if no prior issues were skipped)
+
 VIOLATIONS:
 - file: <path>, line: <line_number>, rule: "<rule heading>", rule_link: <full GitHub URL to the rule heading>, issue: <brief description>, draft_comment: <1-3 sentence comment to post>
 - ...
 NO_VIOLATIONS (if none found)
 ```
+
+The `SKIPPED_PRIOR` section provides transparency about issues that were intentionally not re-raised due to prior discussion. This helps the operator verify the subagent correctly handled prior context.
 
 ### Step 6: Aggregate and Process Results
 
