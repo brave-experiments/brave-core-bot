@@ -27,4 +27,4 @@ with open(cache_path, "w") as f:
     json.dump(cache, f, indent=2)
     f.write("\n")
 
-print(f"Cache updated: PR #{pr_number} -> {head_ref_oid}")
+print(f"Cache updated: [PR #{pr_number}](https://github.com/brave/brave-core/pull/{pr_number}) -> {head_ref_oid}")

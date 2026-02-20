@@ -146,7 +146,7 @@ Each subagent MUST return this structured format:
 
 ```
 CATEGORY: <category name>
-PR #<number>: <title>
+[PR #<number>](https://github.com/brave/brave-core/pull/<number>): <title>
 
 AUDIT:
 PASS: <rule heading>
