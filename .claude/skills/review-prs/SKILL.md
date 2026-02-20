@@ -144,6 +144,8 @@ Process PRs **one at a time** (sequentially). After ALL category subagents retur
 3. If violations were found, present them to the user for interactive approval before moving to the next PR
 4. If no violations across all categories, briefly note that and move on
 
+**PR Link Format:** When displaying PR numbers to the user, always use a proper markdown link: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. Never use bare `#<number>` references — they don't produce clickable links to the correct PR.
+
 ---
 
 ## Comment Style
@@ -162,7 +164,7 @@ Process PRs **one at a time** (sequentially). After ALL category subagents retur
 
 For each violation, present the draft and ask:
 
-> **PR #12345** - `file:line` - [violation description]
+> **[PR #12345](https://github.com/brave/brave-core/pull/12345)** - `file:line` - [violation description]
 > Draft: `[short comment]`
 > Post this comment?
 
