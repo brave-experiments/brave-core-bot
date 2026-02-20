@@ -21,21 +21,103 @@ Run all preflight checks to make sure the current work is ready for review. Exec
 ### 0. Check branch
 If on `master`, create a new branch off of master before proceeding (use a descriptive branch name based on the changes).
 
-### 1. Check against best practices
+### 1. Check against best practices (per-category subagents)
 
-Review the branch's changes against `./brave-core-bot/BEST-PRACTICES.md`. Read the relevant sub-docs based on what the changes modify:
+Check the branch's changes against best practices using parallel subagents — one per best-practice category. This ensures every rule is systematically checked heading-by-heading rather than relying on a single pass to hold 150+ rules in mind.
 
-- **C++ code changes**: Read `docs/best-practices/coding-standards.md`
-- **Async test changes**: Read `docs/best-practices/testing-async.md`
-- **JavaScript test changes**: Read `docs/best-practices/testing-javascript.md`
-- **Navigation/timing test changes**: Read `docs/best-practices/testing-navigation.md`
-- **Test isolation changes**: Read `docs/best-practices/testing-isolation.md`
-- **Front-end (TypeScript/React) changes**: Read `docs/best-practices/frontend.md`
-- **Architecture/service changes**: Read `docs/best-practices/architecture.md`
-- **Build file changes**: Read `docs/best-practices/build-system.md`
-- **chromium_src changes**: Read `docs/best-practices/chromium-src-overrides.md`
+#### Step 1a: Get diff and classify changed files
 
-Only read the docs relevant to the changes — don't load all of them every time. Compare the diff against master and flag any violations. If violations are found, fix them before proceeding.
+```bash
+MERGE_BASE=$(git merge-base HEAD master)
+git diff --name-only $MERGE_BASE..HEAD
+```
+
+Classify the changed files:
+- **has_cpp_files**: `.cc`, `.h`, `.mm` files
+- **has_test_files**: `*_test.cc`, `*_browsertest.cc`, `*_unittest.cc`, `*.test.ts`, `*.test.tsx`
+- **has_chromium_src**: `chromium_src/` paths
+- **has_build_files**: `BUILD.gn`, `DEPS`, `*.gni`
+- **has_frontend_files**: `.ts`, `.tsx`, `.js`, `.jsx`
+
+#### Step 1b: Launch category subagents in parallel
+
+Launch one **Task subagent** (subagent_type: "general-purpose") per applicable category. **Use multiple Task tool calls in a single message** so they run in parallel.
+
+| Category | Doc(s) to read | Condition |
+|----------|---------------|-----------|
+| **coding-standards** | `coding-standards.md` | has_cpp_files |
+| **architecture** | `architecture.md`, `documentation.md` | Always |
+| **build-system** | `build-system.md` | has_build_files |
+| **testing** | `testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md` | has_test_files |
+| **chromium-src** | `chromium-src-overrides.md` | has_chromium_src |
+| **frontend** | `frontend.md` | has_frontend_files |
+
+All doc paths are under `./brave-core-bot/docs/best-practices/`.
+
+**Always launch at minimum:** architecture (applies to all changes — layering, dependency injection, factory patterns affect every change).
+
+#### Step 1c: Subagent prompt
+
+Each subagent prompt MUST include:
+
+1. **The branch name and repo path** so it can get the diff
+2. **Which best practice doc(s) to read** — only the ones for this category (paths above)
+3. **Instructions to get the local diff** via `git diff $(git merge-base HEAD master)..HEAD`
+4. **The review rules**:
+   - Only flag violations in ADDED lines (+ lines), not existing code
+   - Also flag bugs introduced by the change (e.g., missing string separators, duplicate DEPS entries, code inside wrong `#if` guard)
+   - Read changed files in full for context — don't just rely on the diff
+   - Do NOT flag: existing code not being changed, template functions defined in headers, simple inline getters in headers, style preferences not in the documented best practices
+5. **The systematic audit requirement** (below)
+6. **Required output format** (below)
+
+#### Step 1d: Systematic audit requirement
+
+**CRITICAL — this is what prevents the subagent from stopping after finding a few violations.**
+
+The subagent MUST work through its best practice doc(s) **heading by heading**, checking every `##` rule against the diff. It must output an audit trail listing EVERY `##` heading with a verdict:
+
+```
+AUDIT:
+PASS: ✅ Always Include What You Use (IWYU)
+PASS: ✅ Use Positive Form for Booleans and Methods
+N/A: ✅ Consistent Naming Across Layers
+FAIL: ❌ Don't Use rapidjson
+PASS: ✅ Use CHECK for Impossible Conditions
+... (one entry per ## heading in the doc)
+```
+
+Verdicts:
+- **PASS**: Checked the diff — no violation found
+- **N/A**: Rule doesn't apply to the types of changes in this diff
+- **FAIL**: Violation found — must have a corresponding entry in VIOLATIONS
+
+#### Step 1e: Required output format
+
+Each subagent MUST return this structured format:
+
+```
+CATEGORY: <category name>
+
+AUDIT:
+PASS: <rule heading>
+N/A: <rule heading>
+FAIL: <rule heading>
+... (one line per ## heading in the doc(s))
+
+VIOLATIONS:
+- file: <path>, line: <line_number>, rule: "<rule heading>", issue: <brief description>, fix: <what should be done instead>
+- ...
+NO_VIOLATIONS (if none found)
+```
+
+#### Step 1f: Aggregate results and fix
+
+After ALL category subagents return:
+
+1. **Aggregate violations** from all category subagents into a single list
+2. If violations were found, **fix each violation** before proceeding to step 2
+3. If no violations across all categories, note that and proceed
 
 ### 2. Format code
 Run `npm run format`. If formatting changes any files, stage and include them in the commit later.
@@ -71,7 +153,7 @@ Run `npm run build` to make sure the code builds. If it fails, fix the build err
 If no tests are affected, note that and move on.
 
 ### 8. Re-check best practices if substantial changes were made
-If steps 2–7 required fixes that introduced substantial code changes (not just formatting), re-run the best practices check from step 1 against the new changes. Skip this if the only changes were whitespace/formatting.
+If steps 2–7 required fixes that introduced substantial code changes (not just formatting), re-run the per-category subagent best practices check from step 1 against the new changes. Skip this if the only changes were whitespace/formatting.
 
 ### 9. Re-run checks if fixes were needed
 If any step required fixes (best practices violations, build errors, test failures, format/lint issues), amend the commit with the fixes and re-run all checks from step 1 until everything passes cleanly.
