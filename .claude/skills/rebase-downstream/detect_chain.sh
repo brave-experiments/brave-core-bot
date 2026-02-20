@@ -71,15 +71,38 @@ for branch in $all_branches; do
 
   # Match patterns like:
   #   "branch: Created from refs/heads/<parent>"
+  #   "branch: Created from refs/remotes/origin/<parent>"
   #   "branch: Created from <parent>"
+  #   "branch: Created from HEAD"
   parent=""
   if [[ "$creation_line" =~ branch:\ Created\ from\ refs/heads/(.+) ]]; then
     parent="${BASH_REMATCH[1]}"
+  elif [[ "$creation_line" =~ branch:\ Created\ from\ refs/remotes/origin/(.+) ]]; then
+    # Created from a remote tracking branch — use the local name
+    candidate="${BASH_REMATCH[1]}"
+    if git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
+      parent="$candidate"
+    fi
   elif [[ "$creation_line" =~ branch:\ Created\ from\ (.+) ]]; then
     candidate="${BASH_REMATCH[1]}"
-    # Only use if it matches a known branch name (not a SHA or HEAD)
-    if [[ "$candidate" != "HEAD" ]] && \
-       git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
+    if [[ "$candidate" == "HEAD" ]]; then
+      # Resolve HEAD at creation time: get the SHA from the branch's
+      # oldest reflog entry, then find which branch had that SHA.
+      creation_sha=$(git reflog show "$branch" --format='%H' \
+        2>/dev/null | tail -1) || true
+      if [[ -n "$creation_sha" ]]; then
+        for other in $all_branches; do
+          [[ "$other" == "$branch" ]] && continue
+          # Check if the other branch had this exact SHA at its tip
+          # (current or historical via reflog)
+          if git reflog show "$other" --format='%H' 2>/dev/null \
+              | grep -qx "$creation_sha"; then
+            parent="$other"
+            break
+          fi
+        done
+      fi
+    elif git show-ref --verify --quiet "refs/heads/$candidate" 2>/dev/null; then
       parent="$candidate"
     fi
   fi
@@ -89,6 +112,35 @@ for branch in $all_branches; do
   fi
 done
 
+# is_ancestor_of: check if $1 (or any historical tip of $1) is an
+# ancestor of $2. Handles rebased branches by walking the reflog.
+is_ancestor_of() {
+  local ref="$1" target="$2"
+  if git merge-base --is-ancestor "$ref" "$target" 2>/dev/null; then
+    return 0
+  fi
+  # Fallback: if the local branch was rewritten (e.g., rebased with new
+  # hashes), the old commits still exist on origin/<branch>.
+  if git show-ref --verify --quiet "refs/remotes/origin/$ref" 2>/dev/null; then
+    if git merge-base --is-ancestor "origin/$ref" "$target" 2>/dev/null; then
+      return 0
+    fi
+  fi
+  # Fallback: walk the reflog of $ref to find old tips that are still
+  # ancestors of $target. This catches cases where both local and origin
+  # have been rebased (new commits) but the downstream branch still has
+  # the old commits.
+  local old_sha
+  while IFS= read -r old_sha; do
+    [[ -z "$old_sha" ]] && continue
+    if git merge-base --is-ancestor "$old_sha" "$target" 2>/dev/null; then
+      return 0
+    fi
+  done < <(git reflog show "$ref" --format='%H' 2>/dev/null \
+    | awk '!seen[$0]++' | head -50)
+  return 1
+}
+
 # Fallback: for branches without reflog parent, use merge-base + ancestor
 # checks. Collect all candidates that descend from start_branch, then
 # determine the closest parent for each using --is-ancestor.
@@ -97,8 +149,8 @@ for branch in $all_branches; do
   [[ "$branch" == "$start_branch" ]] && continue
   has_parent "$branch" && continue
 
-  # Check if start_branch is an ancestor of this branch
-  if git merge-base --is-ancestor "$start_branch" "$branch" 2>/dev/null; then
+  # Check if start_branch (or origin/start_branch) is an ancestor
+  if is_ancestor_of "$start_branch" "$branch"; then
     candidates+=("$branch")
   fi
 done
@@ -112,8 +164,8 @@ for branch in "${candidates[@]+"${candidates[@]}"}"; do
     [[ "$other" == "$branch" ]] && continue
     # If other is an ancestor of branch AND other is a descendant of
     # our current closest_parent, then other is a closer parent.
-    if git merge-base --is-ancestor "$other" "$branch" 2>/dev/null && \
-       git merge-base --is-ancestor "$closest_parent" "$other" 2>/dev/null; then
+    if is_ancestor_of "$other" "$branch" && \
+       is_ancestor_of "$closest_parent" "$other"; then
       closest_parent="$other"
     fi
   done
