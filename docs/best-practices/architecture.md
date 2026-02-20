@@ -1,5 +1,32 @@
 # Architecture and Code Organization
 
+## Chromium Dependency Layer Hierarchy
+
+All Chromium code is organized into layers with strict downward-only dependencies. **Code in a lower layer must never depend on a higher layer.**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  //chrome, //android_webview, //ios, ...            │  ← Embedders (top-level apps)
+├─────────────────────────────────────────────────────┤
+│  //components                                       │  ← Optional reusable features
+├─────────────────────────────────────────────────────┤
+│  //content (Content API)                            │  ← Multi-process web platform
+├─────────────────────────────────────────────────────┤
+│  //net, //ui, ...                                   │  ← Core libraries
+├─────────────────────────────────────────────────────┤
+│  //base                                             │  ← Foundation
+└─────────────────────────────────────────────────────┘
+```
+
+**Key rules:**
+- Dependencies flow **downward only** — never upward
+- `//components` is for optional features shared across multiple embedders (Chrome, Android WebView, iOS, etc.)
+- Components may depend on `//content`, `//net`, `//base`, and other components — but never on embedder code (`//chrome`, `//android_webview`)
+- Components shared with iOS must either have **zero `//content` dependencies** or use a **layered component structure** (`core/` + `content/`)
+- In Brave: `brave/browser/` is the embedder layer, `brave/components/` is the components layer. The same downward-only rules apply.
+
+---
+
 ## ❌ No Layering Violations - Components Cannot Depend on Browser
 
 **Code in `components/` must never use `g_browser_process` or depend on `brave/browser/`.**
