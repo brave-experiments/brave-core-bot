@@ -326,9 +326,9 @@ std::string api_url = std::getenv("BRAVE_API_URL");
 
 ---
 
-## ✅ Prefer source_set Over static_library
+## ✅ Use the Right Target Type: source_set vs static_library
 
-**Use `source_set` instead of `static_library` in BUILD.gn targets unless there's a specific reason for static_library.**
+**Use `source_set` only for internal component dependencies. Public targets for a component should use `static_library` or `component`.** Only internal deps that are not meant to be used outside the component should be `source_set` (with restricted visibility).
 
 ---
 
@@ -1091,6 +1091,8 @@ This is especially important for byte buffer APIs where the data source may be a
 ## ❌ Don't Modify Production Code Solely to Accommodate Tests
 
 **Test-specific workarounds should not affect production behavior.** Use test infrastructure like `kHostResolverRules` command line switches in `SetUpCommandLine` instead of adding production code paths only needed for tests.
+
+**Exception:** Thin `ForTesting()` accessors that expose internalized features (e.g., `base::Feature`) are acceptable. These keep the feature internalized while providing a clean way for tests to reference it, and do not affect production behavior.
 
 ---
 

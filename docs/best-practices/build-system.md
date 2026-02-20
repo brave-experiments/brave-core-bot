@@ -83,14 +83,18 @@ Also: only feature-specific header files should go inside feature guards. Don't 
 
 ## ✅ Buildflag Naming Convention
 
-**Use `enable_brave_<feature>` as the naming convention for buildflags.**
+**Use `enable_brave_<feature>` as the naming convention for buildflags when the flag needs to be distinguished from a Chromium flag or is a top-level Brave feature.** The `enable_brave_` prefix is not required for flags that are clearly Brave-specific by context (e.g., a flag scoped within a Brave component's own buildflags file).
 
 ```gn
-# ❌ WRONG
+# ❌ WRONG - non-standard naming
 brave_perf_predictor_enabled = true
 
-# ✅ CORRECT
+# ✅ CORRECT - standard prefix
 enable_brave_perf_predictor = true
+
+# ✅ ALSO OK - scoped within a Brave component's buildflags, no ambiguity with Chromium
+# (e.g., in components/ai_chat/core/common/buildflags/buildflags.gni)
+enable_tab_management_tool = !is_android
 ```
 
 ---
@@ -361,9 +365,9 @@ if (enable_brave_rewards) {
 
 ---
 
-## ✅ Restrict `source_set` Visibility for Internal Targets
+## ✅ Use source_set Only for Internal Targets (with Restricted Visibility)
 
-**When using `source_set` for internal component targets, restrict target visibility** to prevent external use. If the target needs to be used externally, use `component` or `static_library` instead.
+**Public targets for a component should use `static_library` or `component`, not `source_set`.** Only internal deps should use `source_set`, and those must have restricted visibility to prevent external use.
 
 ```gn
 # ❌ WRONG - internal source_set with default (public) visibility
