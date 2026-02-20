@@ -360,7 +360,17 @@ Also: `static` has no meaning for free functions in C++ (it's a C holdover). Use
 
 ## ✅ Prefer std::move Over Clone
 
-**Use `std::move` instead of cloning when you don't need the original value anymore.** This avoids unnecessary copies.
+**Use `std::move` instead of cloning when you don't need the original value anymore.** This avoids unnecessary copies. This is especially important when passing `std::vector` or other large objects to callback `.Run()` calls — forgetting `std::move` silently copies the entire buffer.
+
+```cpp
+// ❌ WRONG - copies the entire vector into the callback
+std::vector<unsigned char> buffer = BuildData();
+std::move(cb).Run(buffer, other_arg);
+
+// ✅ CORRECT - moves the vector, no copy
+std::vector<unsigned char> buffer = BuildData();
+std::move(cb).Run(std::move(buffer), other_arg);
+```
 
 ---
 
@@ -1062,9 +1072,19 @@ Topic& operator=(Topic&&) noexcept = default;
 
 ---
 
-## ✅ Use `base::span` Instead of Copying Vectors for Read-Only Access
+## ✅ Use `base::span` at API Boundaries Instead of `const std::vector&`
 
-**When iterating over a vector's elements without modifying them, pass a `base::span<const T>` instead of copying the entire vector.** Spans are lightweight references that avoid unnecessary memory allocations.
+**Prefer `base::span<const T>` over `const std::vector<T>&` for function parameters that only read data.** Spans are lightweight, non-owning views that accept any contiguous container (`std::vector`, `base::HeapArray`, C arrays, `base::FixedArray`), making APIs more flexible.
+
+```cpp
+// ❌ WRONG - forces callers to use std::vector
+void ProcessBuffer(const std::vector<uint8_t>& data);
+
+// ✅ CORRECT - accepts any contiguous container
+void ProcessBuffer(base::span<const uint8_t> data);
+```
+
+This is especially important for byte buffer APIs where the data source may be a `std::vector`, `base::HeapArray`, or a static array.
 
 ---
 
@@ -1365,6 +1385,46 @@ std::vector<uint8_t> out(size);
 
 // ✅ CORRECT - size is fixed after construction
 base::FixedArray<uint8_t> out(size);
+```
+
+---
+
+## ✅ Use `base::HeapArray<uint8_t>` for Fixed-Size Byte Buffers
+
+**When you need an owned byte buffer that won't be resized after creation, use `base::HeapArray<uint8_t>` instead of `std::vector<unsigned char>` or `std::vector<uint8_t>`.** `HeapArray` communicates that the size is fixed, provides bounds-checked indexing, and converts easily to `base::span`.
+
+```cpp
+// ❌ WRONG - vector implies the buffer may grow
+std::vector<unsigned char> dat_buffer(size);
+ProcessBuffer(dat_buffer.data(), dat_buffer.size());
+
+// ✅ CORRECT - HeapArray communicates fixed-size semantics
+auto dat_buffer = base::HeapArray<uint8_t>::WithSize(size);
+ProcessBuffer(dat_buffer.as_span());
+```
+
+Use `HeapArray::Uninit(size)` for performance-sensitive paths where zero-initialization is unnecessary.
+
+**Note:** When interfaces (e.g., Mojo, Rust FFI) require `std::vector`, you may need to keep using `std::vector` at those boundaries, but prefer `HeapArray` for internal buffer management.
+
+---
+
+## ✅ Use `base::ToVector` for Range-to-Vector Conversions
+
+**Use `base::ToVector(range)` instead of manual copy patterns when converting a range to a `std::vector`.** It handles `reserve()` and iteration automatically, and supports projections.
+
+```cpp
+// ❌ WRONG - manual reserve + copy + back_inserter
+std::vector<unsigned char> buffer;
+buffer.reserve(sizeof(kStaticData) - 1);
+std::copy_n(kStaticData, sizeof(kStaticData) - 1,
+            std::back_inserter(buffer));
+
+// ✅ CORRECT - base::ToVector
+auto buffer = base::ToVector(base::span(kStaticData).first<sizeof(kStaticData) - 1>());
+
+// ✅ CORRECT - with projection
+auto names = base::ToVector(items, &Item::name);
 ```
 
 ---
