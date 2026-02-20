@@ -62,7 +62,7 @@ def parse_args():
 
 
 def fetch_single_pr(pr_number):
-    fields = "number,title,createdAt,author,isDraft,headRefOid"
+    fields = "number,title,updatedAt,author,isDraft,headRefOid"
     result = subprocess.run(
         [
             "gh", "pr", "view", str(pr_number),
@@ -78,10 +78,11 @@ def fetch_prs(mode, days, page, pr_number, state):
     if mode == "single":
         return fetch_single_pr(pr_number)
 
-    fields = "number,title,createdAt,author,isDraft,headRefOid"
+    fields = "number,title,updatedAt,author,isDraft,headRefOid"
     base_cmd = [
         "gh", "pr", "list", "--repo", "brave/brave-core",
         "--state", state, "--json", fields,
+        "--sort", "updated",
     ]
 
     if mode == "page":
@@ -119,10 +120,24 @@ def should_skip_title(title):
     return False
 
 
+def get_cutoff(mode, days, cache):
+    """Determine the cutoff time for filtering PRs.
+
+    Uses the last successful run timestamp from the cache if available,
+    falling back to N days ago. This prevents gaps if a cron run is missed.
+    """
+    if mode != "days":
+        return None
+
+    last_run = cache.get("_last_run")
+    if last_run:
+        return datetime.fromisoformat(last_run)
+
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
 def filter_prs(prs, mode, days, cache):
-    cutoff = None
-    if mode == "days":
-        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    cutoff = get_cutoff(mode, days, cache)
 
     to_review = []
     skipped_filtered = 0
@@ -138,10 +153,10 @@ def filter_prs(prs, mode, days, cache):
             continue
 
         if cutoff and mode == "days":
-            created = datetime.fromisoformat(
-                pr["createdAt"].replace("Z", "+00:00")
+            updated = datetime.fromisoformat(
+                pr["updatedAt"].replace("Z", "+00:00")
             )
-            if created < cutoff:
+            if updated < cutoff:
                 skipped_filtered += 1
                 continue
 
