@@ -30,30 +30,54 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all]`:
    ```
    Found N PRs to review (M skipped: X drafts/filtered, Y cached)
    ```
-3. **Review each PR** one at a time using a Task subagent per PR (see Subagent Review Workflow below)
-4. **Present findings** from each subagent interactively
+3. **Review each PR** one at a time using per-category parallel subagents (see Per-Category Review Workflow below)
+4. **Aggregate and present findings** from all category subagents interactively
 5. **For each violation**, draft a short comment and ask user to approve before posting
 
 ---
 
-## Subagent Review Workflow
+## Per-Category Review Workflow
 
-**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed in its own Task subagent to avoid context compaction.
+**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per best-practice category — running in parallel. This ensures every rule is systematically checked rather than relying on a single subagent to hold 150+ rules in mind.
 
-For each PR, launch a **Task subagent** (subagent_type: "general-purpose") with a prompt that includes:
+### Step 1: Classify Changed Files
+
+Before launching subagents, fetch the file list to determine which categories apply:
+
+```bash
+gh pr diff --repo brave/brave-core {number} --name-only
+```
+
+Classify the changed files:
+- **has_cpp_files**: `.cc`, `.h`, `.mm` files
+- **has_test_files**: `*_test.cc`, `*_browsertest.cc`, `*_unittest.cc`, `*.test.ts`, `*.test.tsx`
+- **has_chromium_src**: `chromium_src/` paths
+- **has_build_files**: `BUILD.gn`, `DEPS`, `*.gni`
+- **has_frontend_files**: `.ts`, `.tsx`, `.html`, `.css`
+
+### Step 2: Launch Category Subagents in Parallel
+
+Launch one **Task subagent** (subagent_type: "general-purpose") per applicable category. **Use multiple Task tool calls in a single message** so they run in parallel.
+
+| Category | Doc(s) to read | Condition |
+|----------|---------------|-----------|
+| **coding-standards** | `coding-standards.md` | has_cpp_files |
+| **architecture** | `architecture.md`, `documentation.md` | Always |
+| **build-system** | `build-system.md` | has_build_files |
+| **testing** | `testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md` | has_test_files |
+| **chromium-src** | `chromium-src-overrides.md` | has_chromium_src |
+| **frontend** | `frontend.md` | has_frontend_files |
+
+All doc paths are under `./brave-core-bot/docs/best-practices/`.
+
+**Always launch at minimum:** architecture (applies to all PRs — layering, dependency injection, factory patterns affect every change).
+
+### Step 3: Subagent Prompt
+
+Each subagent prompt MUST include:
 
 1. **The PR number and repo** (`brave/brave-core`)
-2. **Instructions to read best practices docs** — the subagent reads these itself:
-   - `./brave-core-bot/BEST-PRACTICES.md` (index)
-   - `./brave-core-bot/docs/best-practices/architecture.md`
-   - `./brave-core-bot/docs/best-practices/coding-standards.md`
-   - `./brave-core-bot/docs/best-practices/chromium-src-overrides.md`
-   - `./brave-core-bot/docs/best-practices/build-system.md`
-   - `./brave-core-bot/docs/best-practices/frontend.md`
-   - `./brave-core-bot/docs/best-practices/testing-async.md`
-   - `./brave-core-bot/docs/best-practices/testing-javascript.md`
-   - `./brave-core-bot/docs/best-practices/testing-navigation.md`
-   - `./brave-core-bot/docs/best-practices/testing-isolation.md`
+2. **Which best practice doc(s) to read** — only the ones for this category (paths above)
 3. **Instructions to fetch the diff** via `gh pr diff --repo brave/brave-core {number}`
 4. **The review rules** (copied into the subagent prompt):
    - Only flag violations in ADDED lines (+ lines), not existing code
@@ -61,25 +85,64 @@ For each PR, launch a **Task subagent** (subagent_type: "general-purpose") with 
    - Security-sensitive areas (wallet, crypto, sync, credentials) deserve extra scrutiny — type mismatches, truncation, and correctness issues should use stronger language
    - Do NOT flag: existing code the PR isn't changing, template functions defined in headers, simple inline getters in headers, style preferences not in the documented best practices
    - Comment style: short (1-3 sentences), targeted, acknowledge context. Use "nit:" only for genuinely minor/stylistic issues. Substantive issues (test reliability, correctness, banned APIs) should be direct without "nit:" prefix
-5. **Required output format** — the subagent MUST return ONLY a compact structured result:
-   ```
-   PR #<number>: <title>
-   VIOLATIONS:
-   - file: <path>, line: <line_number>, issue: <brief description>, draft_comment: <1-3 sentence comment to post>
-   - ...
-   NO_VIOLATIONS (if none found)
-   ```
+5. **The systematic audit requirement** (below)
+6. **Required output format** (below)
 
-**Optimization:** The subagent can check which file types are in the diff first. If no test files are changed, it can skip the testing docs (`testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md`). If no `chromium_src/` files, skip `chromium-src-overrides.md`. If no `BUILD.gn`/`DEPS` files, skip `build-system.md`.
+### Step 4: Systematic Audit Requirement
 
-Process PRs **one at a time** (sequentially). After each subagent returns:
+**CRITICAL — this is what prevents the subagent from stopping after finding a few violations.**
+
+The subagent MUST work through its best practice doc(s) **heading by heading**, checking every `##` rule against the diff. It must output an audit trail listing EVERY `##` heading with a verdict:
+
+```
+AUDIT:
+PASS: ✅ Always Include What You Use (IWYU)
+PASS: ✅ Use Positive Form for Booleans and Methods
+N/A: ✅ Consistent Naming Across Layers
+FAIL: ❌ Don't Use rapidjson
+PASS: ✅ Use CHECK for Impossible Conditions
+... (one entry per ## heading in the doc)
+```
+
+Verdicts:
+- **PASS**: Checked the diff — no violation found
+- **N/A**: Rule doesn't apply to the types of changes in this diff
+- **FAIL**: Violation found — must have a corresponding entry in VIOLATIONS
+
+This forces the model to explicitly consider every rule rather than satisficing after a few findings.
+
+### Step 5: Required Output Format
+
+Each subagent MUST return this structured format:
+
+```
+CATEGORY: <category name>
+PR #<number>: <title>
+
+AUDIT:
+PASS: <rule heading>
+N/A: <rule heading>
+FAIL: <rule heading>
+... (one line per ## heading in the doc(s))
+
+VIOLATIONS:
+- file: <path>, line: <line_number>, rule: "<rule heading>", issue: <brief description>, draft_comment: <1-3 sentence comment to post>
+- ...
+NO_VIOLATIONS (if none found)
+```
+
+### Step 6: Aggregate and Process Results
+
+Process PRs **one at a time** (sequentially). After ALL category subagents return for a PR:
+
 1. **Update the cache immediately** — run the cache update script right now, before doing anything else (regardless of violations found):
    ```bash
    python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID>
    ```
    **This step is mandatory after every single PR review.**
-2. If violations were found, present them to the user for interactive approval before moving to the next PR
-3. If no violations, briefly note that and move on
+2. **Aggregate violations** from all category subagents into a single list for the PR
+3. If violations were found, present them to the user for interactive approval before moving to the next PR
+4. If no violations across all categories, briefly note that and move on
 
 ---
 
