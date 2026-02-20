@@ -1,7 +1,7 @@
 ---
 name: review-prs
-description: "Review recent PRs in brave/brave-core for best practices violations. Supports state filter (open/closed/all). Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
-argument-hint: "[days|page<N>] [open|closed|all]"
+description: "Review PRs in brave/brave-core for best practices violations. Supports single PR (#12345), state filter (open/closed/all). Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
+argument-hint: "[days|page<N>|#<PR>] [open|closed|all]"
 allowed-tools: Bash(gh pr diff:*)
 ---
 
@@ -13,7 +13,7 @@ Scan recent open PRs in `brave/brave-core` for violations of documented best pra
 
 ## The Job
 
-When invoked with `/review-prs [days|page<N>] [open|closed|all]`:
+When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all]`:
 
 1. **Fetch and filter PRs** by running the fetch script (pass through all arguments):
    ```bash

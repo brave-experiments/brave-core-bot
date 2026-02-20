@@ -4,7 +4,7 @@
 Handles all PR fetching, filtering, and cache checking in one script
 so the LLM doesn't burn tokens on this logic.
 
-Usage: fetch-prs.py [days|page<N>] [open|closed|all]
+Usage: fetch-prs.py [days|page<N>|#<PR>] [open|closed|all]
 
 Examples:
   fetch-prs.py              # Default: 5 days, open PRs
@@ -12,6 +12,8 @@ Examples:
   fetch-prs.py page2        # Page 2 (PRs 21-40), open PRs
   fetch-prs.py 7 closed     # Last 7 days, closed PRs
   fetch-prs.py page1 all    # Page 1, all states
+  fetch-prs.py #12345       # Single PR by number
+  fetch-prs.py 12345        # Single PR by number (large numbers treated as PR#)
 
 Output: JSON with "prs" array and "summary" stats.
 """
@@ -32,24 +34,50 @@ def parse_args():
     mode = "days"
     days = 5
     page = None
+    pr_number = None
     state = "open"
 
     for arg in sys.argv[1:]:
-        if arg.startswith("page"):
+        if arg.startswith("#"):
+            mode = "single"
+            pr_number = int(arg[1:])
+        elif arg.startswith("page"):
             mode = "page"
             page = int(arg[4:])
         elif arg in ("open", "closed", "all"):
             state = arg
         else:
             try:
-                days = int(arg)
+                num = int(arg)
+                # Large numbers (>365) are PR numbers, not day counts
+                if num > 365:
+                    mode = "single"
+                    pr_number = num
+                else:
+                    days = num
             except ValueError:
                 pass
 
-    return mode, days, page, state
+    return mode, days, page, pr_number, state
 
 
-def fetch_prs(mode, days, page, state):
+def fetch_single_pr(pr_number):
+    fields = "number,title,createdAt,author,isDraft,headRefOid"
+    result = subprocess.run(
+        [
+            "gh", "pr", "view", str(pr_number),
+            "--repo", "brave/brave-core",
+            "--json", fields,
+        ],
+        capture_output=True, text=True, check=True,
+    )
+    return [json.loads(result.stdout)]
+
+
+def fetch_prs(mode, days, page, pr_number, state):
+    if mode == "single":
+        return fetch_single_pr(pr_number)
+
     fields = "number,title,createdAt,author,isDraft,headRefOid"
     base_cmd = [
         "gh", "pr", "list", "--repo", "brave/brave-core",
@@ -129,12 +157,19 @@ def filter_prs(prs, mode, days, cache):
 
 
 def main():
-    mode, days, page, state = parse_args()
-    prs = fetch_prs(mode, days, page, state)
-    cache = load_cache()
-    to_review, skipped_filtered, skipped_cached = filter_prs(
-        prs, mode, days, cache
-    )
+    mode, days, page, pr_number, state = parse_args()
+    prs = fetch_prs(mode, days, page, pr_number, state)
+
+    if mode == "single":
+        # Skip all filtering for single PR review
+        to_review = prs
+        skipped_filtered = 0
+        skipped_cached = 0
+    else:
+        cache = load_cache()
+        to_review, skipped_filtered, skipped_cached = filter_prs(
+            prs, mode, days, cache
+        )
 
     output = {
         "prs": [
