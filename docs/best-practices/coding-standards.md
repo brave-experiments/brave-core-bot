@@ -1648,6 +1648,8 @@ uint32_t hash = base::FastHash(base::as_byte_span(str));
 
 **When creating mojom interfaces that accept URL parameters from less-privileged processes, consider restricting to an allowlist or enum** rather than accepting arbitrary URLs. An unrestricted URL parameter means the renderer can send requests to any endpoint.
 
+**When NOT to flag:** If the implementation already validates or filters the URL downstream, do not request documentation comments about it. Before flagging, check whether similar patterns in surrounding code or elsewhere in the codebase have such comments — if they don't, your suggestion would introduce inconsistency and unnecessary verbosity.
+
 ---
 
 ## ✅ Use `base::Reversed()` for Reverse Iteration
