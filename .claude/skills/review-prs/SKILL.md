@@ -1,21 +1,26 @@
 ---
 name: review-prs
-description: "Review PRs in brave/brave-core for best practices violations. Supports single PR (#12345), state filter (open/closed/all). Interactive - drafts comments for approval before posting. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
-argument-hint: "[days|page<N>|#<PR>] [open|closed|all]"
+description: "Review PRs in brave/brave-core for best practices violations. Supports single PR (#12345), state filter (open/closed/all), and auto mode for cron. Triggers on: review prs, review recent prs, /review-prs, check prs for best practices."
+argument-hint: "[days|page<N>|#<PR>] [open|closed|all] [auto]"
 allowed-tools: Bash(gh pr diff:*)
 ---
 
 # Review PRs for Best Practices
 
-Scan recent open PRs in `brave/brave-core` for violations of documented best practices. Interactive: review diffs, identify violations, draft comments, get user approval before posting.
+Scan recent open PRs in `brave/brave-core` for violations of documented best practices.
+
+- **Interactive mode** (default): drafts comments and asks for user approval before posting.
+- **Auto mode** (`auto` argument): posts all violations automatically without approval. Designed for cron/headless use.
 
 ---
 
 ## The Job
 
-When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all]`:
+When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
 
-1. **Fetch and filter PRs** by running the fetch script (pass through all arguments):
+**Detect auto mode:** If the arguments contain `auto`, set `AUTO_MODE=true`. In auto mode, all violations are posted without asking for user approval. Strip `auto` from arguments before passing to the fetch script.
+
+1. **Fetch and filter PRs** by running the fetch script (pass through all arguments except `auto`):
    ```bash
    python3 .claude/skills/review-prs/fetch-prs.py [args...]
    ```
@@ -31,8 +36,8 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all]`:
    Found N PRs to review (M skipped: X drafts/filtered, Y cached)
    ```
 3. **Review each PR** one at a time using per-category parallel subagents (see Per-Category Review Workflow below)
-4. **Aggregate and present findings** from all category subagents interactively
-5. **For each violation**, draft a short comment and ask user to approve before posting
+4. **Aggregate and present findings** from all category subagents
+5. **If AUTO_MODE**: post all violations immediately (see Auto Posting below). **Otherwise**: draft each comment and ask user to approve before posting
 
 ---
 
@@ -176,8 +181,9 @@ Process PRs **one at a time** (sequentially). After ALL category subagents retur
    ```
    **This step is mandatory after every single PR review.**
 2. **Aggregate violations** from all category subagents into a single list for the PR
-3. If violations were found, present them to the user for interactive approval before moving to the next PR
-4. If no violations across all categories, briefly note that and move on
+3. **If AUTO_MODE**: post all violations immediately using the inline review API (see Auto Posting below), then move to the next PR
+4. **If interactive mode**: present violations to the user for approval before moving to the next PR
+5. If no violations across all categories, briefly note that and move on
 
 **PR Link Format:** When displaying PR numbers to the user, always use a proper markdown link: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. Never use bare `#<number>` references — they don't produce clickable links to the correct PR.
 
@@ -247,6 +253,26 @@ EOF
   ```bash
   gh pr review --repo brave/brave-core {number} --comment --body "Review via brave-core-bot: [file:line] comment text"
   ```
+
+---
+
+## Auto Posting
+
+When `AUTO_MODE=true`, skip all interactive approval and post violations directly:
+
+1. Collect all violations from all category subagents for the PR
+2. If violations exist, post them as a **single inline review** using the same `gh api` call as interactive mode (see "Posting as Inline Code Comments" above)
+3. Log what was posted to stdout (for cron log capture):
+   ```
+   AUTO: Posted N comments on PR #12345: file1.cc:42 (rule name), file2.h:15 (rule name)
+   ```
+4. If the inline review API call fails, fall back to general review comments (same fallback as interactive mode)
+5. If no violations, log:
+   ```
+   AUTO: PR #12345 - no violations found
+   ```
+
+**Auto mode does NOT ask any questions** — no `AskUserQuestion` calls, no confirmation prompts. This is critical for headless/cron operation.
 
 ---
 
