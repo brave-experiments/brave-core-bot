@@ -194,13 +194,13 @@ gh api repos/brave/brave-core/pulls/{number}/reviews \
       "path": "path/to/file.cc",
       "line": 42,
       "side": "RIGHT",
-      "body": "comment text"
+      "body": "comment text. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#rule-anchor)"
     },
     {
       "path": "path/to/other_file.cc",
       "line": 15,
       "side": "RIGHT",
-      "body": "another comment"
+      "body": "another comment. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/testing-async.md#rule-anchor)"
     }
   ]
 }
