@@ -589,6 +589,34 @@ struct ModelConfig {
 
 ---
 
+## ❌ Utility Process Code Must Not Depend on Browser Process Code
+
+**Code that runs in the utility process must never depend on browser process code.** Any code shared between the browser process and the utility process must live in a `common/` directory, not a `browser/` directory.
+
+This is a multi-process architecture boundary. The utility process (where sandboxed services run) is a separate process from the browser process, and dependency direction must be respected:
+
+- `components/.../browser/` — browser process only
+- `components/.../common/` — shared between processes (browser, utility, renderer)
+- `components/services/...` — utility process service implementations
+
+```
+# ❌ WRONG - utility process service depending on browser/ code
+# In components/services/brave_shields/BUILD.gn
+deps = [
+  "//brave/components/brave_shields/core/browser/adblock",  # Browser-only!
+]
+
+# ✅ CORRECT - shared code moved to common/
+# In components/services/brave_shields/BUILD.gn
+deps = [
+  "//brave/components/brave_shields/core/common/adblock",  # Shared!
+]
+```
+
+When code needs to be used by both processes, move it from `browser/` to `common/`.
+
+---
+
 ## ✅ Prefer Static Singleton Over KeyedService When No Profile Dependency
 
 **When a service has no per-profile state and doesn't depend on profile-specific data, use a static singleton with `base::NoDestructor` instead of a `KeyedService`.** KeyedService adds unnecessary complexity when there's no profile dependency.
