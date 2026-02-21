@@ -60,8 +60,10 @@ For each downstream branch (closest to the current branch first):
 
 2. **Rebase onto its parent** (from the `branch:parent` output):
    ```bash
-   git rebase <parent-branch>
+   git rebase --fork-point <parent-branch>
    ```
+   `--fork-point` uses the parent branch's reflog to find the actual fork point, so only the branch's own commits are replayed. Without it, if the parent was rebased/amended, git replays already-applied parent commits with different SHAs, causing duplicate commits and false conflicts.
+
    The parent for each branch is provided by the detect script. For sibling branches, both share the same parent.
 
 3. **Handle conflicts** (if any):
