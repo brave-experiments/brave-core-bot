@@ -1,5 +1,24 @@
 # chromium_src Overrides
 
+## ✅ Avoid Modifying Chromium Source When Possible
+
+**Changes to Chromium code in `src/` should be avoided whenever possible.** Implement features and fixes entirely within brave-core (`src/brave/`) using Brave's own code and APIs.
+
+When Chromium changes are unavoidable, follow this preference order:
+
+1. **chromium_src overrides** (strongly preferred) — Override files in `src/brave/chromium_src/` that replace or wrap upstream behavior at compile time. See the sections below for patterns and conventions.
+
+2. **Patches** (last resort) — When a chromium_src override is not feasible (e.g., you need to add a `virtual` keyword where `#define` tricks don't work, or modify a GN file), directly edit the files in `src/` and then generate patches:
+
+   ```bash
+   cd src/brave
+   npm run update_patches
+   ```
+
+   This reads the changes you made to files in `src/` and updates the corresponding patch files in `src/brave/patches/`. Always keep patches minimal — one-line additions are ideal.
+
+---
+
 ## ❌ Don't Use chromium_src Overrides to Disable Tests
 
 **Never use `#define TestName DISABLED_TestName` in chromium_src overrides to disable upstream tests.** Use filter files in `test/filters/` instead, and move any Brave-specific replacement tests into the appropriate Brave test target (`brave_unit_tests`, `brave_browser_tests`, `brave_components_unittests`). See [Disabled Test Investigations](../testing-requirements.md#disabled-test-investigations-fixing--re-enabling) for the full pattern and examples.
