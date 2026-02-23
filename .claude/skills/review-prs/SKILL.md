@@ -38,7 +38,8 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
    ```
 3. **Review each PR** one at a time using per-category parallel subagents (see Per-Category Review Workflow below)
 4. **Aggregate and present findings** from all category subagents
-5. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
+5. **Update the cache for EVERY reviewed PR** — this is mandatory regardless of whether violations were found, comments were posted, or comments were skipped. See Step 6 in Per-Category Review Workflow.
+6. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
 
 ---
 
@@ -178,11 +179,17 @@ The `SKIPPED_PRIOR` section provides transparency about issues that were intenti
 
 Process PRs **one at a time** (sequentially). After ALL category subagents return for a PR:
 
-1. **Update the cache immediately** — run the cache update script right now, before doing anything else (regardless of violations found):
+1. **Update the cache immediately** — run the cache update script right now, before doing anything else:
    ```bash
    python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID>
    ```
-   **This step is mandatory after every single PR review.**
+   **This step is MANDATORY after every single PR review — regardless of outcome.** Update the cache even when:
+   - No violations were found (all categories returned NO_VIOLATIONS)
+   - All violations were skipped due to re-review restraint (all SKIPPED_PRIOR)
+   - The user rejects all comments in interactive mode
+   - Comments fail to post due to API errors
+
+   The cache tracks "we reviewed this SHA", not "we posted comments". Skipping this causes the same PR to be re-reviewed on the next run, wasting time and risking duplicate comments.
 2. **Aggregate violations** from all category subagents into a single list for the PR
 3. **If AUTO_MODE**: post all violations immediately using the inline review API (see Auto Posting below), then move to the next PR
 4. **If interactive mode**: present violations to the user for approval before moving to the next PR
@@ -299,6 +306,8 @@ REVIEW_URL=$(echo "$REVIEW_RESPONSE" | python3 -c "import sys,json; print(json.l
 ```
 
 ### Posting Flow
+
+**Before any posting logic**, update the cache for this PR (see Step 6 in Per-Category Review Workflow). The cache must be updated even if there are no violations or all violations were skipped.
 
 1. Collect all violations from all category subagents for the PR
 2. If violations exist, post them as a **single inline review** using the same `gh api` call as interactive mode (see "Posting as Inline Code Comments" above)
