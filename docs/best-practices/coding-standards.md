@@ -20,6 +20,32 @@ Also remove includes you don't actually use. Double-check all includes in new fi
 
 ---
 
+## ✅ Remove Stale Headers and Deps When Code Changes
+
+**When modifying or removing code, check if any `#include` headers or BUILD.gn `deps` are now unused and remove them.** Refactoring, deleting functionality, or moving code to a different file frequently leaves behind includes and deps that are no longer needed. These stale references bloat compile times, create false dependency chains, and can mask real dependency issues.
+
+```cpp
+// Example: you remove the last usage of base::Value from a file
+// ❌ WRONG - stale include left behind
+#include "base/values.h"  // nothing in this file uses base::Value anymore
+
+// ✅ CORRECT - remove the include when the usage is gone
+```
+
+```gn
+# Example: you remove code that depended on brave_wallet
+# ❌ WRONG - stale dep left behind
+deps = [
+  "//brave/components/brave_wallet/browser",  # nothing uses this anymore
+]
+
+# ✅ CORRECT - remove the dep when no sources need it
+```
+
+**How to check:** After making changes, review the includes in modified files and verify each is still needed. Run `gn check` to catch unused GN deps. For headers, look for includes whose types/functions are no longer referenced in the file.
+
+---
+
 ## Naming Conventions
 
 ### ✅ Use Positive Form for Booleans and Methods
