@@ -34,7 +34,7 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
 2. **Print progress summary** from the summary stats (this goes to stdout and will appear in cron logs):
    ```
    Found N PRs to review (M skipped: X drafts/filtered, Y cached)
-   PRs to review: #12345 (title), #12346 (title), ...
+   PRs to review: [PR #12345](https://github.com/brave/brave-core/pull/12345) (title), [PR #12346](https://github.com/brave/brave-core/pull/12346) (title), ...
    ```
 3. **Review each PR** one at a time using per-category parallel subagents (see Per-Category Review Workflow below)
 4. **Aggregate and present findings** from all category subagents
@@ -119,7 +119,7 @@ When prior comments exist (re-review), check if the developer addressed previous
 **Important rules:**
 - The reaction API is idempotent — if the bot already reacted, the API returns the existing reaction. No need to check for duplicates first.
 - This step does NOT affect the review itself — it's purely an acknowledgment gesture before launching subagents.
-- In auto mode, log each acknowledgment: `ACK: PR #<number> - 👍 comment by @<user> (addressed bot feedback)`
+- In auto mode, log each acknowledgment: `ACK: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) - 👍 comment by @<user> (addressed bot feedback)`
 - Skip this step entirely if there are no prior bot comments or no new commits since the last review.
 
 ### Step 2: Launch Category Subagents in Parallel
@@ -238,7 +238,7 @@ Process PRs **one at a time** (sequentially). After ALL category subagents retur
 4. **If interactive mode**: present violations to the user for approval before moving to the next PR
 5. If no violations across all categories, briefly note that and move on
 
-**PR Link Format:** When displaying PR numbers to the user, always use a proper markdown link: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. Never use bare `#<number>` references — they don't produce clickable links to the correct PR.
+**PR Link Format (CRITICAL):** When displaying PR numbers to the user, ALWAYS use a full markdown link with the `brave/brave-core` URL: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. **NEVER use bare `#<number>` references** — the TUI auto-links them against the current repo's git remote (`brave-experiments/brave-core-bot`), sending users to the wrong repository. Every single PR number shown to the user must be a full `https://github.com/brave/brave-core/pull/` link.
 
 ---
 
@@ -321,19 +321,19 @@ After processing each PR, you MUST print a structured log line to stdout. This i
 
 **If violations were posted**, capture the review URL from the `gh api` response (the `html_url` field) and log:
 ```
-AUTO: PR #<number> (<title>) - posted <N> comments - <review_url>
+AUTO: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - posted <N> comments - <review_url>
   - <file>:<line> (<rule name>)
   - <file>:<line> (<rule name>)
 ```
 
 **If no violations found:**
 ```
-AUTO: PR #<number> (<title>) - no violations
+AUTO: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - no violations
 ```
 
 **If the PR was skipped (error fetching diff, etc.):**
 ```
-AUTO: PR #<number> (<title>) - SKIPPED: <reason>
+AUTO: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - SKIPPED: <reason>
 ```
 
 ### Capturing the Review URL
@@ -372,9 +372,9 @@ PRs with violations: <N>
 Total comments posted: <N>
 
 RESULTS:
-  ✅ PR #<number> (<title>) - no violations
-  ❌ PR #<number> (<title>) - <N> comments - <review_url>
-  ⏭️ PR #<number> (<title>) - SKIPPED: <reason>
+  ✅ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - no violations
+  ❌ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - <N> comments - <review_url>
+  ⏭️ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - SKIPPED: <reason>
 ========================================
 ```
 
@@ -394,7 +394,7 @@ When reviewing closed or merged PRs and a violation is found:
 3. **Create a follow-up issue** in `brave/brave-core` to track the fix:
    ```bash
    gh issue create --repo brave/brave-core --title "Fix: <brief description of violation>" --body "$(cat <<'EOF'
-   Found during post-merge review of #<PR_NUMBER>.
+   Found during post-merge review of [PR #<PR_NUMBER>](https://github.com/brave/brave-core/pull/<PR_NUMBER>).
 
    <description of the violation and what needs to change>
 
@@ -404,7 +404,7 @@ When reviewing closed or merged PRs and a violation is found:
    ```
 4. **Reference the new issue** back in the PR comment so the PR author can find it:
    ```bash
-   gh pr comment --repo brave/brave-core <PR_NUMBER> --body "Created follow-up issue #<ISSUE_NUMBER> to track this."
+   gh pr comment --repo brave/brave-core <PR_NUMBER> --body "Created follow-up issue https://github.com/brave/brave-core/issues/<ISSUE_NUMBER> to track this."
    ```
 
 This ensures violations on already-merged code don't get lost — they get tracked as actionable issues.
