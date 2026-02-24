@@ -36,16 +36,16 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
    Found N PRs to review (M skipped: X drafts/filtered, Y cached)
    PRs to review: [PR #12345](https://github.com/brave/brave-core/pull/12345) (title), [PR #12346](https://github.com/brave/brave-core/pull/12346) (title), ...
    ```
-3. **Review each PR** one at a time using per-category parallel subagents (see Per-Category Review Workflow below)
-4. **Aggregate and present findings** from all category subagents
+3. **Review each PR** one at a time using per-document parallel subagents (see Per-Document Review Workflow below)
+4. **Aggregate and present findings** from all document subagents
 5. **Update the cache for EVERY reviewed PR** — this is mandatory regardless of whether violations were found, comments were posted, or comments were skipped. See Step 6 in Per-Category Review Workflow.
 6. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
 
 ---
 
-## Per-Category Review Workflow
+## Per-Document Review Workflow
 
-**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per best-practice category — running in parallel. This ensures every rule is systematically checked rather than relying on a single subagent to hold 150+ rules in mind.
+**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per best-practice document — running in parallel. This ensures every rule is systematically checked rather than relying on a single subagent to hold many rules in mind.
 
 ### Step 1: Classify Changed Files
 
@@ -122,29 +122,33 @@ When prior comments exist (re-review), check if the developer addressed previous
 - In auto mode, log each acknowledgment: `ACK: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) - 👍 comment by @<user> (addressed bot feedback)`
 - Skip this step entirely if there are no prior bot comments or no new commits since the last review.
 
-### Step 2: Launch Category Subagents in Parallel
+### Step 2: Launch Document Subagents in Parallel
 
-Launch one **Task subagent** (subagent_type: "general-purpose") per applicable category. **Use multiple Task tool calls in a single message** so they run in parallel.
+Launch one **Task subagent** (subagent_type: "general-purpose") per applicable best-practice document. **Use multiple Task tool calls in a single message** so they run in parallel.
 
-| Category | Doc(s) to read | Condition |
-|----------|---------------|-----------|
+| Document | Doc to read | Condition |
+|----------|-------------|-----------|
 | **coding-standards** | `coding-standards.md` | has_cpp_files |
-| **architecture** | `architecture.md`, `documentation.md` | Always |
+| **architecture** | `architecture.md` | Always |
+| **documentation** | `documentation.md` | Always |
 | **build-system** | `build-system.md` | has_build_files |
-| **testing** | `testing-async.md`, `testing-javascript.md`, `testing-navigation.md`, `testing-isolation.md` | has_test_files |
+| **testing-async** | `testing-async.md` | has_test_files |
+| **testing-javascript** | `testing-javascript.md` | has_test_files |
+| **testing-navigation** | `testing-navigation.md` | has_test_files |
+| **testing-isolation** | `testing-isolation.md` | has_test_files |
 | **chromium-src** | `chromium-src-overrides.md` | has_chromium_src |
 | **frontend** | `frontend.md` | has_frontend_files |
 
 All doc paths are under `./brave-core-bot/docs/best-practices/`.
 
-**Always launch at minimum:** architecture (applies to all PRs — layering, dependency injection, factory patterns affect every change).
+**Always launch at minimum:** architecture and documentation (apply to all PRs — layering, dependency injection, factory patterns, and documentation standards affect every change).
 
 ### Step 3: Subagent Prompt
 
 Each subagent prompt MUST include:
 
 1. **The PR number and repo** (`brave/brave-core`)
-2. **Which best practice doc(s) to read** — only the ones for this category (paths above)
+2. **Which best practice doc to read** — only the one for this subagent (paths above)
 3. **Instructions to fetch the diff** via `gh pr diff --repo brave/brave-core {number}`
 4. **The review rules** (copied into the subagent prompt):
    - Only flag violations in ADDED lines (+ lines), not existing code
@@ -173,7 +177,7 @@ Each subagent prompt MUST include:
 
 **CRITICAL — this is what prevents the subagent from stopping after finding a few violations.**
 
-The subagent MUST work through its best practice doc(s) **heading by heading**, checking every `##` rule against the diff. It must output an audit trail listing EVERY `##` heading with a verdict:
+The subagent MUST work through its best practice doc **heading by heading**, checking every `##` rule against the diff. It must output an audit trail listing EVERY `##` heading with a verdict:
 
 ```
 AUDIT:
@@ -197,14 +201,14 @@ This forces the model to explicitly consider every rule rather than satisficing 
 Each subagent MUST return this structured format:
 
 ```
-CATEGORY: <category name>
+DOCUMENT: <document name>
 [PR #<number>](https://github.com/brave/brave-core/pull/<number>): <title>
 
 AUDIT:
 PASS: <rule heading>
 N/A: <rule heading>
 FAIL: <rule heading>
-... (one line per ## heading in the doc(s))
+... (one line per ## heading in the doc)
 
 SKIPPED_PRIOR:
 - file: <path>, issue: <brief description>, reason: <why not re-raised — e.g., "author explained in prior comment that only constant strings are passed", "already flagged in previous review">
@@ -220,7 +224,7 @@ The `SKIPPED_PRIOR` section provides transparency about issues that were intenti
 
 ### Step 6: Aggregate and Process Results
 
-Process PRs **one at a time** (sequentially). After ALL category subagents return for a PR:
+Process PRs **one at a time** (sequentially). After ALL document subagents return for a PR:
 
 1. **Update the cache immediately** — run the cache update script right now, before doing anything else:
    ```bash
@@ -233,7 +237,7 @@ Process PRs **one at a time** (sequentially). After ALL category subagents retur
    - Comments fail to post due to API errors
 
    The cache tracks "we reviewed this SHA", not "we posted comments". Skipping this causes the same PR to be re-reviewed on the next run, wasting time and risking duplicate comments.
-2. **Aggregate violations** from all category subagents into a single list for the PR
+2. **Aggregate violations** from all document subagents into a single list for the PR
 3. **If AUTO_MODE**: post all violations immediately using the inline review API (see Auto Posting below), then move to the next PR
 4. **If interactive mode**: present violations to the user for approval before moving to the next PR
 5. If no violations across all categories, briefly note that and move on
@@ -352,7 +356,7 @@ REVIEW_URL=$(echo "$REVIEW_RESPONSE" | python3 -c "import sys,json; print(json.l
 
 **Before any posting logic**, update the cache for this PR (see Step 6 in Per-Category Review Workflow). The cache must be updated even if there are no violations or all violations were skipped.
 
-1. Collect all violations from all category subagents for the PR
+1. Collect all violations from all document subagents for the PR
 2. If violations exist, post them as a **single inline review** using the same `gh api` call as interactive mode (see "Posting as Inline Code Comments" above)
 3. Capture the `html_url` from the API response
 4. Print the per-PR log line (see format above)
