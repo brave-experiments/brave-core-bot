@@ -31,11 +31,15 @@ Examples:
 ## Steps
 
 1. If `branch` was passed, create a new branch off the current branch before proceeding (use a descriptive branch name based on the changes).
-2. Run `git diff` to review the changes.
-3. Identify logical units of work (may require multiple commits).
-4. For each logical unit:
-   - Draft an appropriate commit message
-   - Stage only the files relevant to that unit with `git add`
+2. Run `git diff` and `git status` to review all uncommitted changes.
+3. **MANDATORY: Plan the commits before staging anything.** Group changed files by logical purpose. Output your plan as a numbered list of commits, each with:
+   - The commit message
+   - Which files belong to it
+   - Why they form a logical unit
+
+   **Decision rule:** If two changes could be described independently (different "what" or "why"), they belong in separate commits. When in doubt, split.
+4. For each planned commit (in order):
+   - Stage only the files for that unit with `git add <specific-files>`
    - Commit with the message **WITHOUT** the Co-Authored-By line
    - **DO NOT** use any flags like `--no-verify`, `--no-gpg-sign`, etc.
 5. Run `git status` to verify all commits succeeded.
