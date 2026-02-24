@@ -1,16 +1,17 @@
 ---
 name: learnable-pattern-search
 description: "Analyze review comments from brave-core PRs to discover learnable patterns for improving bot documentation and best practices. Triggers on: learnable-pattern-search, learn from prs, analyze reviews, find patterns in prs."
-argument-hint: <pr-numbers... | --username <github-user>>
+argument-hint: <pr-numbers... | --username <github-user> | <num>d>
 ---
 
 # Learnable Pattern Search
 
 Analyze review comments from brave-core PRs to discover learnable patterns. Extracts coding conventions, best practices, common review feedback themes, and architectural insights that can improve bot documentation.
 
-Supports two modes:
+Supports three modes:
 - **PR list mode:** Provide specific PR numbers to analyze
 - **Username mode:** Provide a GitHub username to find and analyze all PRs they reviewed
+- **Days mode:** Provide `<num>d` (e.g., `7d`, `30d`) to analyze all PRs merged in the last N days with feedback from any reviewer
 
 ---
 
@@ -36,6 +37,17 @@ When the user invokes `/learnable-pattern-search --username <github-user>`:
 4. **Update documentation** with discovered patterns
 5. **Generate a report** of findings
 
+### Mode 3: Days
+
+When the user invokes `/learnable-pattern-search <num>d` (e.g., `7d`, `30d`, `14d`):
+
+1. **Parse the number of days** from the argument (strip the trailing `d`)
+2. **Fetch all merged PRs from the last N days** in brave/brave-core (see "Fetching PRs by Date Range" below)
+3. **For each PR**, fetch review data and analyze it (include comments from **all** reviewers)
+4. **Identify learnable patterns** across the reviews
+5. **Update documentation** with discovered patterns
+6. **Generate a report** of findings
+
 ---
 
 ## Fetching PRs by Reviewer
@@ -60,6 +72,35 @@ gh api 'search/issues?q=repo:brave/brave-core+type:pr+is:merged+reviewed-by:<use
 - Process PRs in batches of 10 to avoid rate limiting. After each batch, check `gh api rate_limit` and pause if needed.
 - Skip PRs where the user left no substantive review comments (only approvals with no body text).
 - When analyzing, **focus on comments from the specified user** rather than all reviewers.
+
+---
+
+## Fetching PRs by Date Range
+
+When `<num>d` is provided (e.g., `7d`), calculate the date N days ago and use the GitHub search API to find merged PRs with review comments in that time range:
+
+```bash
+# Calculate the date N days ago (macOS)
+DATE_SINCE=$(date -v-<num>d +%Y-%m-%d)
+
+# Fetch all merged PRs updated in the last N days that have review comments
+gh search prs --repo brave/brave-core --merged-after "$DATE_SINCE" --sort updated --order desc --limit 1000 --json number,title,updatedAt
+```
+
+If `gh search prs` doesn't work or returns errors, fall back to the search API:
+
+```bash
+# Page through all results (100 per page)
+gh api "search/issues?q=repo:brave/brave-core+type:pr+is:merged+merged:>=$DATE_SINCE&sort=updated&order=desc&per_page=100&page=1" --jq '.items[] | {number: .number, title: .title}'
+# Continue incrementing &page=2, &page=3, etc. until no more results
+```
+
+**Important notes:**
+- Fetch **all** merged PRs in the date range — do not cap or limit results.
+- Process PRs in batches of 10 to avoid rate limiting. After each batch, check `gh api rate_limit` and pause if needed.
+- Skip PRs with no review comments (only approvals with no body text, or no reviews at all).
+- Analyze comments from **all** reviewers (not filtered to a specific user).
+- Write the report to `.ignore/learnable-patterns-report-<num>d.md`.
 
 ---
 
@@ -150,7 +191,7 @@ Only capture patterns that meet ALL of these criteria:
 
 ### Report File
 
-Write findings to `.ignore/learnable-patterns-report.md` (or `.ignore/learnable-patterns-report-<username>.md` when using `--username` mode). Do NOT proactively create the `.ignore` directory — just write the file and if it fails because the directory doesn't exist, create it then.
+Write findings to `.ignore/learnable-patterns-report.md` (or `.ignore/learnable-patterns-report-<username>.md` for `--username` mode, or `.ignore/learnable-patterns-report-<num>d.md` for days mode). Do NOT proactively create the `.ignore` directory — just write the file and if it fails because the directory doesn't exist, create it then.
 
 Use this format:
 
