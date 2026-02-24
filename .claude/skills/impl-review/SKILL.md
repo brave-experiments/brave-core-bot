@@ -1,7 +1,7 @@
 ---
 name: impl-review
 description: "Implement review feedback on a PR. Checks out the branch, applies reviewer-requested changes, runs preflight, commits, and pushes. Triggers on: impl-review, implement review, implement review feedback, address review comments."
-argument-hint: "<pr-number>"
+argument-hint: "<pr-number> [auto]"
 ---
 
 # Implement Review Feedback
@@ -11,6 +11,14 @@ Checkout a PR's branch, implement the reviewer's feedback, run preflight checks,
 ## Arguments
 
 - **`<pr-number>`** (required) — The PR number in brave/brave-core to implement review feedback for.
+- **`auto`** (optional) — Run in auto mode. Skips all confirmation prompts (plan approval, commit, push, posting comments). Designed for headless/cron use.
+
+## Modes
+
+- **Manual mode** (default): Asks for user confirmation before implementing changes, before committing/pushing, and before posting comments on GitHub.
+- **Auto mode** (`auto` argument): Proceeds through all steps without confirmation prompts. No `AskUserQuestion` calls.
+
+**Detect auto mode:** If the arguments contain `auto`, set `AUTO_MODE=true`. Strip `auto` from arguments before parsing the PR number.
 
 ## Working Directory Detection
 
@@ -84,11 +92,12 @@ Parse the review comments to understand what changes are requested:
    - What specific change is requested
    - Whether it affects production code, test code, or both
 
-3. **Present the plan to the user** — Before making any changes, summarize:
+3. **Present the plan:**
    - How many review comments were found
    - Which are actionable vs already addressed
    - What changes you plan to make for each
-   - Ask for user confirmation before proceeding
+   - **Manual mode**: Ask for user confirmation before proceeding
+   - **Auto mode**: Log the plan to stdout and proceed immediately
 
 ### 5. Checkout the Branch
 
@@ -128,6 +137,10 @@ If preflight fails:
 
 ### 8. Commit and Push
 
+**Manual mode**: Before committing, show the user a summary of all changes (files modified, diff stats) and ask for confirmation. If the user rejects, stop without committing.
+
+**Auto mode**: Proceed directly to commit and push without prompting.
+
 **ALWAYS create a NEW separate commit** — never amend existing commits.
 
 ```bash
@@ -149,6 +162,10 @@ Commit message guidelines:
 If multiple logical units of review feedback were addressed, consider separate commits for each.
 
 ### 9. Post PR Comment
+
+**Manual mode**: Show the draft comment to the user and ask for confirmation before posting. If the user rejects, skip posting.
+
+**Auto mode**: Post immediately without prompting.
 
 Post a summary comment on the PR:
 
@@ -179,7 +196,7 @@ Output a summary to the user:
 2. **Minimal changes** — Only implement what reviewers explicitly ask for
 3. **New commits only** — Never amend; separate commits let reviewers track what changed
 4. **No attribution** — No `Co-Authored-By` lines in commits
-5. **User confirmation** — Present the plan of changes before implementing
+5. **User confirmation (manual mode)** — Present the plan before implementing, confirm before committing, confirm before posting comments. In auto mode, all confirmations are skipped
 6. **Preflight required** — All changes must pass preflight before pushing
 
 ---
@@ -189,11 +206,9 @@ Output a summary to the user:
 ```
 /impl-review 12345
 ```
+Manual mode (default) — asks for confirmation before implementing, committing, and posting.
 
-This will:
-1. Fetch PR #12345 details and review comments
-2. Show you the actionable feedback and planned changes
-3. After confirmation, checkout the branch and implement changes
-4. Run preflight checks
-5. Commit with "Address review: ..." message and push
-6. Post a summary comment on the PR
+```
+/impl-review 12345 auto
+```
+Auto mode — proceeds through all steps without prompts. Designed for headless/cron use.

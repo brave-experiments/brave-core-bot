@@ -41,7 +41,7 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
 5. **Update the cache for EVERY reviewed PR** — this is mandatory regardless of whether violations were found, comments were posted, or comments were skipped. See Step 6 in Per-Category Review Workflow.
 6. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
 
-**NEVER post internal working output to GitHub.** Subagent AUDIT trails, SKIPPED_PRIOR sections, DOCUMENT headers, violation summaries, and category labels are internal-only. The only things that appear on GitHub are: (1) the review body `"Review via brave-core-bot"`, and (2) short inline comment text from each violation's `draft_comment`. Nothing else.
+**NEVER post internal working output to GitHub.** Subagent AUDIT trails, SKIPPED_PRIOR sections, DOCUMENT headers, violation summaries, and category labels are internal-only. The only things that appear on GitHub are short inline comment text from each violation's `draft_comment`. Nothing else.
 
 ---
 
@@ -75,7 +75,7 @@ Before launching subagents, fetch all existing review comments and discussion on
 This returns all past review comments, inline code comments, and discussion comments from Brave org members (filtered for security). Pass this output to each subagent as `PRIOR_COMMENTS` context (see Step 3).
 
 **Why this matters:** When re-reviewing a PR after new commits, the bot must be aware of:
-- Its own previous comments (from "brave-core-bot" or "Review via brave-core-bot") to avoid repeating the same feedback
+- Its own previous comments (from "brave-core-bot") to avoid repeating the same feedback
 - Author and reviewer responses that explain or justify a design choice
 - Issues that were already acknowledged and addressed
 
@@ -85,7 +85,7 @@ If there are no prior comments (first review), skip this step and omit the prior
 
 When prior comments exist (re-review), check if the developer addressed previous bot review comments. For each addressed comment: add a 👍 reaction to the developer's reply AND resolve the review thread. This is a lightweight courtesy step that runs before launching subagents.
 
-**When to run:** Only when Step 1.5 found prior bot comments (from "brave-core-bot" or containing "Review via brave-core-bot") AND the developer has pushed new commits or replied since the bot's last review.
+**When to run:** Only when Step 1.5 found prior bot comments (from "brave-core-bot") AND the developer has pushed new commits or replied since the bot's last review.
 
 **How to detect and act:**
 
@@ -206,7 +206,7 @@ Each subagent prompt MUST include:
    Where `<heading-anchor>` is the `##` heading converted to a GitHub anchor (lowercase, spaces to hyphens, special characters removed). For example, `## Don't Use rapidjson` becomes `#dont-use-rapidjson`.
 6. **Prior comments context (re-review awareness)** — if prior comments exist from Step 1.5, include them in the subagent prompt with these rules:
    - **Do NOT re-raise issues that the author or a reviewer has already explained or justified.** If a prior comment thread shows the author explaining why a design choice was made (e.g., "only two subclasses will ever use this, both pass constants"), accept that explanation and do not flag the same issue again.
-   - **Do NOT repeat your own previous comments.** If a comment from "brave-core-bot" or containing "Review via brave-core-bot" already raised the same point, skip it — even if the code hasn't changed. The author has already seen it.
+   - **Do NOT repeat your own previous comments.** If a comment from "brave-core-bot" already raised the same point, skip it — even if the code hasn't changed. The author has already seen it.
    - **Do NOT flag new issues on re-review that were missed the first time.** If an issue existed in the code during the first review and was not caught, do not raise it on a subsequent review — unless it is a serious correctness or security concern. Flagging new nits or minor issues on re-review that the bot simply missed earlier is annoying to developers and should be avoided. Only flag issues on re-review if they were **introduced in commits since the last reviewed commit**.
    - **DO re-raise an issue only if:** (a) the author's explanation is factually incorrect or introduces a real risk, OR (b) new code in the latest diff introduces a new instance of the same problem that wasn't previously discussed.
    - When in doubt about whether an issue was addressed, err on the side of NOT re-raising it. Repeating resolved feedback is more disruptive than missing a marginal issue.
@@ -322,8 +322,6 @@ For each violation, present the draft and ask:
 
 Use "nit:" prefix for genuinely minor/stylistic issues (missing comments/documentation, alphabetical ordering, naming, minor cleanup), not for substantive concerns.
 
-**The "Review via brave-core-bot" attribution MUST appear exactly once per review** — on the top-level review body, NOT on each inline comment. Individual inline comments should contain only the comment text itself.
-
 ### Deduplication Before Posting (applies to BOTH interactive and auto mode)
 
 Before presenting violations to the user (interactive) or posting them (auto), you MUST programmatically deduplicate against existing bot comments. This prevents the bot from re-posting the same comment when a PR is reviewed multiple times.
@@ -347,7 +345,7 @@ gh api repos/brave/brave-core/pulls/{number}/reviews \
   --input - <<'EOF'
 {
   "event": "COMMENT",
-  "body": "Review via brave-core-bot",
+  "body": "",
   "comments": [
     {
       "path": "path/to/file.cc",
@@ -367,14 +365,13 @@ EOF
 ```
 
 **Key details:**
-- The `"body"` field at the top level MUST be exactly `"Review via brave-core-bot"` — nothing else. **NEVER put subagent output, audit trails, violation summaries, or any other text in the review body.** The review body is visible on GitHub as a prominent block of text. Only inline comment bodies carry the actual review content.
-- Individual comment bodies should NOT include the "Review via brave-core-bot: " prefix
+- The `"body"` field at the top level MUST be an empty string `""`. **NEVER put subagent output, audit trails, violation summaries, attribution text, or any other text in the review body.** The review body is visible on GitHub as a prominent block of text. Only inline comment bodies carry the actual review content.
 - `side: "RIGHT"` targets the new version of the file (added lines)
 - `line` is the line number in the new file, which matches what the subagent reports from `+` lines in the diff
 - All approved violations for a single PR are batched into one review (one notification to the author)
-- If the API call fails (e.g., a line is outside the diff range), retry by splitting: post the valid inline comments and fall back to a general review comment for any that failed. **Only the fallback general comment needs the prefix** since it's standalone:
+- If the API call fails (e.g., a line is outside the diff range), retry by splitting: post the valid inline comments and fall back to a general review comment for any that failed:
   ```bash
-  gh pr review --repo brave/brave-core {number} --comment --body "Review via brave-core-bot: [file:line] comment text"
+  gh pr review --repo brave/brave-core {number} --comment --body "[file:line] comment text"
   ```
 
 ---
@@ -466,7 +463,7 @@ When reviewing closed or merged PRs and a violation is found:
 1. **Present the finding** to the user as usual (draft comment + ask for approval)
 2. **If approved**, try to post inline review comments using the same `gh api` approach as open PRs. If the inline API fails (some merged PRs may not support it), fall back to a general comment:
    ```bash
-   gh pr comment --repo brave/brave-core {number} --body "Review via brave-core-bot: [file:line] comment text"
+   gh pr comment --repo brave/brave-core {number} --body "[file:line] comment text"
    ```
 3. **Create a follow-up issue** in `brave/brave-core` to track the fix:
    ```bash
