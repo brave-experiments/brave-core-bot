@@ -42,11 +42,12 @@ When the user invokes `/learnable-pattern-search --username <github-user>`:
 When the user invokes `/learnable-pattern-search <num>d` (e.g., `7d`, `30d`, `14d`):
 
 1. **Parse the number of days** from the argument (strip the trailing `d`)
-2. **Fetch all merged PRs from the last N days** in brave/brave-core (see "Fetching PRs by Date Range" below)
-3. **For each PR**, fetch review data and analyze it (include comments from **all** reviewers)
-4. **Identify learnable patterns** across the reviews
-5. **Update documentation** with discovered patterns
-6. **Generate a report** of findings
+2. **Get the git config username** (`git config user.name` or `git config user.email` → extract GitHub username) to exclude self-authored PRs
+3. **Fetch all merged PRs from the last N days** in brave/brave-core, **excluding PRs authored by the git config user** (see "Fetching PRs by Date Range" below)
+4. **For each PR**, fetch review data and analyze it (include comments from **all** reviewers)
+5. **Identify learnable patterns** across the reviews
+6. **Update documentation** with discovered patterns
+7. **Generate a report** of findings
 
 ---
 
@@ -77,26 +78,31 @@ gh api 'search/issues?q=repo:brave/brave-core+type:pr+is:merged+reviewed-by:<use
 
 ## Fetching PRs by Date Range
 
-When `<num>d` is provided (e.g., `7d`), calculate the date N days ago and use the GitHub search API to find merged PRs with review comments in that time range:
+When `<num>d` is provided (e.g., `7d`), calculate the date N days ago, determine the current user's GitHub username, and use the GitHub search API to find merged PRs (excluding self-authored ones) with review comments in that time range:
 
 ```bash
+# Get the current user's GitHub username
+GIT_USER=$(gh api user --jq '.login')
+
 # Calculate the date N days ago (macOS)
 DATE_SINCE=$(date -v-<num>d +%Y-%m-%d)
 
-# Fetch all merged PRs updated in the last N days that have review comments
-gh search prs --repo brave/brave-core --merged-after "$DATE_SINCE" --sort updated --order desc --limit 1000 --json number,title,updatedAt
+# Fetch all merged PRs updated in the last N days, excluding self-authored PRs
+gh search prs --repo brave/brave-core --merged-after "$DATE_SINCE" --sort updated --order desc --limit 1000 --json number,title,updatedAt,author
+# Then filter out PRs where author.login == $GIT_USER
 ```
 
 If `gh search prs` doesn't work or returns errors, fall back to the search API:
 
 ```bash
-# Page through all results (100 per page)
-gh api "search/issues?q=repo:brave/brave-core+type:pr+is:merged+merged:>=$DATE_SINCE&sort=updated&order=desc&per_page=100&page=1" --jq '.items[] | {number: .number, title: .title}'
+# Page through all results (100 per page), excluding self-authored PRs
+gh api "search/issues?q=repo:brave/brave-core+type:pr+is:merged+merged:>=$DATE_SINCE+-author:$GIT_USER&sort=updated&order=desc&per_page=100&page=1" --jq '.items[] | {number: .number, title: .title}'
 # Continue incrementing &page=2, &page=3, etc. until no more results
 ```
 
 **Important notes:**
-- Fetch **all** merged PRs in the date range — do not cap or limit results.
+- **Exclude PRs authored by the git config user** — the goal is to learn from reviews on other people's PRs, not your own.
+- Fetch **all** merged PRs in the date range (minus self-authored) — do not cap or limit results.
 - Process PRs in batches of 10 to avoid rate limiting. After each batch, check `gh api rate_limit` and pause if needed.
 - Skip PRs with no review comments (only approvals with no body text, or no reviews at all).
 - Analyze comments from **all** reviewers (not filtered to a specific user).
