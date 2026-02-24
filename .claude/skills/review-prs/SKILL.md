@@ -81,13 +81,13 @@ This returns all past review comments, inline code comments, and discussion comm
 
 If there are no prior comments (first review), skip this step and omit the prior comments section from the subagent prompt.
 
-### Step 1.6: Acknowledge Addressed Comments (Thumbs-Up)
+### Step 1.6: Acknowledge and Resolve Addressed Comments
 
-When prior comments exist (re-review), check if the developer addressed previous bot review comments and acknowledge their replies with a 👍 reaction. This is a lightweight courtesy step that runs before launching subagents.
+When prior comments exist (re-review), check if the developer addressed previous bot review comments. For each addressed comment: add a 👍 reaction to the developer's reply AND resolve the review thread. This is a lightweight courtesy step that runs before launching subagents.
 
-**When to run:** Only when Step 1.5 found prior bot comments (from "brave-core-bot" or containing "Review via brave-core-bot") AND the developer has pushed new commits since the bot's last review.
+**When to run:** Only when Step 1.5 found prior bot comments (from "brave-core-bot" or containing "Review via brave-core-bot") AND the developer has pushed new commits or replied since the bot's last review.
 
-**How to detect and react:**
+**How to detect and act:**
 
 1. Fetch the bot's previous inline review comment IDs:
    ```bash
@@ -101,28 +101,64 @@ When prior comments exist (re-review), check if the developer addressed previous
      --jq '[.[] | select(.in_reply_to_id != null) | {id, user: .user.login, body, created_at, in_reply_to_id}]'
    ```
 
-3. For each reply where:
-   - `in_reply_to_id` matches a bot comment ID
-   - The reply author is a Brave org member (typically the PR author)
-   - New commits were pushed after the bot's review (the developer acted on the feedback)
+3. Fetch review threads (needed for resolving) via GraphQL:
+   ```bash
+   gh api graphql -f query='
+   query($owner: String!, $name: String!, $number: Int!) {
+     repository(owner: $owner, name: $name) {
+       pullRequest(number: $number) {
+         reviewThreads(first: 100) {
+           nodes {
+             id
+             isResolved
+             comments(first: 1) {
+               nodes { databaseId, author { login } }
+             }
+           }
+         }
+       }
+     }
+   }' -f owner=brave -f name=brave-core -F number={number} \
+     --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select(.comments.nodes[0].author.login == "brave-core-bot") | {threadId: .id, commentId: .comments.nodes[0].databaseId}'
+   ```
+   This gives you a mapping of bot comment `databaseId` → GraphQL `threadId` for all unresolved bot threads.
 
-   Add a 👍 reaction to the developer's reply:
+4. For each bot comment that the developer addressed (replied to with an explanation or fix, or pushed new commits that address the issue):
+
+   **a. Thumbs-up the developer's reply:**
    ```bash
    gh api "repos/brave/brave-core/pulls/comments/{reply_comment_id}/reactions" \
      --method POST -f content="+1"
    ```
 
-4. Also check general issue comments — if the PR author posted a comment after the bot's review acknowledging the feedback (e.g., "Fixed", "Done", "Addressed", or describing what they changed), and new commits were pushed, thumbs-up that comment too:
+   **b. Resolve the review thread:**
+   ```bash
+   gh api graphql -f query='
+   mutation($threadId: ID!) {
+     resolveReviewThread(input: {threadId: $threadId}) {
+       thread { isResolved }
+     }
+   }' -f threadId="{threadId}"
+   ```
+
+   Use the `threadId` from step 3 that corresponds to the bot comment being addressed.
+
+5. **When to resolve vs. when to reply:**
+   - **Resolve (default):** If the developer fixed the code, acknowledged the feedback, or gave a reasonable explanation for their approach — resolve the thread and thumbs-up. Do NOT re-post the same comment or argue.
+   - **Reply then resolve:** If you have brief additional context that's genuinely helpful (not repeating the original point), you may add a short reply before resolving.
+   - **Leave open:** Only if the developer's reply reveals a misunderstanding that could lead to a real bug or security issue. This should be rare.
+
+6. Also check general issue comments — if the PR author posted a comment after the bot's review acknowledging the feedback (e.g., "Fixed", "Done", "Addressed", or describing what they changed), and new commits were pushed, thumbs-up that comment too:
    ```bash
    gh api "repos/brave/brave-core/issues/comments/{comment_id}/reactions" \
      --method POST -f content="+1"
    ```
 
 **Important rules:**
-- The reaction API is idempotent — if the bot already reacted, the API returns the existing reaction. No need to check for duplicates first.
-- This step does NOT affect the review itself — it's purely an acknowledgment gesture before launching subagents.
-- In auto mode, log each acknowledgment: `ACK: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) - 👍 comment by @<user> (addressed bot feedback)`
-- Skip this step entirely if there are no prior bot comments or no new commits since the last review.
+- The reaction and resolve APIs are idempotent — no need to check for duplicates first.
+- This step does NOT re-post any comments. It only reacts and resolves. **NEVER re-post the same feedback when resolving.**
+- In auto mode, log each acknowledgment: `ACK: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) - resolved + 👍 comment by @<user> (addressed bot feedback)`
+- Skip this step entirely if there are no prior bot comments or no new commits/replies since the last review.
 
 ### Step 2: Launch Document Subagents in Parallel
 
