@@ -102,14 +102,18 @@ def get_crumb(auth_header):
 def get_failing_checks(pr_number):
     """Query GitHub for PR check statuses.
 
+    Uses gh api to fetch commit statuses for the PR's head SHA, which is
+    compatible with all versions of the gh CLI.
+
     Returns:
         list of dicts with keys: name, state, link, is_jenkins
     """
+    # Step 1: Get the PR's head commit SHA
     result = subprocess.run(
         [
-            "gh", "pr", "checks", str(pr_number),
+            "gh", "pr", "view", str(pr_number),
             "--repo", "brave/brave-core",
-            "--json", "name,state,link",
+            "--json", "statusCheckRollup",
         ],
         capture_output=True,
         text=True,
@@ -118,17 +122,65 @@ def get_failing_checks(pr_number):
         print(f"Error: Failed to get PR checks: {result.stderr}", file=sys.stderr)
         sys.exit(2)
 
-    checks = json.loads(result.stdout)
+    data = json.loads(result.stdout)
+    rollup = data.get("statusCheckRollup", [])
+
+    # Map GitHub API states to our internal states
+    state_map = {
+        # Commit status states
+        "success": "SUCCESS",
+        "failure": "FAILURE",
+        "error": "FAILURE",
+        "pending": "PENDING",
+        # Check run conclusions
+        "SUCCESS": "SUCCESS",
+        "FAILURE": "FAILURE",
+        "ERROR": "FAILURE",
+        "PENDING": "PENDING",
+        "COMPLETED": None,  # need to check conclusion
+    }
+
     results = []
-    for check in checks:
-        jenkins_host = urlparse(JENKINS_BASE_URL).hostname or ""
-        is_jenkins = jenkins_host and jenkins_host in check.get("link", "")
+    seen = set()
+    jenkins_host = urlparse(JENKINS_BASE_URL).hostname or ""
+
+    for entry in rollup:
+        # statusCheckRollup entries can be either commit statuses or check runs
+        name = entry.get("context") or entry.get("name", "")
+        link = entry.get("targetUrl") or entry.get("detailsUrl") or ""
+
+        # Determine state: check runs use status+conclusion, statuses use state
+        raw_state = entry.get("state", "")
+        conclusion = entry.get("conclusion", "")
+
+        if raw_state == "COMPLETED" or (not raw_state and conclusion):
+            state = state_map.get(conclusion.upper(), conclusion.upper())
+        else:
+            state = state_map.get(raw_state, state_map.get(raw_state.upper(), raw_state.upper()))
+
+        if state is None:
+            state = "PENDING"
+
+        # Deduplicate: keep the latest status for each check name
+        # (GitHub returns all statuses, we want the most recent)
+        if name in seen:
+            # Update existing entry if this one is newer (later in the list)
+            for r in results:
+                if r["name"] == name:
+                    r["state"] = state
+                    r["link"] = link
+                    break
+            continue
+
+        seen.add(name)
+        is_jenkins = bool(jenkins_host and jenkins_host in link)
         results.append({
-            "name": check["name"],
-            "state": check["state"],
-            "link": check.get("link", ""),
+            "name": name,
+            "state": state,
+            "link": link,
             "is_jenkins": is_jenkins,
         })
+
     return results
 
 
