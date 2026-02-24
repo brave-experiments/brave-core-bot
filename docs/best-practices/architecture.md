@@ -662,6 +662,27 @@ components/brave_shields/
 
 ---
 
+## ❌ Avoid Inverted Dependency Direction Between Related Components
+
+**Foundational components must not depend on higher-level features built upon them.** Even when there's no circular dependency, the semantic direction matters. If component A is the foundation that component B builds upon, A should never depend on B.
+
+```
+# ❌ WRONG - foundational component depends on feature built upon it
+# brave_account is the auth foundation; email_aliases is a feature that uses it
+# In components/brave_account/BUILD.gn
+deps = [
+  "//brave/components/email_aliases:features",  # Inverted!
+]
+
+# ✅ CORRECT - use a registration/callback mechanism
+# Features register themselves as "account enablers" so the foundation
+# doesn't need to know about specific features
+```
+
+When a foundational component needs to react to higher-level features (e.g., "enable account if any dependent feature is enabled"), use a registration or callback mechanism rather than hardcoding the dependency. This prevents the pattern from growing as more features are added.
+
+---
+
 ## ✅ Service/Decoder Code Belongs in `services/` Not `components/.../browser/`
 
 **Mojo service implementations and data decoders should live in a `services/` directory**, not inside `components/.../browser/`. This follows Chromium conventions and keeps service code at the correct architectural layer.
@@ -873,3 +894,11 @@ struct ModelConfig {
   bool supports_tools = false;
 };
 ```
+
+---
+
+## ✅ Keep PRs Strictly Scoped to Their Stated Intent
+
+**A PR should only contain changes that directly serve its stated purpose.** When a PR's goal is a mechanical operation (e.g., moving files, renaming symbols, updating deps), do not sneak in unrelated functional changes. Reviewers will flag unexpected additions that don't align with the PR description.
+
+This keeps PRs reviewable, bisectable, and easy to revert if needed. If you discover something that needs fixing while working on a PR, file a separate issue or create a follow-up PR.
