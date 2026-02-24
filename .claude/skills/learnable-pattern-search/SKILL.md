@@ -167,7 +167,10 @@ Classify each discovered pattern into one of these categories:
 
 | Category | Target Document |
 |----------|----------------|
-| C++ testing patterns | `BEST-PRACTICES.md` |
+| C++ testing patterns (async) | `docs/best-practices/testing-async.md` |
+| C++ testing patterns (JS eval) | `docs/best-practices/testing-javascript.md` |
+| C++ testing patterns (navigation) | `docs/best-practices/testing-navigation.md` |
+| C++ testing patterns (isolation) | `docs/best-practices/testing-isolation.md` |
 | Git workflow | `docs/git-repository.md` |
 | Test execution | `docs/testing-requirements.md` |
 | Problem-solving | `docs/workflow-pending.md` |
@@ -175,10 +178,11 @@ Classify each discovered pattern into one of these categories:
 | Review responses | `docs/workflow-pushed.md` |
 | Security | `SECURITY.md` |
 | Front-end (TS/React) | `docs/best-practices/frontend.md` |
-| General codebase | Report file (for user to triage) |
-| Chromium conventions | `BEST-PRACTICES.md` |
-| Code style/naming | Report file |
-| Architecture | Report file |
+| Chromium conventions / chromium_src | `docs/best-practices/chromium-src-overrides.md` |
+| Code style/naming | `docs/best-practices/coding-standards.md` |
+| Architecture / dependencies | `docs/best-practices/architecture.md` |
+| Build system (BUILD.gn, DEPS) | `docs/best-practices/build-system.md` |
+| Documentation | `docs/best-practices/documentation.md` |
 
 ---
 
@@ -229,16 +233,19 @@ PRs analyzed: <list>
 
 ### Documentation Updates
 
-For high-confidence, clearly generalizable patterns:
+**Default action: update the best practices docs directly.** Every pattern that meets the quality criteria (generalizable, actionable, not already documented, significant) should be written into the appropriate target document from the categorization table above. Do not defer to "Needs triage" unless the pattern is genuinely ambiguous about which category it belongs to or whether it's correct.
+
+For each pattern you add:
 - Update the appropriate documentation file directly
 - Commit the change with a concise message describing what was added
 - **Do NOT include Co-Authored-By attribution in commits**
 - **Do NOT include meta information like "X/Y PRs processed" in commits**
 - **Do NOT include source attribution lines in documentation** (e.g., no `*Source: username review on PR #1234*` lines). These patterns are crowdsourced and attribution wastes tokens.
 
-For patterns that need human review before adding:
-- Include them in the report file only
-- Mark them as "Needs triage" in the report
+Only mark a pattern as "Needs triage" in the report (without updating docs) when:
+- You're unsure whether the pattern is actually correct or generalizable
+- The pattern conflicts with existing documentation and you can't determine which is right
+- The pattern is too platform/domain-specific to generalize (e.g., iOS-only Swift conventions)
 
 ---
 
