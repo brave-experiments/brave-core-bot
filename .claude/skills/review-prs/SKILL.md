@@ -41,6 +41,8 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
 5. **Update the cache for EVERY reviewed PR** — this is mandatory regardless of whether violations were found, comments were posted, or comments were skipped. See Step 6 in Per-Category Review Workflow.
 6. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
 
+**NEVER post internal working output to GitHub.** Subagent AUDIT trails, SKIPPED_PRIOR sections, DOCUMENT headers, violation summaries, and category labels are internal-only. The only things that appear on GitHub are: (1) the review body `"Review via brave-core-bot"`, and (2) short inline comment text from each violation's `draft_comment`. Nothing else.
+
 ---
 
 ## Per-Document Review Workflow
@@ -237,7 +239,7 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
    - Comments fail to post due to API errors
 
    The cache tracks "we reviewed this SHA", not "we posted comments". Skipping this causes the same PR to be re-reviewed on the next run, wasting time and risking duplicate comments.
-2. **Aggregate violations** from all document subagents into a single list for the PR
+2. **Aggregate violations** from all document subagents into a single list for the PR. **CRITICAL: Only extract the VIOLATIONS entries from subagent output.** The AUDIT trail, SKIPPED_PRIOR section, DOCUMENT header, and any other subagent working output are internal-only — they must NEVER appear in any GitHub review body, inline comment, or PR comment. Only the `draft_comment` text from each violation is posted.
 3. **If AUTO_MODE**: post all violations immediately using the inline review API (see Auto Posting below), then move to the next PR
 4. **If interactive mode**: present violations to the user for approval before moving to the next PR
 5. If no violations across all categories, briefly note that and move on
@@ -314,7 +316,7 @@ EOF
 ```
 
 **Key details:**
-- The `"body": "Review via brave-core-bot"` at the top level provides the attribution once for the entire review
+- The `"body"` field at the top level MUST be exactly `"Review via brave-core-bot"` — nothing else. **NEVER put subagent output, audit trails, violation summaries, or any other text in the review body.** The review body is visible on GitHub as a prominent block of text. Only inline comment bodies carry the actual review content.
 - Individual comment bodies should NOT include the "Review via brave-core-bot: " prefix
 - `side: "RIGHT"` targets the new version of the file (added lines)
 - `line` is the line number in the new file, which matches what the subagent reports from `+` lines in the diff
