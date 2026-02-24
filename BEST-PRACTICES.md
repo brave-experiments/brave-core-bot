@@ -5,7 +5,9 @@ This document is an index of best practices for the Brave Browser codebase, disc
 ## Code & Architecture
 
 - **[Architecture and Code Organization](./docs/best-practices/architecture.md)** - Layering violations, dependency injection, factory patterns, pref management
-- **[C++ Coding Standards](./docs/best-practices/coding-standards.md)** - IWYU, naming conventions, ownership, CHECK vs DCHECK, style
+- **[C++ Coding Standards](./docs/best-practices/coding-standards.md)** - IWYU, naming conventions, CHECK vs DCHECK, style, comments, logging
+- **[C++ Memory, Lifetime & Threading](./docs/best-practices/coding-standards-memory.md)** - Ownership, WeakPtr, Unretained, raw_ptr, KeyedService shutdown, threading
+- **[C++ API Usage, Containers & Types](./docs/best-practices/coding-standards-apis.md)** - base utilities, containers, type safety, optional, span, callbacks
 - **[Documentation](./docs/best-practices/documentation.md)** - Inline comments, method docs, READMEs, keeping docs fresh, avoiding duplication
 - **[Front-End (TypeScript/React)](./docs/best-practices/frontend.md)** - Component props, spread args, XSS prevention
 - **[chromium_src Overrides](./docs/best-practices/chromium-src-overrides.md)** - Overrides vs patches, minimizing duplication, ChromiumImpl fallback

@@ -167,6 +167,8 @@ Launch one **Task subagent** (subagent_type: "general-purpose") per applicable b
 | Document | Doc to read | Condition |
 |----------|-------------|-----------|
 | **coding-standards** | `coding-standards.md` | has_cpp_files |
+| **coding-standards-memory** | `coding-standards-memory.md` | has_cpp_files |
+| **coding-standards-apis** | `coding-standards-apis.md` | has_cpp_files |
 | **architecture** | `architecture.md` | Always |
 | **documentation** | `documentation.md` | Always |
 | **build-system** | `build-system.md` | has_build_files |
