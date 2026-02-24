@@ -255,9 +255,14 @@ SKIPPED_PRIOR:
 NONE (if no prior issues were skipped)
 
 VIOLATIONS:
-- file: <path>, line: <line_number>, rule: "<rule heading>", rule_link: <full GitHub URL to the rule heading>, issue: <brief description>, draft_comment: <1-3 sentence comment to post>
+- file: <path>, line: <line_number>, severity: <"high"|"medium"|"low">, rule: "<rule heading>", rule_link: <full GitHub URL to the rule heading>, issue: <brief description>, draft_comment: <1-3 sentence comment to post>
 - ...
 NO_VIOLATIONS (if none found)
+
+Severity guide:
+- **high**: Correctness bugs, use-after-free, security issues, banned APIs, test reliability problems (e.g., RunUntilIdle)
+- **medium**: Substantive best practice violations (wrong container type, missing error handling, architectural issues)
+- **low**: Nits, style preferences, missing docs, naming suggestions, minor cleanup
 ```
 
 The `SKIPPED_PRIOR` section provides transparency about issues that were intentionally not re-raised due to prior discussion. This helps the operator verify the subagent correctly handled prior context.
@@ -277,9 +282,17 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
    - Comments fail to post due to API errors
 
    The cache tracks "we reviewed this SHA", not "we posted comments". Skipping this causes the same PR to be re-reviewed on the next run, wasting time and risking duplicate comments.
-2. **Aggregate violations** from all document subagents into a single list for the PR. **CRITICAL: Only extract the VIOLATIONS entries from subagent output.** The AUDIT trail, SKIPPED_PRIOR section, DOCUMENT header, and any other subagent working output are internal-only — they must NEVER appear in any GitHub review body, inline comment, or PR comment. Only the `draft_comment` text from each violation is posted.
-3. **If AUTO_MODE**: post all violations immediately using the inline review API (see Auto Posting below), then move to the next PR
-4. **If interactive mode**: present violations to the user for approval before moving to the next PR
+2. **Aggregate and prioritize violations** from all document subagents into a single list for the PR. **CRITICAL: Only extract the VIOLATIONS entries from subagent output.** The AUDIT trail, SKIPPED_PRIOR section, DOCUMENT header, and any other subagent working output are internal-only — they must NEVER appear in any GitHub review body, inline comment, or PR comment. Only the `draft_comment` text from each violation is posted.
+
+   **Prioritization and cap (IMPORTANT):** Sort violations by severity: high → medium → low. Then apply these rules:
+   - **Post at most 5 comments per PR.** Developers get overwhelmed by walls of review comments. Focus on what matters most.
+   - **Always include all high-severity violations** (correctness, security, banned APIs) — these are non-negotiable.
+   - **Fill remaining slots with medium-severity violations.**
+   - **Only include low-severity (nits) if there are fewer than 3 higher-severity comments.** If there are already 3+ substantive comments, drop all nits — the developer has enough to focus on.
+   - If there are more than 5 high+medium violations, cap at the 5 most impactful ones and note in the log how many were dropped.
+   - **When in doubt, don't comment.** A review with 2 important comments is far more useful than one with 10 mixed-importance comments.
+3. **If AUTO_MODE**: post the prioritized violations using the inline review API (see Auto Posting below), then move to the next PR
+4. **If interactive mode**: present the prioritized violations to the user for approval before moving to the next PR
 5. If no violations across all categories, briefly note that and move on
 
 **PR Link Format (CRITICAL):** When displaying PR numbers to the user, ALWAYS use a full markdown link with the `brave/brave-core` URL: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. **NEVER use bare `#<number>` references** — the TUI auto-links them against the current repo's git remote (`brave-experiments/brave-core-bot`), sending users to the wrong repository. Every single PR number shown to the user must be a full `https://github.com/brave/brave-core/pull/` link.
