@@ -774,16 +774,22 @@ DoSomething(base::BindOnce(&ProcessResult));
 
 ---
 
-## ❌ Don't Use `auto` Where Style Guide Wants Explicit Types
+## ⚠️ Use `auto` Judiciously — Prefer Explicit Types When Short and Descriptive
 
-**Don't use `auto` merely to avoid writing a type name.** Spell out types like `base::TimeDelta`, `base::Time`, etc. Per Google style guide: "Do not use [auto] merely to avoid the inconvenience of writing an explicit type."
+**Don't use `auto` merely to avoid writing a type name** when the explicit type is short and adds readability. Spell out types like `base::TimeDelta`, `base::Time`, etc. Per Google style guide: "Do not use [auto] merely to avoid the inconvenience of writing an explicit type."
+
+However, `auto` **is appropriate** when the explicit type is verbose/complex and doesn't improve readability (e.g., nested templates, long type names). This is a preference, not a hard rule — do not insist if the developer declines.
 
 ```cpp
-// ❌ WRONG - auto hides the type
+// ❌ WRONG - auto hides a short, descriptive type
 auto elapsed = timer.Elapsed();
 
-// ✅ CORRECT - explicit type
+// ✅ CORRECT - explicit type adds readability
 base::TimeDelta elapsed = timer.Elapsed();
+
+// ✅ ALSO CORRECT - auto avoids verbose type that adds no readability
+auto weights_opt = base::ReadFileToBytes(weights_path);
+// (return type is std::optional<std::vector<uint8_t>>)
 ```
 
 ---
