@@ -4,6 +4,10 @@
 Also updates _last_run timestamp so the next fetch-prs.py run uses it
 as the cutoff instead of a fixed N-day window. This prevents gaps if a
 cron run is missed.
+
+Usage:
+  update-cache.py <pr_number> <head_ref_oid>            # Update SHA only
+  update-cache.py <pr_number> <head_ref_oid> --approve   # Update SHA + mark approved
 """
 
 import json
@@ -11,12 +15,16 @@ import os
 import sys
 from datetime import datetime, timezone
 
-if len(sys.argv) != 3:
-    print(f"Usage: {sys.argv[0]} <pr_number> <head_ref_oid>", file=sys.stderr)
+args = [a for a in sys.argv[1:] if not a.startswith("--")]
+flags = [a for a in sys.argv[1:] if a.startswith("--")]
+
+if len(args) != 2:
+    print(f"Usage: {sys.argv[0]} <pr_number> <head_ref_oid> [--approve]", file=sys.stderr)
     sys.exit(1)
 
-pr_number = sys.argv[1]
-head_ref_oid = sys.argv[2]
+pr_number = args[0]
+head_ref_oid = args[1]
+approve = "--approve" in flags
 
 cache_path = ".ignore/review-prs-cache.json"
 
@@ -30,8 +38,14 @@ except (FileNotFoundError, json.JSONDecodeError):
 cache[pr_number] = head_ref_oid
 cache["_last_run"] = datetime.now(timezone.utc).isoformat()
 
+if approve:
+    approved = set(cache.get("_approved", []))
+    approved.add(pr_number)
+    cache["_approved"] = sorted(approved)
+
 with open(cache_path, "w") as f:
     json.dump(cache, f, indent=2)
     f.write("\n")
 
-print(f"Cache updated: [PR #{pr_number}](https://github.com/brave/brave-core/pull/{pr_number}) -> {head_ref_oid}")
+status = "approved + cached" if approve else "cached"
+print(f"Cache updated ({status}): [PR #{pr_number}](https://github.com/brave/brave-core/pull/{pr_number}) -> {head_ref_oid}")

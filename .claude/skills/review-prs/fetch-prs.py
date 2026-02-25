@@ -152,10 +152,13 @@ def get_cutoff(mode, days, cache):
 
 def filter_prs(prs, mode, days, cache):
     cutoff = get_cutoff(mode, days, cache)
+    approved = set(cache.get("_approved", []))
 
     to_review = []
+    cached_prs = []
     skipped_filtered = 0
     skipped_cached = 0
+    skipped_approved = 0
 
     for pr in prs:
         if pr.get("isDraft"):
@@ -175,14 +178,21 @@ def filter_prs(prs, mode, days, cache):
                 continue
 
         pr_num = str(pr["number"])
+
+        # Bot previously approved this PR — don't come back
+        if pr_num in approved:
+            skipped_approved += 1
+            continue
+
         head_sha = pr.get("headRefOid", "")
         if cache.get(pr_num) == head_sha:
             skipped_cached += 1
+            cached_prs.append(pr)
             continue
 
         to_review.append(pr)
 
-    return to_review, skipped_filtered, skipped_cached
+    return to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved
 
 
 def main():
@@ -192,30 +202,35 @@ def main():
     if mode == "single":
         # Skip all filtering for single PR review
         to_review = prs
+        cached_prs = []
         skipped_filtered = 0
         skipped_cached = 0
+        skipped_approved = 0
     else:
         cache = load_cache()
-        to_review, skipped_filtered, skipped_cached = filter_prs(
-            prs, mode, days, cache
+        to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved = (
+            filter_prs(prs, mode, days, cache)
         )
 
+    def pr_entry(pr):
+        return {
+            "number": pr["number"],
+            "title": pr["title"],
+            "headRefOid": pr["headRefOid"],
+            "author": pr.get("author", {}).get("login", "unknown"),
+            "hasApproval": has_any_approval(pr),
+        }
+
     output = {
-        "prs": [
-            {
-                "number": pr["number"],
-                "title": pr["title"],
-                "headRefOid": pr["headRefOid"],
-                "author": pr.get("author", {}).get("login", "unknown"),
-                "hasApproval": has_any_approval(pr),
-            }
-            for pr in to_review
-        ],
+        "prs": [pr_entry(pr) for pr in to_review],
+        "cached_prs": [pr_entry(pr) for pr in cached_prs],
         "summary": {
             "total_fetched": len(prs),
             "to_review": len(to_review),
+            "cached_with_possible_threads": len(cached_prs),
             "skipped_filtered": skipped_filtered,
             "skipped_cached": skipped_cached,
+            "skipped_approved": skipped_approved,
         },
     }
 

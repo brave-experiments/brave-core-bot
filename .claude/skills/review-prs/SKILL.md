@@ -29,19 +29,25 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
    The script handles all fetching, filtering (drafts, uplifts, CI runs, l10n, date cutoff), and cache checking. It outputs JSON:
    ```json
    {
-     "prs": [{"number": 42001, "title": "...", "headRefOid": "abc123", "author": "user"}],
-     "summary": {"total_fetched": 50, "to_review": 5, "skipped_filtered": 30, "skipped_cached": 15}
+     "prs": [{"number": 42001, "title": "...", "headRefOid": "abc123", "author": "user", "hasApproval": false}],
+     "cached_prs": [{"number": 42002, "title": "...", "headRefOid": "def456", "author": "user", "hasApproval": true}],
+     "summary": {"total_fetched": 50, "to_review": 5, "cached_with_possible_threads": 8, "skipped_filtered": 30, "skipped_cached": 7, "skipped_approved": 3}
    }
    ```
+   - **`prs`**: PRs with new commits that need full review
+   - **`cached_prs`**: PRs with same SHA as last review but may have unresolved bot threads needing resolution
+   - **`skipped_approved`**: PRs the bot previously approved — completely skipped (won't haunt devs)
 2. **Print progress summary** from the summary stats (this goes to stdout and will appear in cron logs):
    ```
-   Found N PRs to review (M skipped: X drafts/filtered, Y cached)
+   Found N PRs to review, C cached PRs to check for thread resolution (M skipped: X drafts/filtered, Y cached, Z approved)
    PRs to review: [PR #12345](https://github.com/brave/brave-core/pull/12345) (title), [PR #12346](https://github.com/brave/brave-core/pull/12346) (title), ...
+   Cached PRs for thread resolution: [PR #12347](https://github.com/brave/brave-core/pull/12347), ...
    ```
-3. **Review each PR** one at a time using per-document parallel subagents (see Per-Document Review Workflow below)
+3. **Review each PR** (from the `prs` array) one at a time using per-document parallel subagents (see Per-Document Review Workflow below)
 4. **Aggregate and present findings** from all document subagents
 5. **Update the cache for EVERY reviewed PR** — this is mandatory regardless of whether violations were found, comments were posted, or comments were skipped. See Step 6 in Per-Category Review Workflow.
 6. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
+7. **Process cached PRs for thread resolution** — for each PR in the `cached_prs` array, run ONLY Step 1.6 (Acknowledge and Resolve) and Step 1.7 (Approve if settled). Do NOT launch subagents or do full reviews — these PRs have already been reviewed at the current SHA
 
 **NEVER post internal working output to GitHub.** Subagent AUDIT trails, SKIPPED_PRIOR sections, DOCUMENT headers, violation summaries, and category labels are internal-only. The only things that appear on GitHub are short inline comment text from each violation's `draft_comment`. Nothing else.
 
@@ -161,6 +167,69 @@ When prior comments exist (re-review), check if the developer addressed previous
 - This step does NOT re-post any comments. It only reacts and resolves. **NEVER re-post the same feedback when resolving.**
 - In auto mode, log each acknowledgment: `ACK: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) - resolved + 👍 comment by @<user> (addressed bot feedback)`
 - Skip this step entirely if there are no prior bot comments or no new commits/replies since the last review.
+
+### Step 1.7: Approve if Settled (No Remaining Unresolved Threads)
+
+After Step 1.6 resolves addressed comments, check if the bot has any remaining unresolved threads on the PR. If ALL bot threads are now resolved (none left open) AND at least one bot thread existed (i.e., the bot previously left feedback), submit an APPROVE review and mark the PR as settled in the cache.
+
+**When to approve:**
+1. The bot previously left review comments on this PR (at least one thread existed)
+2. All bot threads are now resolved (after Step 1.6 processing)
+3. The bot has not already approved this SHA (check before posting)
+
+**How to check remaining unresolved bot threads:**
+
+Re-run the GraphQL query from Step 1.6 step 3 to get current unresolved bot threads:
+```bash
+gh api graphql -f query='
+query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          id
+          isResolved
+          comments(first: 1) {
+            nodes { databaseId, author { login } }
+          }
+        }
+      }
+    }
+  }
+}' -f owner=brave -f name=brave-core -F number={number} \
+  --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | select(.comments.nodes[0].author.login == "brave-core-bot")] | length'
+```
+
+If the count is 0 AND there were bot threads (resolved ones exist):
+
+**Submit APPROVE review:**
+```bash
+gh api repos/brave/brave-core/pulls/{number}/reviews \
+  --method POST \
+  --input - <<'EOF'
+{
+  "event": "APPROVE",
+  "body": ""
+}
+EOF
+```
+
+**Mark as approved in cache** (prevents the bot from coming back on future runs):
+```bash
+python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID> --approve
+```
+
+**When NOT to approve:**
+- If there are still unresolved bot threads (the developer hasn't addressed all feedback yet)
+- If the bot never left any comments on this PR (nothing to settle — don't approve a PR you never reviewed)
+- If Step 2 (full review) is about to run and may find new violations — for full reviews, defer approval to Step 6 after aggregation
+
+**Don't Haunt Developers:** Once the bot approves a PR, it is marked as settled in the cache. Future runs will completely skip this PR — no re-reviews, no comment checks, nothing. The bot has said its piece and moved on. The only way to re-review an approved PR is to explicitly request it with `#<PR_NUMBER>`.
+
+**Auto mode logging:**
+```
+APPROVE: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - all threads resolved, approved
+```
 
 ### Step 2: Launch Document Subagents in Parallel
 
@@ -298,7 +367,8 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
    - **Approved PRs — high-severity only.** If the PR's `hasApproval` field is `true` (meaning at least one reviewer has approved), drop ALL medium and low severity violations. Only post high-severity issues (correctness bugs, security vulnerabilities, banned APIs). A human reviewer already approved the PR, so the bot should only intervene for serious problems.
 3. **If AUTO_MODE**: post the prioritized violations using the inline review API (see Auto Posting below), then move to the next PR
 4. **If interactive mode**: present the prioritized violations to the user for approval before moving to the next PR
-5. If no violations across all categories, briefly note that and move on
+5. **If no violations across all categories AND all prior bot threads were resolved in Step 1.6**: submit an APPROVE review and mark as settled using `--approve` (see Step 1.7). This completes the bot's engagement with this PR — future runs will skip it entirely. Log: `APPROVE: [PR #<number>](...) - no violations, approved`
+6. **If violations were posted**: do NOT approve. The bot will re-check this PR on the next run after the developer addresses the feedback
 
 **PR Link Format (CRITICAL):** When displaying PR numbers to the user, ALWAYS use a full markdown link with the `brave/brave-core` URL: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. **NEVER use bare `#<number>` references** — the TUI auto-links them against the current repo's git remote (`brave-experiments/brave-core-bot`), sending users to the wrong repository. Every single PR number shown to the user must be a full `https://github.com/brave/brave-core/pull/` link.
 
@@ -381,6 +451,39 @@ EOF
 
 ---
 
+## Cached PR Comment Resolution
+
+After processing all full reviews (the `prs` array), process each PR in the `cached_prs` array. These PRs have already been reviewed at the current SHA but may have unresolved bot comment threads that need attention.
+
+**For each cached PR, run ONLY these steps:**
+
+1. **Step 1.6** (Acknowledge and Resolve Addressed Comments) — check for developer replies/fixes and resolve addressed threads
+2. **Step 1.7** (Approve if Settled) — if all bot threads are now resolved, submit APPROVE and mark `--approve` in cache
+
+**Do NOT launch subagents or run a full review** — the code hasn't changed since the last review. The only purpose is housekeeping: resolving addressed threads and approving when the developer has addressed all feedback.
+
+**Skip a cached PR entirely if:**
+- No bot comments exist on the PR (nothing to resolve)
+- No new replies or issue comments since the last review
+
+**Auto mode logging for cached PRs:**
+```
+CACHED: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - resolved N threads, M remaining
+APPROVE: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - all threads resolved, approved
+```
+or if nothing to do:
+```
+CACHED: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - no unresolved bot threads
+```
+
+Include cached PRs in the final summary with a distinct marker:
+```
+  🔄 [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - resolved N threads, approved
+  🔄 [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - M threads still unresolved
+```
+
+---
+
 ## Auto Posting
 
 When `AUTO_MODE=true`, skip all interactive approval and post violations directly.
@@ -449,11 +552,15 @@ Date: <current date/time>
 PRs reviewed: <N>
 PRs with violations: <N>
 Total comments posted: <N>
+Cached PRs processed: <N>
+PRs approved: <N>
 
 RESULTS:
-  ✅ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - no violations
+  ✅ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - no violations, approved
   ❌ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - <N> comments - <review_url>
   ⏭️ [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - SKIPPED: <reason>
+  🔄 [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - resolved N threads, approved
+  🔄 [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<title>) - M threads still unresolved
 ========================================
 ```
 
