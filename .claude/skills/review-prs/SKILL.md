@@ -368,6 +368,9 @@ EOF
 
 **Key details:**
 - The `"body"` field at the top level MUST be an empty string `""`. **NEVER put subagent output, audit trails, violation summaries, attribution text, or any other text in the review body.** The review body is visible on GitHub as a prominent block of text. Only inline comment bodies carry the actual review content.
+- **NEVER post a separate overall/summary review.** Do NOT create one review with a summary body and another with inline comments — that duplicates everything and lowers signal.
+- **ALL violations MUST be posted as inline comments when possible.** Every violation — even ones that span multiple files (e.g., copyright year across 6 files) — should be attached to a specific file and line. Pick one representative file and mention the others in the comment body (e.g., "Same issue in `file2.h`, `file3.cc`, ..."). Only fall back to a non-inline comment if the violation genuinely can't be placed on any specific line in the diff.
+- **No duplication.** A violation is posted exactly once — either inline or as a fallback comment, never both. Never restate inline comments in a summary.
 - `side: "RIGHT"` targets the new version of the file (added lines)
 - `line` is the line number in the new file, which matches what the subagent reports from `+` lines in the diff
 - All approved violations for a single PR are batched into one review (one notification to the author)
