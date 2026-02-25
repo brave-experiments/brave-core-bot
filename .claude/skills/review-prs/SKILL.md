@@ -280,13 +280,13 @@ Each subagent prompt MUST include:
    - Security-sensitive areas (wallet, crypto, sync, credentials) deserve extra scrutiny — type mismatches, truncation, and correctness issues should use stronger language
    - Do NOT flag: existing code the PR isn't changing, template functions defined in headers, simple inline getters in headers, style preferences not in the documented best practices, **include/import ordering** (this is handled by formatting tools and linters, not this bot)
    - Comment style: short (1-3 sentences), targeted, acknowledge context. Use "nit:" for genuinely minor/stylistic issues (including missing comments/documentation). Substantive issues (test reliability, correctness, banned APIs) should be direct without "nit:" prefix
-5. **Best practice link requirement** — for each violation, the subagent MUST include a direct link to the specific rule heading in the best practices doc. The link format is:
+5. **Best practice link requirement** — each rule in the best practices docs has a stable ID anchor (e.g., `<a id="CS-001"></a>`) on the line before the heading. For each violation, the subagent MUST include a direct link using that ID. The link format is:
    ```
-   https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/<doc>.md#<heading-anchor>
+   https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/<doc>.md#<ID>
    ```
-   Where `<heading-anchor>` is the `##` heading converted to a GitHub anchor (lowercase, spaces to hyphens, special characters/emojis removed). For example, `## ❌ Don't Use rapidjson` becomes `#dont-use-rapidjson`.
+   For example, if the heading has `<a id="CS-042"></a>` above it, the link is `...coding-standards.md#CS-042`.
 
-   **CRITICAL: The `rule` field MUST be the EXACT text of a `##` heading that exists in the best practices document you read. Do NOT paraphrase, summarize, or invent heading names.** If your observation is a general bug or correctness issue that doesn't map to any specific `##` heading in the document, omit the `rule_link` field entirely — do not fabricate a link to a non-existent anchor. Only include `rule_link` when pointing to an actual documented rule.
+   **CRITICAL: The `rule_link` fragment MUST be an exact `<a id="...">` value from the document you read.** Look for the `<a id="..."></a>` tag on the line before the heading you're referencing and use that ID verbatim. Do NOT invent IDs, guess ID numbers, or construct anchors from heading text. If no `<a id>` tag exists for the rule, or if your observation is a general bug/correctness issue that doesn't map to any specific heading, omit the `rule_link` field entirely.
 
    **CRITICAL: Do NOT invent rules that contradict documented best practices.** If the best practices doc says "bump by 5", you must NOT suggest the opposite. If you're unsure whether a rule exists, read the actual document — do not guess or reconstruct rules from memory. A hallucinated rule that contradicts a real rule is worse than no comment at all.
 6. **Prior comments context (re-review awareness)** — if prior comments exist from Step 1.5, include them in the subagent prompt with these rules:
@@ -377,10 +377,15 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
    - If there are more than 5 high+medium violations, cap at the 5 most impactful ones and note in the log how many were dropped.
    - **When in doubt, don't comment.** A review with 2 important comments is far more useful than one with 10 mixed-importance comments.
    - **Approved PRs — high-severity only.** If the PR's `hasApproval` field is `true` (meaning at least one reviewer has approved), drop ALL medium and low severity violations. Only post high-severity issues (correctness bugs, security vulnerabilities, banned APIs). A human reviewer already approved the PR, so the bot should only intervene for serious problems.
-3. **If AUTO_MODE**: post the prioritized violations using the inline review API (see Auto Posting below), then move to the next PR
-4. **If interactive mode**: present the prioritized violations to the user for approval before moving to the next PR
-5. **If no violations across all categories AND all prior bot threads were resolved in Step 1.6**: submit an APPROVE review and mark as settled using `--approve` (see Step 1.7). This completes the bot's engagement with this PR — future runs will skip it entirely. Log: `APPROVE: [PR #<number>](...) - no violations, approved`
-6. **If violations were posted**: do NOT approve. The bot will re-check this PR on the next run after the developer addresses the feedback
+3. **Validate rule links** — for each violation with a `rule_link`, extract the fragment ID and validate it exists in the target doc:
+   ```bash
+   python3 ./brave-core-bot/scripts/manage-bp-ids.py --check-link <ID> --doc <doc>.md
+   ```
+   If the ID is invalid (exit code 1), strip the `[best practice](...)` link from the `draft_comment` text before posting. Log: `INVALID_LINK: stripped broken link #<ID> from <file>:<line>`. The comment text itself is still posted — only the broken link is removed.
+4. **If AUTO_MODE**: post the prioritized violations using the inline review API (see Auto Posting below), then move to the next PR
+5. **If interactive mode**: present the prioritized violations to the user for approval before moving to the next PR
+6. **If no violations across all categories AND all prior bot threads were resolved in Step 1.6**: submit an APPROVE review and mark as settled using `--approve` (see Step 1.7). This completes the bot's engagement with this PR — future runs will skip it entirely. Log: `APPROVE: [PR #<number>](...) - no violations, approved`
+7. **If violations were posted**: do NOT approve. The bot will re-check this PR on the next run after the developer addresses the feedback
 
 **PR Link Format (CRITICAL):** When displaying PR numbers to the user, ALWAYS use a full markdown link with the `brave/brave-core` URL: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. **NEVER use bare `#<number>` references** — the TUI auto-links them against the current repo's git remote (`brave-experiments/brave-core-bot`), sending users to the wrong repository. Every single PR number shown to the user must be a full `https://github.com/brave/brave-core/pull/` link.
 
@@ -392,7 +397,7 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
 - **Targeted** - reference specific files and code
 - **Acknowledge context** - if upstream does the same thing, say so
 - **No lecturing** - state the issue briefly
-- **Link to the rule** - when the violation is an explicit best practice rule, append a link to the specific rule at the end of the comment. Example: `[best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#dont-use-rapidjson)`. Only include the link for explicit documented rule violations, not for general bug/correctness observations.
+- **Link to the rule** - when the violation is an explicit best practice rule, append a link using the rule's stable ID anchor at the end of the comment. Example: `[best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#CS-042)`. Only include the link for explicit documented rule violations, not for general bug/correctness observations.
 - **Match tone to severity:**
   - **Genuine nits** (style, naming, minor cleanup, missing comments/documentation): use "nit:" prefix, "worth considering", "not blocking either way"
   - **Substantive issues** (test reliability, correctness, banned APIs, potential bugs): be direct and clear about why it needs to change. Do NOT use "nit:" for these — a `RunUntilIdle()` violation or a banned API usage is not a nit, it's a real problem.
@@ -438,13 +443,13 @@ gh api repos/brave/brave-core/pulls/{number}/reviews \
       "path": "path/to/file.cc",
       "line": 42,
       "side": "RIGHT",
-      "body": "comment text. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#rule-anchor)"
+      "body": "comment text. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#CS-042)"
     },
     {
       "path": "path/to/other_file.cc",
       "line": 15,
       "side": "RIGHT",
-      "body": "another comment. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/testing-async.md#rule-anchor)"
+      "body": "another comment. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/testing-async.md#TA-005)"
     }
   ]
 }
