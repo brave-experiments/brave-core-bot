@@ -526,6 +526,8 @@ class Transaction {
 
 **Test-specific workarounds should not affect production behavior.** Use test infrastructure like `kHostResolverRules` command line switches in `SetUpCommandLine` instead of adding production code paths only needed for tests.
 
+**Only flag this rule when you are certain the code exists solely for tests.** Clear signals include `CHECK_IS_TEST()`, `#if defined(UNIT_TEST)`, `_for_testing` suffixes, or comments explicitly mentioning test support. Do NOT flag legitimate production logic such as handling empty/null/default values, reset paths, or cleanup behavior — these are normal defensive coding patterns, not test accommodations. When uncertain, do not flag.
+
 **Exception:** Thin `ForTesting()` accessors that expose internalized features (e.g., `base::Feature`) are acceptable. These keep the feature internalized while providing a clean way for tests to reference it, and do not affect production behavior.
 
 ---
