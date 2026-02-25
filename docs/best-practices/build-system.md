@@ -175,28 +175,6 @@ deps += [ "//brave/utility" ]
 
 ---
 
-## ✅ Keep Lists Sorted Alphabetically
-
-**When adding items to lists (includes, deps, sources, histograms, features), maintain alphabetical ordering.** Sorted lists reduce merge conflicts and make items easier to find.
-
-```gn
-# ❌ WRONG - unsorted
-deps = [
-  "//brave/components/brave_shields",
-  "//brave/components/brave_ads",
-  "//brave/components/brave_wallet",
-]
-
-# ✅ CORRECT - alphabetically sorted
-deps = [
-  "//brave/components/brave_ads",
-  "//brave/components/brave_shields",
-  "//brave/components/brave_wallet",
-]
-```
-
----
-
 ## ❌ Don't Use OS Guards as Proxy for Feature Guards
 
 **Use the correct feature guard (`brave_wallet_enabled`, `enable_extensions`) instead of approximating with OS guards (`!is_android && !is_ios`).** OS guards can get out of sync with the actual feature flag logic.
