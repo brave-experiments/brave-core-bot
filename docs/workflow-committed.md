@@ -104,6 +104,10 @@ EOF
      - Set `status: "pushed"`
      - Set `lastActivityBy: "bot"` (we just created the PR)
    - Append to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
+   - **Send Signal notification** (no-op if not configured):
+     ```bash
+     ./brave-core-bot/scripts/signal-notify.sh "PR created: #<number> - <title> https://github.com/brave/brave-core/pull/<number>"
+     ```
    - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
    - **END THE ITERATION** - Stop processing
 

@@ -28,3 +28,13 @@ Use `gh pr create` with:
 - **Body:** A brief, factual summary of what changed and why. No filler. If there is an associated issue, include `Fix https://github.com/brave/brave-browser/issues/<number>` on its own line at the top of the body.
 
 Keep the description concise. Just state what was done.
+
+### 4. Send Signal notification
+
+After the PR is created, send a notification:
+
+```bash
+./brave-core-bot/scripts/signal-notify.sh "PR created: #<number> - <title> <pr-url>"
+```
+
+This is a no-op if Signal is not configured.

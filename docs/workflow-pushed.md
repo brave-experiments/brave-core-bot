@@ -113,6 +113,12 @@ Before merging, verify ALL of the following:
    - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
 **IMPORTANT**: Always use `--squash` merge strategy to keep git history clean.
+
+7. **Send Signal notification** (no-op if not configured):
+   ```bash
+   ./brave-core-bot/scripts/signal-notify.sh "PR merged: #<pr-number> - <title> https://github.com/brave/brave-core/pull/<pr-number>"
+   ```
+
 - **DONE** - Story complete (will be rechecked on post-merge schedule)
 
 ## Step 2: If NOT Ready to Merge, Check for Review Comments
@@ -290,6 +296,10 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 - Update the PRD: Set `lastActivityBy: "bot"` (we just responded)
 - Update `./brave-core-bot/progress.txt` with what was changed
 - Keep `status: "pushed"` (stay in this state)
+- **Send Signal notification** (no-op if not configured):
+  ```bash
+  ./brave-core-bot/scripts/signal-notify.sh "Review addressed: PR #<pr-number> - <description of changes>"
+  ```
 - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 
 **Learnable Pattern Evaluation Checklist** (do this after pushing):

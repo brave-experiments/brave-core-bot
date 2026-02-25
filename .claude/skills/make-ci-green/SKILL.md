@@ -115,6 +115,16 @@ python3 .claude/skills/make-ci-green/retrigger_ci.py <pr-number> --format json
 
 Report the results: which checks were retriggered, the action taken, and any errors.
 
+### Step 5: Signal Notification
+
+After retriggering, send a notification:
+
+```bash
+./brave-core-bot/scripts/signal-notify.sh "CI retriggered: PR #<number> - <N> jobs restarted (<actions summary>)"
+```
+
+This is a no-op if Signal is not configured.
+
 ---
 
 ## WIPE_WORKSPACE Decision Logic

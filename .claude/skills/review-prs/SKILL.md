@@ -459,6 +459,16 @@ RESULTS:
 
 **This summary block is CRITICAL for cron log readability.** Do not skip it. Do not summarize with vague language like "All done" — list every PR explicitly.
 
+### Signal Notification (after final summary)
+
+After printing the final summary, send a Signal notification with a concise summary:
+
+```bash
+./brave-core-bot/scripts/signal-notify.sh "Review complete: <N> PRs reviewed, <M> with violations, <T> comments posted"
+```
+
+This is a no-op if Signal is not configured.
+
 ---
 
 ## Closed/Merged PR Workflow

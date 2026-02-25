@@ -188,6 +188,16 @@ Output a summary to the user:
 - Commit SHA
 - Link to the PR
 
+### 11. Signal Notification
+
+Send a notification summarizing the work:
+
+```bash
+./brave-core-bot/scripts/signal-notify.sh "Review feedback addressed: PR #<number> - <N> comments implemented, pushed <commit-sha>"
+```
+
+This is a no-op if Signal is not configured.
+
 ---
 
 ## Important Rules

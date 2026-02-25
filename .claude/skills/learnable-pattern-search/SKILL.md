@@ -297,3 +297,17 @@ GitHub API has rate limits. If you hit rate limits:
 - **Commit changes** as you find them rather than batching everything at the end
 - **Focus on the reviewer's comments**, not the PR code itself
 - PRs with no review comments or only "LGTM" can be quickly skipped
+
+## Signal Notifications
+
+After completing the analysis, send a Signal notification summarizing findings:
+
+```bash
+# When patterns are found and documentation updated
+./brave-core-bot/scripts/signal-notify.sh "Learnable patterns: analyzed <N> PRs, found <M> patterns, updated <list of docs>"
+
+# When best practice adjustment PRs are created (self-review mode)
+./brave-core-bot/scripts/signal-notify.sh "Best practice PR created: <pr-url> - <title>"
+```
+
+This is a no-op if Signal is not configured.
