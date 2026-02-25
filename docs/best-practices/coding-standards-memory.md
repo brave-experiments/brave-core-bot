@@ -154,6 +154,28 @@ timer_.Start(FROM_HERE, delay,
 
 ---
 
+## ✅ `base::Unretained(this)` Is Safe with Owned Mojo Endpoints
+
+**Using `base::Unretained(this)` in Mojo disconnect handlers and connection error handlers is safe when the class owns the `mojo::Remote`, `mojo::Receiver`, or `mojo::AssociatedRemote`.** The Mojo endpoint is destroyed with the class, so the callback can only fire while `this` is valid — the same ownership guarantee as timers.
+
+```cpp
+// ✅ SAFE - class owns the remote, so Unretained is fine
+remote_.set_disconnect_handler(
+    base::BindOnce(&MyClass::OnDisconnect, base::Unretained(this)));
+
+// ✅ SAFE - class owns the receiver
+receiver_.set_disconnect_handler(
+    base::BindOnce(&MyClass::OnDisconnect, base::Unretained(this)));
+
+// ✅ ALSO SAFE - WeakPtr works too but adds unnecessary overhead
+remote_.set_disconnect_handler(
+    base::BindOnce(&MyClass::OnDisconnect, weak_factory_.GetWeakPtr()));
+```
+
+**Do NOT flag `base::Unretained(this)` in Mojo disconnect/error handlers as unsafe.** This is a well-established safe pattern in Chromium. Only flag it if the binding crosses thread boundaries or if `this` does not own the Mojo endpoint.
+
+---
+
 ## ✅ Place `raw_ptr<>` Members Last in Class Declarations
 
 **In class declarations, place unowned `raw_ptr<>` members after owning members** (like `std::unique_ptr<>`). This follows Chromium convention and makes ownership semantics visually clear.
