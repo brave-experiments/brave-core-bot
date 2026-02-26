@@ -62,21 +62,42 @@ class ViewModel {
 
 <a id="IOS-003"></a>
 
-## ✅ Use `@MainActor` for UI Work in Tasks
+## ✅ Use `@MainActor` to Ensure UI Work Runs on the Main Thread
 
-**Annotate Tasks that perform UI updates with `@MainActor`** to ensure they run on the main thread.
+**Mark methods and types that perform UI work as `@MainActor`** so that async contexts are forced to await them. Note that Tasks inherit actor isolation from their enclosing context — adding `@MainActor` to a Task created inside an already-`@MainActor`-isolated context is redundant.
 
 ```swift
-// ❌ WRONG - UI work without main actor
-Task {
-  let data = await fetchData()
-  tableView.reloadData()  // May not be on main thread!
+// ❌ WRONG - redundant @MainActor on Task inside @MainActor context
+@MainActor
+class MyViewController: UIViewController {
+  func refresh() {
+    Task { @MainActor in  // Redundant — Task inherits MainActor from class
+      tableView.reloadData()
+    }
+  }
 }
 
-// ✅ CORRECT
-Task { @MainActor in
+// ✅ CORRECT - Task inherits @MainActor from enclosing class
+@MainActor
+class MyViewController: UIViewController {
+  func refresh() {
+    Task {
+      let data = await fetchData()
+      tableView.reloadData()  // Already on MainActor
+    }
+  }
+}
+
+// ✅ CORRECT - mark the method as @MainActor when not in an isolated context
+func updateUI() async {
   let data = await fetchData()
-  tableView.reloadData()
+  await tableView.reloadData()  // UITableView is NS_SWIFT_UI_ACTOR, requires await
+}
+
+@MainActor
+func updateUI() async {
+  let data = await fetchData()
+  tableView.reloadData()  // No await needed — method is MainActor-isolated
 }
 ```
 
@@ -207,6 +228,17 @@ extension TabType {
 
 **Use `let` for properties that are assigned once and never mutated.** The compiler enforces immutability, preventing accidental reassignment.
 
+**Exception:** Swift structs control mutability at the usage site via `let`/`var`, so `var` properties in structs are acceptable:
+
+```swift
+struct Item {
+  var name: String  // OK — mutability controlled by usage
+}
+
+let itemOne = Item(name: "...") // itemOne.name is immutable
+var itemTwo = Item(name: "...") // itemTwo.name is mutable
+```
+
 ---
 
 <a id="IOS-011"></a>
@@ -215,11 +247,13 @@ extension TabType {
 
 **Do not use implicitly unwrapped optionals (`!`) for properties initialized in `viewDidLoad`.** Use lazy properties, optional types with safe unwrapping, or initialize in the initializer.
 
+**Use `lazy var` only when** you need to defer creation to avoid work at init time, or when the initializer requires `self`.
+
 ```swift
 // ❌ WRONG - crash risk if accessed before viewDidLoad
 var tableView: UITableView!
 
-// ✅ CORRECT - lazy initialization
+// ✅ CORRECT - lazy initialization (defers creation, can reference self)
 lazy var tableView = UITableView()
 ```
 
@@ -250,30 +284,24 @@ func fetchData() async throws -> Data {
 
 <a id="IOS-013"></a>
 
-## ✅ Always Call WKScriptMessage Reply Handlers
+## ✅ Always Call Completion Handlers on All Code Paths
 
-**When handling `WKScriptMessage` with reply handlers, always call the reply handler on every code path — including error paths.** Failing to call the reply handler leaks memory and may hang the web page.
+**When a function accepts a completion handler, always call it on every code path — including error and early-return paths.** Failing to call the completion handler leaks resources and may leave callers waiting indefinitely.
 
 ```swift
-// ❌ WRONG - reply handler not called on error path
-func userContentController(_ controller: WKUserContentController,
-                           didReceive message: WKScriptMessage,
-                           replyHandler: @escaping (Any?, String?) -> Void) {
-  guard let body = message.body as? [String: Any] else {
-    return  // Reply handler leaked!
-  }
-  replyHandler(result, nil)
+// ❌ WRONG - completion handler not called on error path
+func fetchData(from url: URL, _ completionHandler: @escaping () -> Void) {
+  if url.scheme != "https" { return } // Didn't call completion handler on failure case
+  // ...
 }
 
-// ✅ CORRECT - reply handler called on all paths
-func userContentController(_ controller: WKUserContentController,
-                           didReceive message: WKScriptMessage,
-                           replyHandler: @escaping (Any?, String?) -> Void) {
-  guard let body = message.body as? [String: Any] else {
-    replyHandler(nil, "Invalid message body")
+// ✅ CORRECT - completion handler called in all paths
+func fetchData(from url: URL, _ completionHandler: @escaping () -> Void) {
+  if url.scheme != "https" {
+    completionHandler()
     return
   }
-  replyHandler(result, nil)
+  // ...
 }
 ```
 
@@ -460,23 +488,20 @@ bottomConstraint = view.bottomAnchor.constraint(
 
 ---
 
-<a id="IOS-026"></a>
-
-## ❌ Don't Apply Custom UINavigationBar Appearance Per-Screen
-
-**Do not set custom `UINavigationBar` appearance on individual view controllers.** Use the app-wide appearance proxy or Brave's theming system.
-
----
-
 <a id="IOS-027"></a>
 
 ## ✅ Use Brave Design System Colors
 
 **Use `UIColor(braveSystemName:)` for colors, not hard-coded values or system colors.** This ensures consistency with the Brave design system and proper dark mode support.
 
+**Avoid deprecated legacy colors** such as `UIColor.braveBlurpleTint` / `Color(.braveBlurpleTint)` from [LegacyColors.swift](https://github.com/brave/brave-core/blob/00785ba10b5dea2f7ac4e1d66dafe0ddd6d1c0af/ios/brave-ios/Sources/DesignSystem/Colors/LegacyColors.swift). The only legacy colors still acceptable in the short-term are the "grouped" backgrounds: `braveGroupedBackground`, `secondaryBraveGroupedBackground`, `tertiaryBraveGroupedBackground`.
+
 ```swift
 // ❌ WRONG - hard-coded color
 view.backgroundColor = UIColor(red: 0.2, green: 0.4, blue: 0.8, alpha: 1)
+
+// ❌ WRONG - deprecated legacy color
+view.tintColor = UIColor.braveBlurpleTint
 
 // ✅ CORRECT - design system color
 view.backgroundColor = UIColor(braveSystemName: .primary20)
@@ -486,9 +511,9 @@ view.backgroundColor = UIColor(braveSystemName: .primary20)
 
 <a id="IOS-028"></a>
 
-## ✅ Keep WKNavigationDelegate Thin
+## ✅ Keep Tab Observer and Policy Decider Thin
 
-**`WKNavigationDelegate` implementations should be thin — delegate business logic to the `Tab` abstraction.** The navigation delegate should only handle navigation decisions, not feature-specific logic.
+**Do not add feature-specific business logic directly in `BVC+TabObserver.swift` or `BVC+TabPolicyDecider.swift`.** These files should only contain thin delegation. Feature-specific logic belongs in `Tab` helpers.
 
 ---
 
@@ -539,13 +564,12 @@ NS_ASSUME_NONNULL_END
 
 ## ✅ Mark Static-Only ObjC Classes With `NS_UNAVAILABLE` Init
 
-**For Objective-C classes that should not be instantiated (only class methods), mark `init` and `new` as `NS_UNAVAILABLE`.**
+**For Objective-C classes that should not be instantiated (only class methods), mark `init` as `NS_UNAVAILABLE`.** Marking `new` is not necessary since most Objective-C usage is from Swift, which does not call `new`.
 
 ```objc
 @interface BraveUtils : NSObject
 + (NSString *)userAgent;
 - (instancetype)init NS_UNAVAILABLE;
-+ (instancetype)new NS_UNAVAILABLE;
 @end
 ```
 
@@ -585,29 +609,9 @@ if ([string isEqualToString:@"expected"]) { ... }
 
 <a id="IOS-035"></a>
 
-## ✅ Use camelCase for Obj-C Variable Names
+## ✅ Use camelCase for Obj-C Variable Names Inside Obj-C Classes/Types
 
-**Objective-C variable naming must use camelCase.** Do not use snake_case or other conventions.
-
----
-
-<a id="IOS-036"></a>
-
-## ❌ ObjC `@available` Cannot Be Negated
-
-**Objective-C's `@available` check cannot be negated with `!`.** Use an empty if-body with the else-clause for unavailable behavior.
-
-```objc
-// ❌ WRONG - negation not supported
-if (!@available(iOS 17, *)) { ... }
-
-// ✅ CORRECT - empty if-body pattern
-if (@available(iOS 17, *)) {
-  // intentionally empty
-} else {
-  // fallback code
-}
-```
+**Objective-C variable naming must use camelCase inside Obj-C classes and types.** When Obj-C types are used inside C++ classes, follow C++ snake_case conventions instead.
 
 ---
 
@@ -672,9 +676,9 @@ init(rewardsManager: BraveRewardsManager) {
 
 <a id="IOS-041"></a>
 
-## ✅ Tab Must Be UI-Agnostic
+## ❌ Do Not Add Feature Data to `TabState`
 
-**The `Tab` class must not reference UI elements (views, view controllers).** Tab is a model/logic layer — UI code belongs in the view controller or dedicated UI helpers.
+**Do not add feature-related data directly to `TabState`.** Instead, use a Tab Helper with `TabDataValues` to store feature-specific state. `TabState` should remain a minimal model representing core tab state.
 
 ---
 
@@ -789,9 +793,9 @@ if FeatureFlags.isEnabled(.myFeature) {
 
 <a id="IOS-054"></a>
 
-## ✅ Code Belongs in `BraveShared`, Not `Web` or `Shared`
+## ❌ Do Not Add New Functionality to the Legacy `Shared` Module
 
-**Place shared iOS code in the `BraveShared` module.** The `Web` and `Shared` modules have specific purposes and should not be used for general code.
+**The `Shared` module is legacy — do not add new functionality to it.** If you need a shared module for new code, create a new module instead. Existing `Shared` code can still be used but should not be extended.
 
 ---
 
@@ -955,28 +959,12 @@ try await Task.sleep(nanoseconds: 500_000_000)
 // chromium_src/ios/chrome/browser/some_file.mm
 #define ChromeViewController BraveViewController
 
-#include "src/ios/chrome/browser/some_file.mm"
+#include <ios/chrome/browser/some_file.mm>
 
 #undef ChromeViewController
 ```
 
 **Always add blank lines around the `#define`/`#undef`-wrapped includes for readability.**
-
----
-
-<a id="IOS-072"></a>
-
-## ✅ Document Changes From Upstream in chromium_src Test Files
-
-**When creating chromium_src overrides for test files, add comments documenting what changed from upstream and why.** Test overrides are especially confusing without context.
-
----
-
-<a id="IOS-073"></a>
-
-## ✅ Always Update `sources.gni` When Adding New Includes
-
-**When adding new `#include` directives in iOS code, verify that the corresponding target is listed in `sources.gni`.** Missing entries cause link failures that may only appear on CI.
 
 ---
 
@@ -1018,4 +1006,118 @@ Image("icon")
 
 // UIKit
 imageView.contentMode = .scaleAspectFill
+```
+
+---
+
+<a id="IOS-078"></a>
+
+## ✅ Use `Label` for Icon-Only Buttons in SwiftUI
+
+**Always use `Label` with `.labelStyle(.iconOnly)` for icon-only buttons.** This ensures accessibility information is provided automatically.
+
+```swift
+// ❌ WRONG - no accessibility label
+Button {
+  // ...
+} label: {
+  Image(braveSystemName: "leo.trash")
+}
+
+// ✅ CORRECT - accessible icon-only button
+Button {
+  // ...
+} label: {
+  Label("Delete", braveSystemImage: "leo.trash")
+    .labelStyle(.iconOnly)
+}
+```
+
+---
+
+<a id="IOS-079"></a>
+
+## ✅ Use Nala Design System Icons Over Apple's System Icons
+
+**Use `Image(braveSystemName:)` with Nala (Leo) icons instead of Apple's `Image(systemName:)`.** Nala icons ensure visual consistency with the Brave design system.
+
+```swift
+// ❌ WRONG - Apple system icon
+Image(systemName: "trash")
+
+// ✅ CORRECT - Nala design system icon
+Image(braveSystemName: "leo.trash")
+```
+
+---
+
+<a id="IOS-080"></a>
+
+## ✅ Size Nala Icons Using Fonts, Not Frame
+
+**Nala icons are custom SF Symbols and should be treated like font glyphs, not images.** Size them with `.font()`, not `.resizable().frame()`.
+
+```swift
+// ❌ WRONG - treating icon like an image
+Image(braveSystemName: "leo.trash")
+  .resizable()
+  .frame(width: 24, height: 24)
+
+// ✅ CORRECT - sizing with font
+Image(braveSystemName: "leo.trash")
+  .font(.title3)
+```
+
+---
+
+<a id="IOS-081"></a>
+
+## ❌ Do Not Use Explicit Font Sizes
+
+**UI must adhere to the user's dynamic font sizing preferences.** Use semantic font styles (`.subheadline`, `.body`, etc.). If a custom value must be used, use `@ScaledMetric` in SwiftUI or `UIFontMetrics` in UIKit.
+
+```swift
+// ❌ WRONG - fixed font size ignores user preferences
+Text("Hello World")
+  .font(.system(size: 15))
+
+// ✅ CORRECT - semantic font style
+Text("Hello World")
+  .font(.subheadline)
+
+// ✅ CORRECT - scaled custom value
+@ScaledMetric private var customSize = 15
+Text("Hello World")
+  .font(.system(size: customSize))
+```
+
+---
+
+<a id="IOS-082"></a>
+
+## ❌ Do Not Initialize SwiftUI `@State` on `init`
+
+**Do not assign `@State` properties in `init` using `State(wrappedValue:)`.** This can cause undefined behavior on future body computations. Pass in the initial value and assign it using an `onAppear` or `task` modifier.
+
+```swift
+// ❌ WRONG - assigning @State in init
+struct ContentView: View {
+  @State private var value: Int
+  init(value: Int) {
+    self._value = State(wrappedValue: value)
+  }
+}
+
+// ✅ CORRECT - assign via onAppear
+struct ContentView: View {
+  var initialValue: Int
+  @State private var value: Int?
+
+  var body: some View {
+    Color.black
+      .onAppear {
+        value = initialValue
+      }
+  }
+}
 ```
