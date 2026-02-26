@@ -200,22 +200,6 @@ public class MyPreference extends Preference {
 
 <a id="AND-008"></a>
 
-## ✅ Verify Both Light and Dark Theme Appearance
-
-**When implementing color or styling changes for Android UI, always verify appearance in both Light and Dark themes.** Code-level correctness does not guarantee good visual results. Visual QA in both themes is a standard review expectation.
-
----
-
-<a id="AND-009"></a>
-
-## ✅ Verify Form Factor Scoping
-
-**When making changes targeting a specific form factor (tablets or phones), verify the change does not unintentionally affect the other form factor.** Reviewers will ask "should this apply to tablets only?" when the PR is tablet-focused.
-
----
-
-<a id="AND-010"></a>
-
 ## ✅ Use `app:isPreferenceVisible="false"` for Conditionally Shown Preferences
 
 **When a preference in XML will be programmatically removed or hidden based on a feature flag, set `app:isPreferenceVisible="false"` in XML to avoid a brief visual flash before the code hides it.**
@@ -230,7 +214,7 @@ public class MyPreference extends Preference {
 
 ---
 
-<a id="AND-011"></a>
+<a id="AND-009"></a>
 
 ## ✅ Use `assert` Alongside `Log` for Validation
 
@@ -254,7 +238,7 @@ if (contractAddress == null || contractAddress.length() < MIN_LENGTH) {
 
 ---
 
-<a id="AND-012"></a>
+<a id="AND-010"></a>
 
 ## ✅ Cache Expensive System Service Lookups
 
@@ -280,7 +264,7 @@ public void onCreate() {
 
 ---
 
-<a id="AND-013"></a>
+<a id="AND-011"></a>
 
 ## ✅ Prefer Core/Native-Side Validation
 
@@ -288,7 +272,7 @@ public void onCreate() {
 
 ---
 
-<a id="AND-014"></a>
+<a id="AND-012"></a>
 
 ## ✅ Skip Native/JNI Checks in Robolectric Tests
 
@@ -305,7 +289,7 @@ See `BraveTabbedAppMenuPropertiesDelegate.java` for an existing example of this 
 
 ---
 
-<a id="AND-015"></a>
+<a id="AND-013"></a>
 
 ## ✅ Use Direct Java Patches When Bytecode Patching Fails
 
@@ -313,7 +297,7 @@ See `BraveTabbedAppMenuPropertiesDelegate.java` for an existing example of this 
 
 ---
 
-<a id="AND-016"></a>
+<a id="AND-014"></a>
 
 ## ✅ `ProfileManager.getLastUsedRegularProfile()` Is Acceptable in Widgets
 
@@ -321,7 +305,7 @@ See `BraveTabbedAppMenuPropertiesDelegate.java` for an existing example of this 
 
 ---
 
-<a id="AND-017"></a>
+<a id="AND-015"></a>
 
 ## ✅ Remove Unused Interfaces and Dead Code
 
@@ -338,7 +322,7 @@ public interface OnAnimationCompleteListener {
 
 ---
 
-<a id="AND-018"></a>
+<a id="AND-016"></a>
 
 ## ❌ Don't Set `clickable`/`focusable` on Non-Interactive Views
 
@@ -346,7 +330,7 @@ public interface OnAnimationCompleteListener {
 
 ---
 
-<a id="AND-019"></a>
+<a id="AND-017"></a>
 
 ## ✅ Share Identical Assets Across Platforms
 
@@ -354,15 +338,7 @@ public interface OnAnimationCompleteListener {
 
 ---
 
-<a id="AND-020"></a>
-
-## ✅ Build Locally with `treat_warnings_as_errors=true`
-
-**Always build locally with `treat_warnings_as_errors=true` before pushing.** Local builds often have this flag disabled, but CI treats warnings as errors. Fix all warnings to match CI behavior.
-
----
-
-<a id="AND-021"></a>
+<a id="AND-018"></a>
 
 ## ✅ Java Field Naming Conventions
 
@@ -385,7 +361,7 @@ public boolean ignorePullToRefresh;
 
 ---
 
-<a id="AND-022"></a>
+<a id="AND-019"></a>
 
 ## ✅ Group Feature-Specific Java Sources into Separate Build Targets
 
@@ -393,7 +369,7 @@ public boolean ignorePullToRefresh;
 
 ---
 
-<a id="AND-023"></a>
+<a id="AND-020"></a>
 
 ## ✅ Provide Justification for Non-Translatable Strings
 
@@ -401,7 +377,7 @@ public boolean ignorePullToRefresh;
 
 ---
 
-<a id="AND-024"></a>
+<a id="AND-021"></a>
 
 ## ✅ Prefer Early Returns Over Deep Nesting
 
