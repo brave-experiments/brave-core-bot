@@ -257,6 +257,7 @@ Only read the docs relevant to your story — don't load all of them every time.
    After committing, you MUST run the full verification cycle to ensure the commit is valid:
    ```bash
    cd [workingDirectory from prd.json config]
+   /check-best-practices  # Check changes against best practices docs
    npm run format      # Check/fix formatting
    npm run presubmit   # Run presubmit checks
    npm run gn_check    # Verify GN configuration (skip for filter-file-only changes)
@@ -271,16 +272,17 @@ Only read the docs relevant to your story — don't load all of them every time.
    **If presubmit or any verification fails:**
    - Fix the issues
    - Stage and commit the fixes
-   - **Re-run the ENTIRE verification cycle again** (format, presubmit, gn_check, build, tests)
+   - **Re-run the ENTIRE verification cycle again** (best-practices, format, presubmit, gn_check, build, tests)
    - Repeat until ALL verifications pass consecutively
 
    **IMPORTANT: Multiple iterations require full re-verification.** If you make ANY changes after initial commit (including formatting fixes, presubmit fixes, or any other modifications), you MUST re-run:
-   1. `npm run format`
-   2. `npm run presubmit`
-   3. `npm run gn_check`
-   4. `npm run build`
-   5. If any `.ts`/`.tsx`/`.js` files changed: `npm run test-unit` and `npm run build-storybook`
-   6. ALL acceptance criteria tests
+   1. `/check-best-practices`
+   2. `npm run format`
+   3. `npm run presubmit`
+   4. `npm run gn_check`
+   5. `npm run build`
+   6. If any `.ts`/`.tsx`/`.js` files changed: `npm run test-unit` and `npm run build-storybook`
+   7. ALL acceptance criteria tests
 
    This ensures the final committed state is fully verified. Do NOT create a PR until all checks pass on the final committed state.
 

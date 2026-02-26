@@ -426,6 +426,7 @@ After committing your changes, run the full verification cycle:
 
 ```bash
 cd [workingDirectory from prd.json config]
+/check-best-practices  # Check changes against best practices docs
 npm run format      # Check/fix formatting
 npm run presubmit   # Run presubmit checks
 npm run gn_check    # Verify GN configuration (skip for filter-file-only changes)
@@ -440,7 +441,7 @@ npm run build-storybook  # Verify Storybook builds
 **If presubmit fails:**
 1. Fix the issues identified by presubmit
 2. Stage and commit the fixes
-3. **Re-run the ENTIRE verification cycle** (format, presubmit, gn_check, build)
+3. **Re-run the ENTIRE verification cycle** (best-practices, format, presubmit, gn_check, build)
 4. **Re-run ALL acceptance criteria tests**
 5. Repeat until everything passes consecutively
 
@@ -453,11 +454,12 @@ npm run build-storybook  # Verify Storybook builds
 **Multiple iterations = full re-verification:**
 
 If you make ANY changes after the initial commit (formatting fixes, presubmit fixes, additional code changes), you MUST re-run:
-1. `npm run format`
-2. `npm run presubmit`
-3. `npm run gn_check`
-4. `npm run build`
-5. ALL acceptance criteria tests
+1. `/check-best-practices`
+2. `npm run format`
+3. `npm run presubmit`
+4. `npm run gn_check`
+5. `npm run build`
+6. ALL acceptance criteria tests
 
 Do NOT create a PR until all verifications pass on the final committed state.
 
