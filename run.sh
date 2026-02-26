@@ -111,6 +111,14 @@ if [ ! -f "$ORG_MEMBERS_FILE" ]; then
   exit 1
 fi
 
+# Check if there are active stories in the PRD before starting
+echo "Checking PRD for active work items..."
+if ! python3 "$SCRIPT_DIR/check-prd-has-work.py"; then
+  echo ""
+  echo "No active work items found. Exiting without starting Claude."
+  exit 0
+fi
+
 echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
 echo "Logs will be saved to: $LOGS_DIR"
 
@@ -124,6 +132,13 @@ work_iteration=0
 
 while [ $loop_count -lt $MAX_ITERATIONS ]; do
   ((++loop_count))
+
+  # Check if PRD still has active stories before each iteration
+  if ! python3 "$SCRIPT_DIR/check-prd-has-work.py" > /dev/null 2>&1; then
+    echo ""
+    echo "No active work items remaining in PRD. Stopping."
+    exit 0
+  fi
 
   # Check if last iteration had state change (default to true for first iteration)
   HAD_STATE_CHANGE=$(jq -r '.lastIterationHadStateChange // true' "$RUN_STATE_FILE" 2>/dev/null || echo "true")
