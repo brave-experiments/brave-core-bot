@@ -99,6 +99,8 @@ Common substitutions:
 
 When a feature can be disabled, prefer making the factory/service return null or no-op when disabled, rather than requiring callers to wrap every usage in `#ifdef` guards. Scattered buildflags lead to missing deps and maintenance burden.
 
+**Scope:** This rule applies to C++ `#ifdef`/`BUILDFLAG()` guards. It does **not** apply to `// <if expr="...">` directives in web resource files (`.ts`, `.tsx`, `.html`). Those are compile-time platform exclusions that are standard Chromium practice for conditionally including platform-specific code — they work differently from runtime feature guards and do not have the same maintenance burden.
+
 **BAD:**
 ```cpp
 // ❌ WRONG - external ifdef guards everywhere
