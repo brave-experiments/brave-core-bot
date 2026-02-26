@@ -106,6 +106,7 @@ For each applicable best practices document, perform a focused audit:
 **Important:**
 - Only flag VIOLATION for code that is **newly introduced or modified** in the diff. Don't flag pre-existing code that wasn't touched.
 - Read surrounding code context to avoid false positives. A pattern that looks wrong in isolation may be correct in context.
+- Do not suggest renaming imported symbols (functions, classes, variables) that are defined outside the diff's changed files. The author cannot rename them without modifying the upstream module, which is out of scope.
 - For each violation, cite the specific practice title, the file and line, and what should change.
 
 ### Document Audit Order

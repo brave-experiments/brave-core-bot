@@ -140,9 +140,9 @@ function UserInfo({ user }: Props) {
 
 <a id="FE-008"></a>
 
-## ✅ Use `generateReactContextForAPI` for Mojo API Contexts
+## ✅ Use `generateReactContext` for Mojo API Contexts
 
-**Use the `generateReactContextForAPI` helper from `components/common/react_api.tsx`** for creating React context + provider pairs for Mojo API bindings. Don't write custom context boilerplate for each API.
+**Use the `generateReactContext` helper from `$web-common/api/react_api`** for creating React context + provider pairs for Mojo API bindings. Don't write custom context boilerplate for each API.
 
 ---
 
