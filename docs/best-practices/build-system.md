@@ -137,7 +137,7 @@ enable_tab_management_tool = !is_android
 
 **JSON data files should be packaged as resources in `.grd` files, not loaded from disk.** This allows the same data to be used from both C++ and JS.
 
-See `bat_ads_resources.grd` for an example.
+See `brave/components/brave_rewards/resources/brave_rewards_static_resources.grd` for an example.
 
 ---
 
@@ -755,6 +755,14 @@ assert(enable_brave_wallet,
 ---
 
 <a id="BS-047"></a>
+
+## ❌ Don't Patch Python Build Scripts
+
+**Do not add patches to Python build scripts (e.g., `java_cpp_enum.py` or similar build tools).** These patches prevent correct incremental rebuilds and break remote `siso` build actions. Instead, prefer: (1) a `chromium_src` override, (2) a multiline header patch, or (3) a `#define`-based approach. For Java/C++ enums processed by upstream Python scripts, a multiline patch in the header file is acceptable as a pragmatic solution.
+
+---
+
+<a id="BS-048"></a>
 
 ## ✅ Share Constants via Common Headers
 
