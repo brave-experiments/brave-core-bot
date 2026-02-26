@@ -193,7 +193,7 @@ Output a summary to the user:
 Send a notification summarizing the work:
 
 ```bash
-./brave-core-bot/scripts/signal-notify.sh "Review feedback addressed: PR #<number> - <N> comments implemented, pushed <commit-sha>"
+./brave-core-bot/scripts/signal-notify.sh "Review feedback addressed: PR #<number> - <N> comments implemented, pushed <commit-sha> https://github.com/brave/brave-core/pull/<number>"
 ```
 
 This is a no-op if Signal is not configured.

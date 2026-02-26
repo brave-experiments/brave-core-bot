@@ -6,6 +6,9 @@
 #   SIGNAL_SENDER    - Your registered Signal number (e.g., +14155551234)
 #   SIGNAL_RECIPIENT - Number to send notifications to (e.g., +14155559876)
 #
+# GUIDELINE: Always include a relevant link (PR URL, issue URL, etc.) in the
+# message when reporting on a specific item, so the recipient can navigate to it.
+#
 # Gracefully does nothing if signal-cli is not installed or env vars are unset.
 
 set -euo pipefail

@@ -535,7 +535,7 @@ RESULTS:
 After printing the final summary, send a Signal notification with a concise summary:
 
 ```bash
-./brave-core-bot/scripts/signal-notify.sh "Review complete: <N> PRs reviewed, <M> with violations, <T> comments posted"
+./brave-core-bot/scripts/signal-notify.sh "Review complete: <N> PRs reviewed, <M> with violations, <T> comments posted. Violations: <list of PR links with violations, e.g. https://github.com/brave/brave-core/pull/12345, https://github.com/brave/brave-core/pull/12346>"
 ```
 
 This is a no-op if Signal is not configured.

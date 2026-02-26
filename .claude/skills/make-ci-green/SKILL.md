@@ -120,7 +120,7 @@ Report the results: which checks were retriggered, the action taken, and any err
 After retriggering, send a notification:
 
 ```bash
-./brave-core-bot/scripts/signal-notify.sh "CI retriggered: PR #<number> - <N> jobs restarted (<actions summary>)"
+./brave-core-bot/scripts/signal-notify.sh "CI retriggered: PR #<number> - <N> jobs restarted (<actions summary>) https://github.com/brave/brave-core/pull/<number>"
 ```
 
 This is a no-op if Signal is not configured.

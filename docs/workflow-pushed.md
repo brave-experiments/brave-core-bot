@@ -298,7 +298,7 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 - Keep `status: "pushed"` (stay in this state)
 - **Send Signal notification** (no-op if not configured):
   ```bash
-  ./brave-core-bot/scripts/signal-notify.sh "Review addressed: PR #<pr-number> - <description of changes>"
+  ./brave-core-bot/scripts/signal-notify.sh "Review addressed: PR #<pr-number> - <description of changes> https://github.com/brave/brave-core/pull/<pr-number>"
   ```
 - **Mark story as checked:** Add story ID to `run-state.json`'s `storiesCheckedThisRun` array
 

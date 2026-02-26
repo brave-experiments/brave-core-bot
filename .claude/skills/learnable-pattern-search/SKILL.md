@@ -255,8 +255,8 @@ GitHub API has rate limits. If you hit rate limits:
 After completing the analysis, send a Signal notification summarizing findings:
 
 ```bash
-# When patterns are found and documentation updated
-./brave-core-bot/scripts/signal-notify.sh "Learnable patterns: analyzed <N> PRs, found <M> patterns, updated <list of docs>"
+# When patterns are found and documentation updated (include PR links for context)
+./brave-core-bot/scripts/signal-notify.sh "Learnable patterns: analyzed <N> PRs, found <M> patterns, updated <list of docs>. Source PRs: https://github.com/brave/brave-core/pull/111, https://github.com/brave/brave-core/pull/222"
 
 # When best practice adjustment PRs are created (self-review mode)
 ./brave-core-bot/scripts/signal-notify.sh "Best practice PR created: <pr-url> - <title>"
