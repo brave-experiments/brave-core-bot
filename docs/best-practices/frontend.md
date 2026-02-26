@@ -224,12 +224,17 @@ if ('text' in value && 'role' in value) { ... }
 
 **When a UI element's only action is navigating to a URL, use a proper `<a>` link element instead of a `<button>` with JavaScript navigation.** This provides better accessibility (users can see the destination on hover) and follows semantic HTML principles.
 
+**Exception:** When a design system (e.g., Nala/Leo) provides styled button or link components, prefer using those for visual consistency with the design language. Design system consistency takes precedence over raw semantic HTML.
+
 ```tsx
 // ❌ WRONG - button with JS navigation
 <button onClick={() => window.open(url)}>Visit</button>
 
 // ✅ CORRECT - semantic link
 <a href={url} target="_blank" rel="noopener">Visit</a>
+
+// ✅ ALSO CORRECT - design system component for navigation
+<Button onClick={() => api.openTab(url)}>Settings</Button>  // When design system requires Button
 ```
 
 ---
