@@ -16,6 +16,7 @@ This document is an index of best practices for the Brave Browser codebase, disc
 - **[Front-End (TypeScript/React)](./docs/best-practices/frontend.md)** - Component props, spread args, XSS prevention
 - **[chromium_src Overrides](./docs/best-practices/chromium-src-overrides.md)** - Overrides vs patches, minimizing duplication, ChromiumImpl fallback
 - **[Build System](./docs/best-practices/build-system.md)** - BUILD.gn organization, buildflags, DEPS, patches, GRD resources
+- **[iOS (Swift/ObjC/UIKit)](./docs/best-practices/ios.md)** - Swift idioms, SwiftUI, UIKit lifecycle, ObjC bridge, Tab architecture, chromium_src iOS overrides
 
 ## Testing
 
