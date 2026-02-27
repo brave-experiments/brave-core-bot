@@ -309,14 +309,23 @@ GitHub API has rate limits. If you hit rate limits:
 
 ## Signal Notifications
 
-After completing the analysis, send a Signal notification summarizing findings:
+After completing the analysis, send a Signal notification summarizing findings.
+
+**CRITICAL: Every notification MUST include links for context.** Include:
+1. **Source PR links** — the specific PRs whose review comments led to new patterns (not all analyzed PRs, just the ones that produced patterns)
+2. **Commit hash** — the commit where documentation was updated (use the short hash from `git rev-parse --short HEAD` after committing)
 
 ```bash
-# When patterns are found and documentation updated (include PR links for context)
-./brave-core-bot/scripts/signal-notify.sh "Learnable patterns: analyzed <N> PRs, found <M> patterns, updated <list of docs>. Source PRs: https://github.com/brave/brave-core/pull/111, https://github.com/brave/brave-core/pull/222"
+# When patterns are found and documentation updated
+./brave-core-bot/scripts/signal-notify.sh "Learnable patterns: analyzed <N> PRs from <team/reviewers>, found <M> new patterns. Updated <list of docs>. Commit: https://github.com/anthropics/brave-core-bot/commit/<short-hash>. Source PRs: https://github.com/brave/brave-core/pull/111, https://github.com/brave/brave-core/pull/222"
 
 # When best practice adjustment PRs are created (self-review mode)
 ./brave-core-bot/scripts/signal-notify.sh "Best practice PR created: <pr-url> - <title>"
+
+# When no new patterns found
+./brave-core-bot/scripts/signal-notify.sh "Learnable patterns: analyzed <N> PRs from <team/reviewers>, no new patterns found."
 ```
+
+Do NOT send a notification without links. If you committed doc changes, include the commit link. If patterns came from specific PRs, include those PR links.
 
 This is a no-op if Signal is not configured.
