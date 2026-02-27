@@ -78,6 +78,7 @@ gh api 'search/issues?q=repo:brave/brave-core+type:pr+is:merged+reviewed-by:<use
 
 **Important notes:**
 - If a lookback window is set, only fetch PRs updated within that window.
+- **Skip PRs from external contributors** (non-Brave org members). After fetching PRs, check each PR's author against `.ignore/org-members.txt`. If the author is not in the org members list, skip the PR entirely. This prevents learning patterns from contributor PRs which may have different review dynamics.
 - Process PRs in batches of 10 to avoid rate limiting. After each batch, check `gh api rate_limit` and pause if needed.
 - Skip PRs where the user left no substantive review comments (only approvals with no body text).
 - When analyzing, **focus on comments from the specified user** rather than all reviewers.
