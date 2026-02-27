@@ -372,3 +372,96 @@ function UserCard({ id }: Props) {
 ```
 
 The only valid exception is `React.Component` error boundaries, which still require a class component (`componentDidCatch` has no hook equivalent).
+
+---
+
+<a id="FE-025"></a>
+
+## ✅ Use `createInterfaceApi` to Manage Mojom State and Events in WebUI Pages
+
+**New WebUI pages should use `createInterfaceApi` from `components/common/api/create_interface_api.ts` to bridge mojom interfaces into React.** It provides cached queries, mutations, and observable events — eliminating manual `useState`/`useEffect` boilerplate and ensuring consistent cache sharing across components. It also makes Storybook stories and unit tests significantly easier to write, since the API layer can be mocked without needing real mojom bindings.
+
+> **Exception:** If you are adding to an existing page that already uses a different pattern (e.g. a hand-rolled context/reducer), don't migrate the whole page just to comply. Prefer `createInterfaceApi` for any new pages or self-contained new features where you control the full API layer.
+
+See `components/common/api/readme.md` for full documentation.
+
+### Endpoint types
+
+| Type | Use for |
+|---|---|
+| **Query** | Fetching data from a mojom handler; result is cached and shared |
+| **Mutation** | One-off writes (optionally with optimistic cache updates) |
+| **Action** | Simple pass-through calls with no caching or status tracking |
+| **Event** | Subscribing to mojom observer callbacks |
+
+```tsx
+// ❌ WRONG - manual useState + useEffect + mojom observer
+function MyComponent() {
+  const [items, setItems] = React.useState<Item[]>([])
+
+  React.useEffect(() => {
+    // Manually fetch initial data
+    pageHandler.getItems().then(({ items }) => setItems(items))
+
+    // Manually register observer and handle cleanup
+    const receiver = new PageObserverReceiver({
+      onItemsChanged: (items) => setItems(items),
+    })
+    pageHandler.addObserver(receiver.$.bindNewPipeAndPassRemote())
+    return () => receiver.$.close()
+  }, [])
+
+  // ...
+}
+```
+
+```tsx
+// ✅ CORRECT - createInterfaceApi with queries, mutations, and events
+
+// api/my_page_api.ts
+import { createInterfaceApi, endpointsFor, eventsFor } from
+  '//components/common/api/create_interface_api.js'
+
+export default function createMyPageApi(handler: Closable<Mojom.PageHandlerInterface>) {
+  const api = createInterfaceApi({
+    endpoints: {
+      ...endpointsFor(handler, {
+        getItems: {
+          response: (result) => result.items,
+          prefetchWithArgs: [],
+          placeholderData: [] as Mojom.Item[],
+        },
+      }),
+    },
+    events: {
+      ...eventsFor(Mojom.PageObserverInterface, {
+        onItemsChanged: (items) => {
+          api.getItems.update(items)
+        },
+      }, async (observer) => {
+        handler.addObserver(observer)
+      }),
+    },
+  })
+  return api
+}
+
+// In a component - query results are cached and shared across all consumers
+function MyComponent() {
+  const api = useMyPageApi()
+  const items = api.useGetItems().data  // fetched once, shared, kept up to date by events
+  // ...
+}
+```
+
+Mutations with optimistic updates:
+
+```tsx
+updateEnabled: {
+  mutationResponse: () => undefined,
+  onMutate: ([enabled]: [boolean]) => {
+    // Update the cache immediately before the async call completes
+    api.getSettings.update({ enabled })
+  },
+},
+```
