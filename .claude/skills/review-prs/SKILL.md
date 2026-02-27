@@ -392,10 +392,14 @@ Before presenting violations to the user (interactive) or posting them (auto), y
 
 ```bash
 gh api "repos/brave/brave-core/pulls/{number}/comments" --paginate \
-  --jq '[.[] | select(.user.login == "$BOT_USERNAME") | {path, line, body}]'
+  --jq '[.[] | {path, line, body, user: .user.login}]'
 ```
 
-For each violation, if an existing bot comment exists on the **same file path AND same line number**, drop the violation. Do not re-post it even if the wording differs slightly — a comment on the same file+line means the issue was already raised. Log each: `DEDUP: skipped <file>:<line> — bot already commented`.
+**CRITICAL: Check comments from ALL users**, not just `$BOT_USERNAME`. If anyone (the bot under a different account, a human reviewer, or an automated tool) has already commented on the same file+line about the same concern, the bot must not pile on. This prevents:
+- Cross-account duplicates (bot posted under a different account previously)
+- Duplicating a human reviewer's feedback that already covers the same issue
+
+For each violation, if an existing comment exists on the **same file path AND same line number**, drop the violation — regardless of who posted it. The issue was already raised. Log each: `DEDUP: skipped <file>:<line> — already commented by <user>`.
 
 This is a **hard programmatic check** — it overrides subagent output. Even if a subagent reports a violation, if the bot already commented on that file+line, it must be dropped.
 

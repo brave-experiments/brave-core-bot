@@ -1140,3 +1140,37 @@ std::string_view GetDomain(const char* env_from_switch);
 // ✅ CORRECT
 std::string_view GetDomain(std::string_view env_from_switch);
 ```
+
+---
+
+<a id="CSA-065"></a>
+
+## ⚠️ `std::string_view` Class Members — Know When They're Safe
+
+**Storing `std::string_view` as a class member is dangerous in general** because the referenced data must outlive the object. However, there are well-established safe patterns:
+
+**Safe — no need to flag:**
+- Members initialized from `inline constexpr char[]` constants (e.g., pref keys like `kMyPrefName`), `kFeatureName` string literals, or other compile-time string constants with static storage duration
+- Members initialized from string literals directly (`"some_string"`)
+- Members in short-lived stack objects where the caller's string clearly outlives the object
+
+**Dangerous — flag these:**
+- Members initialized from `std::string` temporaries or function return values
+- Members in long-lived objects (singletons, services) initialized from non-static strings
+- Members where the constructor accepts `std::string_view` and the caller might pass a temporary
+
+```cpp
+// ✅ SAFE - pref keys are inline constexpr with static lifetime
+class MyMetrics {
+  std::string_view histogram_name_;  // initialized from kHistogramName
+  std::string_view pref_path_;       // initialized from prefs::kMyPref
+};
+
+// ❌ DANGEROUS - caller could pass a temporary
+class Config {
+  std::string_view name_;  // who owns the underlying string?
+  Config(std::string_view name) : name_(name) {}  // dangles if temp passed
+};
+```
+
+**When reviewing:** Check what the `string_view` member is actually initialized from before flagging. Pref key constants and string literals have static lifetime and are safe.
