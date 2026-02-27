@@ -111,18 +111,17 @@ If there are no prior comments (first review), skip this step and omit the prior
 
 ### Step 1.6: Acknowledge and Resolve Addressed Comments
 
-When prior comments exist (re-review), check if the developer addressed previous bot review comments. For each addressed comment: add a 👍 reaction to the developer's reply AND resolve the review thread. This is a lightweight courtesy step that runs before launching subagents.
+Resolve bot review threads where the developer has replied. This is a lightweight courtesy step that runs before launching subagents.
 
 **When to run:** Only when Step 1.5 found prior bot comments (from `$BOT_USERNAME`) AND the developer has pushed new commits or replied since the bot's last review.
 
-**How to detect and act:**
+**MANDATORY: Run the resolve script. Do NOT manually add reactions or resolve threads — the script handles both atomically.**
 
-Run the resolve script to atomically handle all bot thread resolution:
 ```bash
 python3 ./brave-core-bot/scripts/resolve-bot-threads.py {number} "$BOT_USERNAME"
 ```
 
-The script fetches bot comments, finds developer replies, adds 👍 reactions, and resolves threads in a single deterministic pass. It outputs JSON:
+The script finds developer replies to bot review threads, resolves the thread via GraphQL, and adds a 👍 reaction — both or neither. It outputs JSON:
 ```json
 {
   "resolved": [{"botCommentId": 123, "threadId": "...", "replyId": 456, "replyUser": "dev"}],
@@ -135,36 +134,39 @@ The script fetches bot comments, finds developer replies, adds 👍 reactions, a
 
 Use `--dry-run` to preview what would be done without making changes.
 
-**Decision override:** Before running the script, briefly review the developer's replies (from Step 1.5 context). If any reply reveals a misunderstanding that could lead to a real bug or security issue, exclude that thread by resolving it manually after posting a follow-up reply. This should be rare — the default is to resolve.
+**CRITICAL — do NOT bypass the script:**
+- Do NOT call `gh api .../reactions` on review thread replies yourself — the script handles this
+- Do NOT call `resolveReviewThread` yourself — the script handles this
+- The script is the ONLY way to add reactions and resolve review threads. This ensures they stay in sync (both happen or neither happens)
 
-Also check general issue comments — if the PR author posted a comment after the bot's review acknowledging the feedback (e.g., "Fixed", "Done", "Addressed", or describing what they changed), and new commits were pushed, thumbs-up that comment too:
+**Issue comments (separate from review threads):** After running the script, check general PR issue comments (not review thread replies). If the PR author posted an issue comment acknowledging feedback (e.g., "Fixed", "Done", "Addressed") and new commits were pushed, thumbs-up that issue comment:
 ```bash
 gh api "repos/brave/brave-core/issues/comments/{comment_id}/reactions" \
   --method POST -f content="+1"
 ```
+This is ONLY for general issue comments (the PR conversation tab), NOT for review thread replies.
 
 **Important rules:**
-- The reaction and resolve APIs are idempotent — no need to check for duplicates first.
 - This step does NOT re-post any comments. It only reacts and resolves. **NEVER re-post the same feedback when resolving.**
 - In auto mode, log the script output: `ACK: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) - resolved N threads, M remaining unresolved`
 - Skip this step entirely if there are no prior bot comments or no new commits/replies since the last review.
 
 ### Step 1.7: Approve if Settled (No Remaining Unresolved Threads)
 
-After Step 1.6 resolves addressed comments, check if the bot has any remaining unresolved threads on the PR. If ALL bot threads are now resolved (none left open) AND at least one bot thread existed (i.e., the bot previously left feedback), submit an APPROVE review and mark the PR as settled in the cache.
+After Step 1.6 resolves addressed comments, check if the bot can approve this PR. **You MUST call the gate script — do NOT approve based on your own judgement or the Step 1.6 output alone.**
 
-**When to approve:**
-1. The bot previously left review comments on this PR (at least one thread existed)
-2. All bot threads are now resolved (after Step 1.6 processing)
-3. The bot has not already approved this SHA (check before posting)
+**MANDATORY: Run the gate script before ANY approval:**
+```bash
+python3 ./brave-core-bot/scripts/check-can-approve.py {number} "$BOT_USERNAME"
+```
 
-**How to check remaining unresolved bot threads:**
+The script checks all three conditions programmatically and returns:
+- **Exit code 0** + `"can_approve": true` → safe to approve
+- **Exit code 1** + `"can_approve": false` + `"reason"` → do NOT approve, log the reason
 
-Use the JSON output from the Step 1.6 resolve script. The `unresolved_bot_threads` and `total_bot_threads` fields tell you directly whether all bot threads are resolved.
+**CRITICAL: If the script returns exit code 1, you MUST NOT submit an APPROVE review. No exceptions. No overrides. The script is the single source of truth.**
 
-If `unresolved_bot_threads` is 0 AND `total_bot_threads` > 0:
-
-**Submit APPROVE review:**
+**Only if the script returns exit code 0**, submit the APPROVE review:
 ```bash
 gh api repos/brave/brave-core/pulls/{number}/reviews \
   --method POST \
@@ -181,9 +183,10 @@ EOF
 python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID> --approve
 ```
 
-**When NOT to approve:**
+**When NOT to approve (enforced by the gate script):**
 - If there are still unresolved bot threads (the developer hasn't addressed all feedback yet)
 - If the bot never left any comments on this PR (nothing to settle — don't approve a PR you never reviewed)
+- If the bot already approved at this SHA
 - If Step 2 (full review) is about to run and may find new violations — for full reviews, defer approval to Step 6 after aggregation
 
 **Don't Haunt Developers:** Once the bot approves a PR, it is marked as settled in the cache. Future runs will completely skip this PR — no re-reviews, no comment checks, nothing. The bot has said its piece and moved on. The only way to re-review an approved PR is to explicitly request it with `#<PR_NUMBER>`.
@@ -349,7 +352,11 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
    **Violations missing `rule_link` must be recovered or dropped — unless they are genuine bug/correctness/security findings.** Best-practice-style comments (style, conventions, patterns) must cite a specific rule so developers can understand the basis and push back. If a subagent returns such a violation without a `rule_link`, search the subagent's best practice document for a heading that matches the violation's subject. If a matching rule with an `<a id>` anchor exists, add the `rule_link` and post. If no matching rule exists, drop it — log: `DROPPED: no rule_link for <file>:<line> — "<draft_comment snippet>"`. However, high-severity findings (real bugs, correctness issues, security vulnerabilities, logic errors) may be posted without a `rule_link` since they don't need a style guide to justify them.
 4. **If AUTO_MODE**: post the prioritized violations using the inline review API (see Auto Posting below), then move to the next PR
 5. **If interactive mode**: present the prioritized violations to the user for approval before moving to the next PR
-6. **If no violations across all categories AND all prior bot threads were resolved in Step 1.6**: submit an APPROVE review and mark as settled using `--approve` (see Step 1.7). This completes the bot's engagement with this PR — future runs will skip it entirely. Log: `APPROVE: [PR #<number>](...) - no violations, approved`
+6. **If no violations across all categories**: run the approval gate script to verify all prior bot threads are resolved before approving:
+   ```bash
+   python3 ./brave-core-bot/scripts/check-can-approve.py {number} "$BOT_USERNAME"
+   ```
+   **Only if exit code is 0** (`"can_approve": true`): submit an APPROVE review and mark as settled using `--approve` (see Step 1.7). This completes the bot's engagement with this PR — future runs will skip it entirely. Log: `APPROVE: [PR #<number>](...) - no violations, approved`. **If exit code is 1: do NOT approve** — log the reason and move on. The bot will re-check on the next run.
 7. **If violations were posted**: do NOT approve. The bot will re-check this PR on the next run after the developer addresses the feedback
 
 **PR Link Format (CRITICAL):** When displaying PR numbers to the user, ALWAYS use a full markdown link with the `brave/brave-core` URL: `[PR #<number>](https://github.com/brave/brave-core/pull/<number>) - <title>`. **NEVER use bare `#<number>` references** — the TUI auto-links them against the current repo's git remote (`brave-experiments/brave-core-bot`), sending users to the wrong repository. Every single PR number shown to the user must be a full `https://github.com/brave/brave-core/pull/` link.
@@ -440,7 +447,7 @@ After processing all full reviews (the `prs` array), process each PR in the `cac
 **For each cached PR, run ONLY these steps:**
 
 1. **Step 1.6** (Acknowledge and Resolve Addressed Comments) — check for developer replies/fixes and resolve addressed threads
-2. **Step 1.7** (Approve if Settled) — if all bot threads are now resolved, submit APPROVE and mark `--approve` in cache
+2. **Step 1.7** (Approve if Settled) — run `check-can-approve.py` gate script; only approve if exit code is 0
 
 **Do NOT launch subagents or run a full review** — the code hasn't changed since the last review. The only purpose is housekeeping: resolving addressed threads and approving when the developer has addressed all feedback.
 
