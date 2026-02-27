@@ -74,13 +74,13 @@ After pushing review-requested changes, answer these questions:
 
 | Pattern Type | Document Location |
 |-------------|-------------------|
-| Async testing, RunUntil patterns | `./brave-core-bot/BEST-PRACTICES.md` |
+| Async testing, RunUntil patterns | `./brave-core-bot/brave-core-tools/BEST-PRACTICES.md` |
 | Git workflow, branch naming | `./brave-core-bot/docs/git-repository.md` |
 | Test execution requirements | `./brave-core-bot/docs/testing-requirements.md` |
 | Problem-solving approaches | `./brave-core-bot/docs/workflow-pending.md` (Problem-Solving Approach section) |
 | PR creation, commit messages | `./brave-core-bot/docs/workflow-committed.md` |
 | Review response patterns | `./brave-core-bot/docs/workflow-pushed.md` |
-| Security practices | `./brave-core-bot/SECURITY.md` |
+| Security practices | `./brave-core-bot/brave-core-tools/SECURITY.md` |
 | General codebase patterns | `./brave-core-bot/progress.txt` (Codebase Patterns section) |
 
 ### 2. Create a Separate Branch and PR for brave-core-bot

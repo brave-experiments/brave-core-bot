@@ -199,7 +199,7 @@ Resets `run-state.json` for a fresh run while preserving configuration flags.
 
 ## Skills
 
-All skills are available as slash commands in Claude Code. 20 skills are included:
+Bot-only skills are available as slash commands in Claude Code. 8 bot-specific skills are included:
 
 ### PRD & Project Management
 
@@ -214,46 +214,19 @@ All skills are available as slash commands in Claude Code. 20 skills are include
 
 | Skill | Description |
 |-------|-------------|
-| `/review` | Review code for quality, root cause analysis, and fix confidence. Supports local mode (current branch) and PR mode (by URL or number) |
 | `/review-prs` | Batch review PRs for best practices violations. Supports auto mode for cron. Deduplicates against existing bot comments. Tracks prior comment context |
-| `/check-best-practices` | Audit local branch diff against all best practices documents using parallel subagents |
-| `/preflight` | Run all preflight checks (format, gn_check, presubmit, build, tests) |
 | `/learnable-pattern-search` | Analyze PR review comments to discover learnable patterns. Supports self-review mode to identify overly strict rules |
-
-### Implementation & Git
-
-| Skill | Description |
-|-------|-------------|
-| `/commit` | Create atomic commits without attribution. Supports `branch` and `push` keywords |
-| `/pr` | Create pull request for current branch with auto-generated description |
-| `/impl-review` | Implement review feedback on a PR: checkout, apply changes, preflight, commit, push. Supports auto mode |
-| `/rebase-downstream` | Rebase a tree of dependent branches after upstream changes |
-| `/clean-branches` | Delete local branches whose PRs have been merged |
-
-### CI & Testing
-
-| Skill | Description |
-|-------|-------------|
-| `/check-upstream-flake` | Query LUCI Analysis for upstream Chromium test flakiness (30-90 day lookback) |
-| `/make-ci-green` | Re-run failed Jenkins CI jobs. Analyzes test failures, checks upstream flakiness, correlates with PR changes. Supports dry-run mode |
-| `/top-crashers` | Analyze top crash data from Brave's Backtrace crash reporting |
-
-### Release & Maintenance
-
-| Skill | Description |
-|-------|-------------|
-| `/uplift` | Cherry-pick test/crash fixes to beta/release branches. Adds uplift labels to source PRs |
 | `/update-best-practices` | Fetch and merge upstream Chromium documentation guidelines |
-| `/check-milestones` | Check milestone status |
 
-### Sharing Skills with src/brave
+### Monitoring
 
-Skills can be symlinked to `src/brave/.claude/skills/` for use when working directly in the brave-core repo:
+| Skill | Description |
+|-------|-------------|
+| `/check-signal` | Check incoming Signal messages and execute commands |
 
-```bash
-./sync-skills.sh        # Interactively symlink selected skills
-./sync-best-practices.sh  # Symlink best practices to .claude/rules/
-```
+### Developer Skills (brave-core-tools)
+
+14 additional developer-facing skills (commit, pr, review, preflight, etc.) are maintained in [brave-core-tools](https://github.com/brave-experiments/brave-core-tools). See that repo's README for the full list. These are included here as a git submodule for best-practices access but are not used by the bot directly.
 
 ## Run State Configuration
 
@@ -307,7 +280,7 @@ The bot enforces a comprehensive set of best practices organized by category:
 - **Chromium src/ Overrides** — Override patterns, minimizing duplication
 - **Documentation** — Inline comments, method docs
 
-See [BEST-PRACTICES.md](BEST-PRACTICES.md) for the full index and quick checklist.
+See [BEST-PRACTICES.md](brave-core-tools/BEST-PRACTICES.md) for the full index and quick checklist (available via the brave-core-tools submodule).
 
 ## Git Workflow
 
@@ -386,7 +359,7 @@ cp trusted-reviewers.txt.example trusted-reviewers.txt
 - **Bot permissions**: Uses `--dangerously-skip-permissions` for autonomous operation
 - **Review differentiation**: Review skill rejects fixes that aren't materially different from previous failed attempts
 
-See [SECURITY.md](SECURITY.md) for complete guidelines.
+See [SECURITY.md](brave-core-tools/SECURITY.md) for complete guidelines.
 
 ## Signal Notifications (Optional)
 
@@ -509,15 +482,17 @@ brave-core-bot/archive/
 brave-core-bot/
 ├── README.md                  # This file
 ├── CLAUDE.md                  # Claude agent instructions
-├── BEST-PRACTICES.md          # Index of all best practices
-├── SECURITY.md                # Security guidelines
+├── brave-core-tools/          # Git submodule: best practices, dev skills, shared scripts
+│   ├── BEST-PRACTICES.md      # Index of all best practices
+│   ├── SECURITY.md            # Security guidelines
+│   ├── .claude/skills/        # 14 developer-facing skills
+│   ├── docs/best-practices/   # Best practices sub-documents
+│   └── scripts/               # Shared utility scripts
 ├── LICENSE                    # MPL-2.0 license
 ├── setup.sh                   # Install hooks, validate config, create caches
 ├── run.sh                     # Main entry point (iterations, TUI mode)
 ├── check-should-continue.sh   # Check if bot should continue iterating
 ├── reset-run-state.sh         # Reset run state between runs
-├── sync-skills.sh             # Symlink skills to src/brave
-├── sync-best-practices.sh     # Symlink best practices to src/brave
 ├── prd.json                   # Product requirements (gitignored)
 ├── prd.example.json           # Example PRD template
 ├── run-state.json             # Run state tracking (gitignored)
@@ -527,29 +502,16 @@ brave-core-bot/
 ├── .ignore/
 │   └── org-members.txt        # Cached org members (security, gitignored)
 ├── .claude/
-│   └── skills/                # Claude Code skills (20 skills)
+│   └── skills/                # Bot-only Claude Code skills (8 skills)
 │       ├── prd/               # PRD generation
 │       ├── prd-json/          # PRD to JSON converter
 │       ├── prd-clean/         # Archive merged/invalid stories
 │       ├── add-backlog-to-prd/  # Fetch issues from GitHub
-│       ├── commit/            # Commit without attribution
-│       ├── pr/                # Create pull requests
-│       ├── review/            # Code review (local + PR mode)
 │       ├── review-prs/        # Batch PR review with caching
-│       ├── check-best-practices/  # Audit diff against best practices
-│       ├── impl-review/       # Implement review feedback
-│       ├── rebase-downstream/ # Rebase dependent branches
-│       ├── clean-branches/    # Delete merged branches
-│       ├── preflight/         # Pre-review checks
-│       ├── check-upstream-flake/  # LUCI flakiness analysis
-│       ├── make-ci-green/     # Retry/analyze failed CI
-│       ├── top-crashers/      # Crash analysis
-│       ├── uplift/            # Cherry-pick to release branches
-│       ├── check-milestones/  # Milestone status
+│       ├── check-signal/      # Check incoming Signal messages
 │       ├── update-best-practices/ # Merge upstream Chromium guidelines
 │       └── learnable-pattern-search/  # Analyze PR reviews for patterns
 ├── docs/                      # Detailed workflow and reference docs
-│   ├── best-practices/        # Best practices sub-documents (12 files)
 │   ├── workflow-state-machine.md
 │   ├── workflow-pending.md
 │   ├── workflow-committed.md
@@ -565,8 +527,6 @@ brave-core-bot/
 │   ├── pre-commit             # Target repo hook (blocks dependency updates)
 │   └── pre-commit-bot-repo    # Bot repo hook (blocks config file commits)
 ├── scripts/
-│   ├── check-upstream-flake.py  # LUCI Analysis API client
-│   ├── top-crashers.py        # Crash data analysis
 │   ├── fetch-issue.sh         # Fetch filtered GitHub issues
 │   ├── filter-issue-json.sh   # Filter issues to org members
 │   ├── filter-pr-reviews.sh   # Filter PR reviews to org members

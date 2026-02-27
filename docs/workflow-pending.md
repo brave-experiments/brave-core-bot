@@ -2,7 +2,7 @@
 
 **Goal: Implement and test the story**
 
-**📖 FIRST STEP**: Read `./brave-core-bot/BEST-PRACTICES.md` which indexes all best practices docs. Then read the specific docs relevant to your task:
+**📖 FIRST STEP**: Read `./brave-core-bot/brave-core-tools/BEST-PRACTICES.md` which indexes all best practices docs. Then read the specific docs relevant to your task:
 - **Test fixes**: Read the async testing, JS evaluation, navigation, and test isolation docs
 - **C++ code changes**: Read `docs/best-practices/coding-standards.md` (naming, ownership, Chromium APIs, banned patterns)
 - **Front-end (TypeScript/React) changes**: Read `docs/best-practices/frontend.md` (component props, XSS prevention)
@@ -208,7 +208,7 @@ Only read the docs relevant to your story — don't load all of them every time.
    3. **Check upstream flakiness data (Chromium tests only):**
       This step only applies to upstream Chromium tests — skip it for Brave-specific tests (defined in `src/brave/`), which will not appear in the Chromium database.
       ```bash
-      python3 ./brave-core-bot/scripts/check-upstream-flake.py "<TestClassName.TestMethod>"
+      python3 ./brave-core-bot/brave-core-tools/scripts/check-upstream-flake.py "<TestClassName.TestMethod>"
       ```
       - If the verdict is "Known upstream flake" or "Occasional upstream failures":
         Document this finding in the filter file comment and commit message
@@ -246,7 +246,7 @@ Only read the docs relevant to your story — don't load all of them every time.
 
 10. **If ALL tests pass:**
    - Commit ALL changes (must be in `[workingDirectory from prd.json config]`)
-   - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
+   - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../brave-core-tools/SECURITY.md#public-security-messaging) for guidance
    - **For Chromium test disables (filter file modifications)**: If you detected this is a Chromium test in step 7, include in commit message:
      - State clearly that it's a **Chromium test** (e.g., "Disable Chromium test..." or "This is an upstream Chromium test...")
      - If Chromium has also disabled it, mention that explicitly (e.g., "Chromium has also disabled this test" or "Already disabled upstream")
@@ -329,7 +329,7 @@ When multiple attempts have failed, consider whether the fundamental approach is
 
 **Last resort - disable with full documentation:**
 If no fix is viable after thorough investigation, you may create a PR to disable the test, but you MUST:
-- For Chromium tests (not Brave-specific tests): run `python3 ./brave-core-bot/scripts/check-upstream-flake.py "<TestName>"` and include the results
+- For Chromium tests (not Brave-specific tests): run `python3 ./brave-core-bot/brave-core-tools/scripts/check-upstream-flake.py "<TestName>"` and include the results
 - Document all previous fix attempts (including PRs by others)
 - Explain why each approach failed
 - Describe the fundamental issue that makes the test unfixable

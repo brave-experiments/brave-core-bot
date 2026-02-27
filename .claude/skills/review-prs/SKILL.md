@@ -219,7 +219,7 @@ Launch one **Task subagent** (subagent_type: "general-purpose") per applicable b
 | **patches** | `patches.md` | has_patch_files |
 | **nala** | `nala.md` | has_nala_files |
 
-All doc paths are under `./brave-core-bot/docs/best-practices/`.
+All doc paths are under `./brave-core-tools/docs/best-practices/`.
 
 **Always launch at minimum:** architecture and documentation (apply to all PRs — layering, dependency injection, factory patterns, and documentation standards affect every change).
 
@@ -248,7 +248,7 @@ Each subagent prompt MUST include:
    - Comment style: short (1-3 sentences), targeted, acknowledge context. Use "nit:" for genuinely minor/stylistic issues (including missing comments/documentation). Substantive issues (test reliability, correctness, banned APIs) should be direct without "nit:" prefix
 5. **Best practice link requirement** — each rule in the best practices docs has a stable ID anchor (e.g., `<a id="CS-001"></a>`) on the line before the heading. For each violation, the subagent MUST include a direct link using that ID. The link format is:
    ```
-   https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/<doc>.md#<ID>
+   https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/<doc>.md#<ID>
    ```
    For example, if the heading has `<a id="CS-042"></a>` above it, the link is `...coding-standards.md#CS-042`.
 
@@ -345,7 +345,7 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
    - **Approved PRs — high-severity only.** If the PR's `hasApproval` field is `true` (meaning at least one reviewer has approved), drop ALL medium and low severity violations. Only post high-severity issues (correctness bugs, security vulnerabilities, banned APIs). A human reviewer already approved the PR, so the bot should only intervene for serious problems.
 3. **Validate rule links** — for each violation with a `rule_link`, extract the fragment ID and validate it exists in the target doc:
    ```bash
-   python3 ./brave-core-bot/scripts/manage-bp-ids.py --check-link <ID> --doc <doc>.md
+   python3 ./brave-core-tools/scripts/manage-bp-ids.py --check-link <ID> --doc <doc>.md
    ```
    If the ID is invalid (exit code 1), strip the `[best practice](...)` link from the `draft_comment` text before posting. Log: `INVALID_LINK: stripped broken link #<ID> from <file>:<line>`. The comment text itself is still posted — only the broken link is removed.
 
@@ -369,7 +369,7 @@ Process PRs **one at a time** (sequentially). After ALL document subagents retur
 - **Targeted** - reference specific files and code
 - **Acknowledge context** - if upstream does the same thing, say so
 - **No lecturing** - state the issue briefly
-- **Link to the rule** - when the violation is an explicit best practice rule, append a link using the rule's stable ID anchor at the end of the comment. Example: `[best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#CS-042)`. Only include the link for explicit documented rule violations, not for general bug/correctness observations.
+- **Link to the rule** - when the violation is an explicit best practice rule, append a link using the rule's stable ID anchor at the end of the comment. Example: `[best practice](https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/coding-standards.md#CS-042)`. Only include the link for explicit documented rule violations, not for general bug/correctness observations.
 - **Match tone to severity:**
   - **Genuine nits** (style, naming, minor cleanup, missing comments/documentation): use "nit:" prefix, "worth considering", "not blocking either way"
   - **Substantive issues** (test reliability, correctness, banned APIs, potential bugs): be direct and clear about why it needs to change. Do NOT use "nit:" for these — a `RunUntilIdle()` violation or a banned API usage is not a nit, it's a real problem.
@@ -419,13 +419,13 @@ gh api repos/brave/brave-core/pulls/{number}/reviews \
       "path": "path/to/file.cc",
       "line": 42,
       "side": "RIGHT",
-      "body": "comment text. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/coding-standards.md#CS-042)"
+      "body": "comment text. [best practice](https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/coding-standards.md#CS-042)"
     },
     {
       "path": "path/to/other_file.cc",
       "line": 15,
       "side": "RIGHT",
-      "body": "another comment. [best practice](https://github.com/brave-experiments/brave-core-bot/tree/master/docs/best-practices/testing-async.md#TA-005)"
+      "body": "another comment. [best practice](https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/testing-async.md#TA-005)"
     }
   ]
 }

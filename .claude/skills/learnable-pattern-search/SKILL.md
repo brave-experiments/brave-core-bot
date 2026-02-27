@@ -110,9 +110,9 @@ When the `--username` is `brave-core-bot` or `netzenbot`, the analysis focus is 
 When a best practice needs adjustment based on pushback analysis:
 
 ```bash
-cd ./brave-core-bot
+cd ./brave-core-tools
 git fetch origin
-git checkout -b docs/adjust-<brief-description> origin/master
+git checkout -b docs/adjust-<brief-description> origin/main
 
 # Make the documentation change
 # ... edit the appropriate best-practices file ...
@@ -123,7 +123,7 @@ git commit -m "Adjust best practice: <brief description>
 Based on developer pushback across PRs: #<pr1>, #<pr2>, ..."
 
 git push -u origin docs/adjust-<brief-description>
-gh pr create --repo brave-experiments/brave-core-bot \
+gh pr create --repo brave-experiments/brave-core-tools \
   --title "Adjust best practice: <brief description>" \
   --body "$(cat <<'EOF'
 ## Summary

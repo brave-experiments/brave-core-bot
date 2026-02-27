@@ -44,21 +44,21 @@ The user may also provide any other Chromium documentation URL.
 
 ## Step 1: Read All Existing Best Practices
 
-Read every file in `docs/best-practices/` to build a complete picture of current rules:
+Read every file in `brave-core-tools/docs/best-practices/` to build a complete picture of current rules:
 
 ```
-docs/best-practices/architecture.md
-docs/best-practices/coding-standards.md
-docs/best-practices/testing-async.md
-docs/best-practices/testing-isolation.md
-docs/best-practices/testing-javascript.md
-docs/best-practices/testing-navigation.md
-docs/best-practices/frontend.md
-docs/best-practices/chromium-src-overrides.md
-docs/best-practices/build-system.md
+brave-core-tools/docs/best-practices/architecture.md
+brave-core-tools/docs/best-practices/coding-standards.md
+brave-core-tools/docs/best-practices/testing-async.md
+brave-core-tools/docs/best-practices/testing-isolation.md
+brave-core-tools/docs/best-practices/testing-javascript.md
+brave-core-tools/docs/best-practices/testing-navigation.md
+brave-core-tools/docs/best-practices/frontend.md
+brave-core-tools/docs/best-practices/chromium-src-overrides.md
+brave-core-tools/docs/best-practices/build-system.md
 ```
 
-Also read `BEST-PRACTICES.md` (the index file).
+Also read `brave-core-tools/BEST-PRACTICES.md` (the index file).
 
 For each file, catalog every rule by its heading/title so you can check for duplicates and conflicts.
 
@@ -149,7 +149,7 @@ Scan ALL best practices files for internal contradictions. Common conflict patte
 
 ## Step 6: Update BEST-PRACTICES.md
 
-If new upstream reference URLs were processed, add them to the References section in `BEST-PRACTICES.md`.
+If new upstream reference URLs were processed, add them to the References section in `brave-core-tools/BEST-PRACTICES.md`.
 
 ---
 

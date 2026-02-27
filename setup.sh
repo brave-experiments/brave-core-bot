@@ -5,11 +5,19 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 HOOK_SOURCE="$SCRIPT_DIR/hooks/pre-commit"
 
 echo "==================================="
 echo "  Brave Core Bot Setup"
 echo "==================================="
+echo ""
+
+# Initialize brave-core-tools submodule
+echo "Initializing brave-core-tools submodule..."
+cd "$SCRIPT_DIR"
+git submodule update --init --recursive
+echo "✓ Submodule initialized at: $SCRIPT_DIR/brave-core-tools"
 echo ""
 
 # Validate directory structure

@@ -216,7 +216,7 @@ Create a new story entry following the same format as existing stories:
   "title": "Brief title matching the GitHub issue",
   "description": "Follow-up from US-[original] PR #[pr-number]: [Description of what needs to be done]",
   "acceptanceCriteria": [
-    "Read ./brave-core-bot/BEST-PRACTICES.md",
+    "Read ./brave-core-bot/brave-core-tools/BEST-PRACTICES.md",
     "[Specific test or verification step]",
     "[Additional requirements]"
   ],
