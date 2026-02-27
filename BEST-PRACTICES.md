@@ -15,6 +15,7 @@ This document is an index of best practices for the Brave Browser codebase, disc
 - **[Documentation](./docs/best-practices/documentation.md)** - Inline comments, method docs, READMEs, keeping docs fresh, avoiding duplication
 - **[Front-End (TypeScript/React)](./docs/best-practices/frontend.md)** - Component props, spread args, XSS prevention
 - **[Android (Java/Kotlin)](./docs/best-practices/android.md)** - Activity/Fragment lifecycle, null safety, LazyHolder singletons, theme handling, Robolectric, bytecode patching
+- **[NullAway (Java Null Safety)](./docs/best-practices/nullaway.md)** - @Nullable placement, @MonotonicNonNull, assert/assume patterns, destruction, view binders, Supplier variance, JNI nullness
 - **[chromium_src Overrides](./docs/best-practices/chromium-src-overrides.md)** - Overrides vs patches, minimizing duplication, ChromiumImpl fallback
 - **[Build System](./docs/best-practices/build-system.md)** - BUILD.gn organization, buildflags, DEPS, GRD resources
 - **[Patches](./docs/best-practices/patches.md)** - Patch style, minimality, extensibility via defines/includes, GN patch patterns
