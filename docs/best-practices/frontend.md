@@ -320,3 +320,55 @@ entry_points = [
   ["patches", rebase_path("patches.ts")],
 ]
 ```
+
+---
+
+<a id="FE-024"></a>
+
+## ✅ Prefer Functional Components Over Class Components
+
+**Write React components as functions, not classes.** Functional components with hooks are simpler, easier to test, and compose better. Class components require more boilerplate, have subtler lifecycle bugs, and are not compatible with hooks.
+
+```tsx
+// ❌ WRONG - class component
+class UserCard extends React.Component<Props, State> {
+  constructor(props: Props) {
+    super(props)
+    this.state = { isExpanded: false }
+  }
+
+  componentDidMount() {
+    fetchUser(this.props.id).then(user => this.setState({ user }))
+  }
+
+  render() {
+    return (
+      <div>
+        <span>{this.state.user?.name}</span>
+        <button onClick={() => this.setState({ isExpanded: !this.state.isExpanded })}>
+          Toggle
+        </button>
+      </div>
+    )
+  }
+}
+
+// ✅ CORRECT - functional component with hooks
+function UserCard({ id }: Props) {
+  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [user, setUser] = React.useState<User | undefined>()
+
+  React.useEffect(() => {
+    fetchUser(id).then(setUser)
+  }, [id])
+
+  return (
+    <div>
+      <span>{user?.name}</span>
+      <button onClick={() => setIsExpanded(e => !e)}>Toggle</button>
+    </div>
+  )
+}
+```
+
+The only valid exception is `React.Component` error boundaries, which still require a class component (`componentDidCatch` has no hook equivalent).
