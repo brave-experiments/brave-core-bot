@@ -67,12 +67,18 @@ BOT_USERNAME=$(gh api user --jq '.login')
 
 Use `$BOT_USERNAME` in ALL subsequent jq queries and comparisons that need to identify the bot's own comments. This variable is referenced throughout Steps 1.5, 1.6, 1.7, and the deduplication logic.
 
-### Step 1: Classify Changed Files
+### Step 1: Fetch Diff and Classify Changed Files
 
-Before launching subagents, fetch the file list to determine which categories apply:
+Before launching subagents, fetch the full diff once. This diff will be reused by all subagents (they must NOT re-fetch it).
 
 ```bash
-gh pr diff --repo brave/brave-core {number} --name-only
+# Fetch the full diff once — save to a variable to pass to subagents
+PR_DIFF=$(gh pr diff --repo brave/brave-core {number})
+```
+
+Extract the file list from the diff for classification:
+```bash
+echo "$PR_DIFF" | grep '^diff --git' | sed 's|.*b/||'
 ```
 
 Classify the changed files:
@@ -186,7 +192,7 @@ APPROVE: [PR #<number>](https://github.com/brave/brave-core/pull/<number>) (<tit
 
 ### Step 2: Launch Document Subagents in Parallel
 
-Launch one **Task subagent** (subagent_type: "general-purpose") per applicable best-practice document. **Use multiple Task tool calls in a single message** so they run in parallel.
+Launch one **Task subagent** (subagent_type: "general-purpose") per applicable best-practice document. **Use multiple Task tool calls in a single message** so they run in parallel. Pass the `PR_DIFF` content (fetched in Step 1) directly in each subagent's prompt so they don't need to fetch it again.
 
 | Document | Doc to read | Condition |
 |----------|-------------|-----------|
@@ -214,7 +220,13 @@ Each subagent prompt MUST include:
 
 1. **The PR number and repo** (`brave/brave-core`)
 2. **Which best practice doc to read** — only the one for this subagent (paths above)
-3. **Instructions to fetch the diff** via `gh pr diff --repo brave/brave-core {number}`
+3. **The PR diff content** — include the full diff text (fetched once in Step 1) directly in the prompt. The subagent MUST NOT call `gh pr diff` — the diff is already provided. Embed it in the prompt like:
+   ````
+   Here is the PR diff:
+   ```diff
+   <PR_DIFF content>
+   ```
+   ````
 4. **The review rules** (copied into the subagent prompt):
    - Only flag violations in ADDED lines (+ lines), not existing code
    - Also flag bugs introduced by the change (e.g., missing string separators, duplicate DEPS entries, code inside wrong `#if` guard)
