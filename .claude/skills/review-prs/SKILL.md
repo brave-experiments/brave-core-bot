@@ -26,12 +26,12 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto]`:
    ```bash
    python3 .claude/skills/review-prs/fetch-prs.py [args...]
    ```
-   The script handles all fetching, filtering (drafts, uplifts, CI runs, l10n, date cutoff), and cache checking. It outputs JSON:
+   The script handles all fetching, filtering (drafts, uplifts, CI runs, l10n, date cutoff, external contributors), and cache checking. It outputs JSON:
    ```json
    {
      "prs": [{"number": 42001, "title": "...", "headRefOid": "abc123", "author": "user", "hasApproval": false}],
      "cached_prs": [{"number": 42002, "title": "...", "headRefOid": "def456", "author": "user", "hasApproval": true}],
-     "summary": {"total_fetched": 50, "to_review": 5, "cached_with_possible_threads": 8, "skipped_filtered": 30, "skipped_cached": 7, "skipped_approved": 3}
+     "summary": {"total_fetched": 50, "to_review": 5, "cached_with_possible_threads": 8, "skipped_filtered": 30, "skipped_cached": 7, "skipped_approved": 3, "skipped_external": 2}
    }
    ```
    - **`prs`**: PRs with new commits that need full review

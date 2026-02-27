@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 
 CACHE_PATH = ".ignore/review-prs-cache.json"
+ORG_MEMBERS_PATH = ".ignore/org-members.txt"
 SKIP_PREFIXES = ["CI run for", "Backport", "Update l10n"]
 SKIP_CONTAINS = ["uplift to", "Just to test CI"]
 
@@ -124,6 +125,16 @@ def load_cache():
         return {}
 
 
+def load_org_members():
+    """Load Brave org member logins from the cached file."""
+    try:
+        with open(ORG_MEMBERS_PATH) as f:
+            return set(line.strip() for line in f if line.strip())
+    except FileNotFoundError:
+        print(f"WARNING: org members file not found at {ORG_MEMBERS_PATH}", file=sys.stderr)
+        return set()
+
+
 def should_skip_title(title):
     for prefix in SKIP_PREFIXES:
         if title.startswith(prefix):
@@ -150,7 +161,7 @@ def get_cutoff(mode, days, cache):
     return datetime.now(timezone.utc) - timedelta(days=days)
 
 
-def filter_prs(prs, mode, days, cache):
+def filter_prs(prs, mode, days, cache, org_members):
     cutoff = get_cutoff(mode, days, cache)
     approved = set(cache.get("_approved", []))
 
@@ -159,6 +170,7 @@ def filter_prs(prs, mode, days, cache):
     skipped_filtered = 0
     skipped_cached = 0
     skipped_approved = 0
+    skipped_external = 0
 
     for pr in prs:
         if pr.get("isDraft"):
@@ -167,6 +179,12 @@ def filter_prs(prs, mode, days, cache):
 
         if should_skip_title(pr.get("title", "")):
             skipped_filtered += 1
+            continue
+
+        # Skip PRs from external contributors (non-org members)
+        author = pr.get("author", {}).get("login", "")
+        if org_members and author not in org_members:
+            skipped_external += 1
             continue
 
         if cutoff and mode == "days":
@@ -192,7 +210,7 @@ def filter_prs(prs, mode, days, cache):
 
         to_review.append(pr)
 
-    return to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved
+    return to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved, skipped_external
 
 
 def main():
@@ -206,10 +224,12 @@ def main():
         skipped_filtered = 0
         skipped_cached = 0
         skipped_approved = 0
+        skipped_external = 0
     else:
         cache = load_cache()
-        to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved = (
-            filter_prs(prs, mode, days, cache)
+        org_members = load_org_members()
+        to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved, skipped_external = (
+            filter_prs(prs, mode, days, cache, org_members)
         )
 
     def pr_entry(pr):
@@ -231,6 +251,7 @@ def main():
             "skipped_filtered": skipped_filtered,
             "skipped_cached": skipped_cached,
             "skipped_approved": skipped_approved,
+            "skipped_external": skipped_external,
         },
     }
 
