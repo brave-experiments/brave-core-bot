@@ -102,6 +102,12 @@ Before launching subagents, fetch all existing review comments and discussion on
 ./brave-core-bot/scripts/filter-pr-reviews.sh {number} markdown
 ```
 
+**External contributor PRs:** If the PR has `isExternalContributor: true` in the fetch output (allowed through because the bot is a requested reviewer), pass the PR author as a 4th argument to include their PR description unfiltered:
+```bash
+./brave-core-bot/scripts/filter-pr-reviews.sh {number} markdown brave/brave-core {author}
+```
+This includes the PR body/description from the external contributor so reviewers understand the PR's intent. Other comments from non-org members are still filtered for security.
+
 This returns all past review comments, inline code comments, and discussion comments from Brave org members (filtered for security). Pass this output to each subagent as `PRIOR_COMMENTS` context (see Step 3).
 
 **Why this matters:** When re-reviewing a PR after new commits, the bot must be aware of:

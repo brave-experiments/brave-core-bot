@@ -7,6 +7,7 @@ set -e
 PR_NUMBER="$1"
 OUTPUT_FORMAT="${2:-markdown}"  # markdown or json
 PR_REPO="${3:-brave/brave-core}"  # Default to brave-core where PRs are created
+INCLUDE_AUTHOR="${4:-}"  # Optional: include this author's PR body unfiltered (for external contributor PRs)
 
 if [ -z "$PR_NUMBER" ]; then
   echo "Usage: $0 <pr-number> [markdown|json] [repo]"
@@ -209,6 +210,12 @@ if [ "$OUTPUT_FORMAT" = "json" ]; then
     )
   ')
 
+  # Include PR body for external contributor PRs when INCLUDE_AUTHOR is set
+  INCLUDE_PR_BODY="false"
+  if [ -n "$INCLUDE_AUTHOR" ] && [ "$INCLUDE_AUTHOR" = "$PR_AUTHOR" ]; then
+    INCLUDE_PR_BODY="true"
+  fi
+
   # Output combined JSON with timestamp comparison
   jq -n \
     --argjson pr_data "$PR_DATA" \
@@ -218,8 +225,9 @@ if [ "$OUTPUT_FORMAT" = "json" ]; then
     --arg latest_push "$LATEST_PUSH_TIMESTAMP" \
     --arg latest_reviewer "$LATEST_REVIEWER_TIMESTAMP" \
     --arg who_went_last "$WHO_WENT_LAST" \
+    --arg include_pr_body "$INCLUDE_PR_BODY" \
     '{
-      pr: $pr_data,
+      pr: (if $include_pr_body == "true" then $pr_data else ($pr_data | del(.body)) end),
       reviews: $reviews,
       review_comments: $review_comments,
       issue_comments: $issue_comments,
@@ -239,6 +247,18 @@ else
   echo "**Merged:** $PR_MERGED"
   echo "**Mergeable:** $PR_MERGEABLE"
   echo ""
+
+  # Include PR body/description for external contributor PRs when INCLUDE_AUTHOR is set
+  if [ -n "$INCLUDE_AUTHOR" ] && [ "$INCLUDE_AUTHOR" = "$PR_AUTHOR" ]; then
+    PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
+    if [ -n "$PR_BODY" ] && [ "$PR_BODY" != "null" ]; then
+      echo "## PR Description (from external contributor @$PR_AUTHOR)"
+      echo ""
+      echo "$PR_BODY"
+      echo ""
+    fi
+  fi
+
   echo "## Timestamp Analysis"
   echo ""
   echo "**Latest Push:** $LATEST_PUSH_TIMESTAMP"

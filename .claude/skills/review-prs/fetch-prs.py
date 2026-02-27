@@ -184,7 +184,7 @@ def get_cutoff(mode, days, cache):
     return datetime.now(timezone.utc) - timedelta(days=days)
 
 
-def filter_prs(prs, mode, days, cache, org_members):
+def filter_prs(prs, mode, days, cache, org_members, reviewer_priority=None):
     cutoff = get_cutoff(mode, days, cache)
     approved = set(cache.get("_approved", []))
 
@@ -205,10 +205,14 @@ def filter_prs(prs, mode, days, cache, org_members):
             continue
 
         # Skip PRs from external contributors (non-org members)
+        # Exception: allow through if bot is a requested reviewer on the PR
         author = pr.get("author", {}).get("login", "")
         if org_members and author not in org_members:
-            skipped_external += 1
-            continue
+            if reviewer_priority and is_requested_reviewer(pr, reviewer_priority):
+                pass  # Bot was asked to review this contributor PR
+            else:
+                skipped_external += 1
+                continue
 
         if cutoff and mode == "days":
             updated = datetime.fromisoformat(
@@ -240,6 +244,8 @@ def main():
     mode, days, page, pr_number, state, reviewer_priority = parse_args()
     prs = fetch_prs(mode, days, page, pr_number, state)
 
+    org_members = load_org_members()
+
     if mode == "single":
         # Skip all filtering for single PR review
         to_review = prs
@@ -250,9 +256,8 @@ def main():
         skipped_external = 0
     else:
         cache = load_cache()
-        org_members = load_org_members()
         to_review, cached_prs, skipped_filtered, skipped_cached, skipped_approved, skipped_external = (
-            filter_prs(prs, mode, days, cache, org_members)
+            filter_prs(prs, mode, days, cache, org_members, reviewer_priority)
         )
 
     # Sort PRs so those requesting review from the priority user come first
@@ -265,17 +270,20 @@ def main():
         )
 
     def pr_entry(pr):
+        author = pr.get("author", {}).get("login", "unknown")
         entry = {
             "number": pr["number"],
             "title": pr["title"],
             "headRefOid": pr["headRefOid"],
-            "author": pr.get("author", {}).get("login", "unknown"),
+            "author": author,
             "hasApproval": has_any_approval(pr),
         }
         if reviewer_priority:
             entry["isRequestedReviewer"] = is_requested_reviewer(
                 pr, reviewer_priority
             )
+        if org_members and author not in org_members:
+            entry["isExternalContributor"] = True
         return entry
 
     output = {
