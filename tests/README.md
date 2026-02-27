@@ -35,8 +35,9 @@ cd brave-core-bot
 
 ### 4. Pre-commit Hook Tests
 - Validates hook syntax
-- Tests that netzenbot account is blocked from modifying dependencies
-- Tests that non-netzenbot accounts can modify dependencies
+- Tests that the configured bot account is blocked from modifying dependencies
+- Tests that non-bot accounts can modify dependencies
+- Uses `sed` to replace `__BOT_USERNAME__` placeholder (simulates setup.sh behavior)
 - Direct script execution tests (avoids global git hook interference)
 
 ### 5. Configuration Tests
@@ -139,7 +140,7 @@ Current test coverage:
 - ✅ Real API calls (no mocking - validates actual GitHub integration)
 - ✅ File structure and permissions
 - ✅ Filtering scripts with cache validation
-- ✅ Pre-commit hook logic for netzenbot and regular users
+- ✅ Pre-commit hook logic for bot and regular users
 - ✅ Configuration file validation
 
 ## Performance

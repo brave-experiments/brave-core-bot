@@ -8,10 +8,11 @@ argument-hint: "<pr-numbers... | --username <github-user>> [<N>d]"
 
 Analyze review comments from brave-core PRs to discover learnable patterns. Extracts coding conventions, best practices, common review feedback themes, and architectural insights that can improve bot documentation.
 
-Supports three modes:
+Supports four modes:
 - **PR list mode:** Provide specific PR numbers to analyze
 - **Username mode:** Provide a GitHub username to find and analyze all PRs they reviewed
-- **Self-review mode:** When the username is the bot's own account (`brave-core-bot` or `netzenbot`), analyze pushback against the bot's own review comments to identify best practices that may be wrong or incomplete
+- **Recent mode:** When only a lookback window is provided (no username or PR numbers), analyze all recently merged PRs
+- **Self-review mode:** When the username matches the currently authenticated GitHub account, analyze pushback against the bot's own review comments to identify best practices that may be wrong or incomplete
 
 **Optional lookback window:** Append `<N>d` (e.g., `2d`, `7d`, `30d`) to limit analysis to PRs updated within the last N days. Without this parameter, all matching PRs are analyzed.
 
@@ -45,6 +46,35 @@ When the user invokes `/learnable-pattern-search --username <github-user>`:
 3. **Identify learnable patterns** across the reviews
 4. **Update documentation** with discovered patterns
 5. **Summarize findings** to the user
+
+### Mode 3: Recent (All PRs)
+
+When the user invokes `/learnable-pattern-search <N>d` (lookback window only, no `--username` or PR numbers):
+
+1. **Fetch all recently merged PRs** in brave/brave-core within the lookback window (see "Fetching Recent PRs" below)
+2. **For each PR**, fetch review data and analyze comments from all Brave org member reviewers
+3. **Identify learnable patterns** across all reviews
+4. **Update documentation** with discovered patterns
+5. **Summarize findings** to the user
+
+---
+
+## Fetching Recent PRs (Mode 3)
+
+When no `--username` is provided and no PR numbers are given, fetch all recently merged PRs:
+
+```bash
+# Compute cutoff date (e.g., for 2d: 2 days ago)
+CUTOFF_DATE=$(date -u -d "$N days ago" +%Y-%m-%d 2>/dev/null || date -u -v-${N}d +%Y-%m-%d)
+
+# Fetch all merged PRs updated since cutoff
+gh search prs --repo brave/brave-core --state merged --sort updated --order desc --limit 1000 --json number,title,updatedAt -- "updated:>=$CUTOFF_DATE"
+```
+
+**Important notes:**
+- **Skip PRs from external contributors** (non-Brave org members). Check each PR's author against `.ignore/org-members.txt`.
+- Process PRs in batches of 10 to avoid rate limiting.
+- When analyzing, consider review comments from **all Brave org member reviewers**, not just one specific user.
 
 ---
 
@@ -87,7 +117,13 @@ gh api 'search/issues?q=repo:brave/brave-core+type:pr+is:merged+reviewed-by:<use
 
 ## Self-Review Mode (Bot Pushback Analysis)
 
-When the `--username` is `brave-core-bot` or `netzenbot`, the analysis focus is **inverted**: instead of learning from the reviewer's comments, analyze **pushback against the bot's own comments** to identify best practices that may be wrong, too aggressive, or incomplete.
+When `--username` is provided, determine whether to enter self-review mode by checking the currently authenticated GitHub account:
+
+```bash
+CURRENT_USER=$(gh api user --jq '.login')
+```
+
+If the `--username` value matches `$CURRENT_USER`, the analysis focus is **inverted**: instead of learning from the reviewer's comments, analyze **pushback against the bot's own comments** to identify best practices that may be wrong, too aggressive, or incomplete.
 
 ### How It Works
 

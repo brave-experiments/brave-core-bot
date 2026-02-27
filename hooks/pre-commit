@@ -1,13 +1,14 @@
 #!/bin/bash
-# Pre-commit hook to prevent dependency updates for netzenbot account
+# Pre-commit hook to prevent dependency updates for the bot account
 # This ensures no external code is pulled in via dependency changes
+# Note: __BOT_USERNAME__ is replaced by setup.sh during installation
 
 # Get the current git user
 GIT_USER=$(git config user.name)
 
-# Only enforce for netzenbot account
-if [ "$GIT_USER" = "netzenbot" ]; then
-  echo "Checking for dependency file modifications (netzenbot account)..."
+# Only enforce for bot account (configured by setup.sh)
+if [ "$GIT_USER" = "__BOT_USERNAME__" ]; then
+  echo "Checking for dependency file modifications ($GIT_USER account)..."
 
   # List of dependency files to check
   DEPENDENCY_FILES=(
@@ -47,7 +48,7 @@ if [ "$GIT_USER" = "netzenbot" ]; then
       echo "  - $file"
     done
     echo ""
-    echo "REASON: The netzenbot account is restricted from updating dependencies"
+    echo "REASON: The $GIT_USER account is restricted from updating dependencies"
     echo "        that pull in external code. All fixes must use existing"
     echo "        dependencies already present in the codebase."
     echo ""

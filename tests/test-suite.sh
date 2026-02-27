@@ -280,11 +280,11 @@ test_precommit_hook_blocks_package_json() {
   local test_dir=$(mktemp -d)
   cd "$test_dir"
   git init > /dev/null 2>&1
-  git config user.name "netzenbot"
-  git config user.email "netzenbot@brave.com"
+  git config user.name "testbot"
+  git config user.email "testbot@example.com"
 
-  # Copy and install hook
-  cp "$ROOT_DIR/hooks/pre-commit" ".git/hooks/pre-commit"
+  # Install hook with placeholder replaced (simulates setup.sh behavior)
+  sed 's/__BOT_USERNAME__/testbot/g' "$ROOT_DIR/hooks/pre-commit" > ".git/hooks/pre-commit"
   chmod +x ".git/hooks/pre-commit"
 
   # Try to commit a package.json change
@@ -300,19 +300,19 @@ test_precommit_hook_blocks_package_json() {
 
   TESTS_RUN=$((TESTS_RUN + 1))
   if [ $result -ne 0 ]; then
-    echo -e "${GREEN}✓${NC} PASS: Pre-commit hook blocks package.json for netzenbot"
+    echo -e "${GREEN}✓${NC} PASS: Pre-commit hook blocks package.json for bot account"
     TESTS_PASSED=$((TESTS_PASSED + 1))
     return 0
   else
     echo -e "${RED}✗${NC} FAIL: Pre-commit hook did not block package.json"
     TESTS_FAILED=$((TESTS_FAILED + 1))
-    FAILED_TESTS+=("Pre-commit hook blocks package.json for netzenbot")
+    FAILED_TESTS+=("Pre-commit hook blocks package.json for bot account")
     return 1
   fi
 }
 
-test_precommit_hook_allows_non_netzenbot() {
-  # Test that hook logic allows non-netzenbot users (direct script test)
+test_precommit_hook_allows_non_bot() {
+  # Test that hook logic allows non-bot users (direct script test)
   local test_dir=$(mktemp -d)
   cd "$test_dir"
 
@@ -320,13 +320,17 @@ test_precommit_hook_allows_non_netzenbot() {
   git config user.name "regularuser"
   git config user.email "user@example.com"
 
+  # Install hook with placeholder replaced (simulates setup.sh behavior)
+  sed 's/__BOT_USERNAME__/testbot/g' "$ROOT_DIR/hooks/pre-commit" > ".git/hooks/pre-commit"
+  chmod +x ".git/hooks/pre-commit"
+
   # Create test file
   echo '{"test": true}' > package.json
   git add package.json
 
   # Run the hook script directly in this git context
   local result=0
-  bash "$ROOT_DIR/hooks/pre-commit" > /dev/null 2>&1 || result=$?
+  bash ".git/hooks/pre-commit" > /dev/null 2>&1 || result=$?
 
   # Clean up
   cd "$ROOT_DIR" > /dev/null
@@ -334,13 +338,13 @@ test_precommit_hook_allows_non_netzenbot() {
 
   TESTS_RUN=$((TESTS_RUN + 1))
   if [ $result -eq 0 ]; then
-    echo -e "${GREEN}✓${NC} PASS: Pre-commit hook allows package.json for non-netzenbot"
+    echo -e "${GREEN}✓${NC} PASS: Pre-commit hook allows package.json for non-bot account"
     TESTS_PASSED=$((TESTS_PASSED + 1))
     return 0
   else
-    echo -e "${RED}✗${NC} FAIL: Pre-commit hook blocked non-netzenbot user (exit code: $result)"
+    echo -e "${RED}✗${NC} FAIL: Pre-commit hook blocked non-bot user (exit code: $result)"
     TESTS_FAILED=$((TESTS_FAILED + 1))
-    FAILED_TESTS+=("Pre-commit hook allows package.json for non-netzenbot")
+    FAILED_TESTS+=("Pre-commit hook allows package.json for non-bot account")
     return 1
   fi
 }
@@ -426,7 +430,7 @@ run_all_tests() {
   echo "=== Pre-commit Hook Tests ==="
   test_precommit_hook_syntax
   test_precommit_hook_blocks_package_json
-  test_precommit_hook_allows_non_netzenbot
+  test_precommit_hook_allows_non_bot
   echo ""
 
   echo "=== Configuration Tests ==="

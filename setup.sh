@@ -74,13 +74,38 @@ if [ ! -d "$GIT_REPO/.git" ]; then
   exit 1
 fi
 
+# Check git config (needed before hook installation)
+echo "Checking git configuration..."
+cd "$GIT_REPO"
+
+GIT_USER=$(git config user.name || echo "")
+GIT_EMAIL=$(git config user.email || echo "")
+
+if [ -z "$GIT_USER" ] || [ -z "$GIT_EMAIL" ]; then
+  echo ""
+  echo "❌ Error: Git user configuration not found!"
+  echo ""
+  echo "Please configure git for this repository before running setup:"
+  echo ""
+  echo "  cd $GIT_REPO"
+  echo "  git config user.name \"your-bot-name\""
+  echo "  git config user.email \"your-bot@example.com\""
+  echo ""
+  exit 1
+fi
+
+echo "✓ Git user: $GIT_USER"
+echo "✓ Git email: $GIT_EMAIL"
+echo ""
+
 # Install pre-commit hook for target repo (src/brave)
+# Replaces __BOT_USERNAME__ placeholder with the configured git user
 HOOK_DEST="$GIT_REPO/.git/hooks/pre-commit"
 
 echo "Installing pre-commit hook to target repo..."
-cp "$HOOK_SOURCE" "$HOOK_DEST"
+sed "s/__BOT_USERNAME__/$GIT_USER/g" "$HOOK_SOURCE" > "$HOOK_DEST"
 chmod +x "$HOOK_DEST"
-echo "✓ Pre-commit hook installed to $HOOK_DEST"
+echo "✓ Pre-commit hook installed to $HOOK_DEST (bot user: $GIT_USER)"
 echo ""
 
 # Install pre-commit hook for brave-core-bot repo itself
@@ -93,29 +118,6 @@ chmod +x "$BOT_HOOK_DEST"
 echo "✓ Pre-commit hook installed to $BOT_HOOK_DEST"
 echo "  (Prevents committing prd.json, progress.txt, run-state.json)"
 echo ""
-
-# Check git config
-echo "Checking git configuration..."
-cd "$GIT_REPO"
-
-GIT_USER=$(git config user.name || echo "")
-GIT_EMAIL=$(git config user.email || echo "")
-
-if [ -z "$GIT_USER" ] || [ -z "$GIT_EMAIL" ]; then
-  echo ""
-  echo "⚠️  Git user configuration not found!"
-  echo ""
-  echo "Please configure git for this repository:"
-  echo ""
-  echo "  cd $GIT_REPO"
-  echo "  git config user.name \"Your Bot Name\""
-  echo "  git config user.email \"your-bot@example.com\""
-  echo ""
-else
-  echo "✓ Git user: $GIT_USER"
-  echo "✓ Git email: $GIT_EMAIL"
-  echo ""
-fi
 
 # Create org members cache for prompt injection protection
 ORG_MEMBERS_DIR="$SCRIPT_DIR/.ignore"

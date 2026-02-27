@@ -134,7 +134,7 @@ EOF
 
 ## Dependency Update Restriction
 
-**CRITICAL SECURITY POLICY**: The netzenbot account is FORBIDDEN from updating ANY dependencies that pull in external code.
+**CRITICAL SECURITY POLICY**: Automated tools are FORBIDDEN from updating ANY dependencies that pull in external code.
 
 **Blocked Files** (will cause commit failure):
 - package.json, package-lock.json, npm-shrinkwrap.json
@@ -146,7 +146,7 @@ EOF
 
 **Enforcement:**
 1. **Instructions**: The prd.json explicitly forbids dependency updates
-2. **Pre-commit Hook**: A git hook at `.git/hooks/pre-commit` automatically blocks commits containing dependency file changes when git user is "netzenbot"
+2. **Pre-commit Hook**: A git hook at `.git/hooks/pre-commit` automatically blocks commits containing dependency file changes when the git user matches the bot account configured during setup
 
 **Required Approach:**
 - All fixes MUST use ONLY existing dependencies already in the codebase

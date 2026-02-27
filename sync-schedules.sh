@@ -25,8 +25,8 @@ CRON_JOBS=$(cat <<EOF
 # Review PRs — skip if no recent open PRs
 0 5,8,10,12,14,16,18,20 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && ./scripts/check-new-prs.sh && $CLAUDE_BIN -p '/review-prs 1d open auto' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
 
-# Learnable pattern search — skip if no recent reviewed PRs
-0 6 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && ./scripts/check-bot-prs.sh && $CLAUDE_BIN -p '/learnable-pattern-search --username netzenbot 2d' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/learnable-pattern-search-cron.log 2>&1
+# Learnable pattern search — skip if no recent merged PRs
+0 6 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && ./scripts/check-bot-prs.sh && $CLAUDE_BIN -p '/learnable-pattern-search 2d' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/learnable-pattern-search-cron.log 2>&1
 
 # Check Signal messages (every hour, only runs Claude if messages pending)
 0 * * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
