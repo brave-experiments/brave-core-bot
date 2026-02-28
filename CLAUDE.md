@@ -60,9 +60,11 @@ If ALL stories are merged, skipped, or invalid (no active stories remain), reply
 
 ## First Steps for Each Iteration
 
-1. Sync brave-core-bot repo: `cd ./brave-core-bot && git fetch upstream && git reset upstream/master --hard` (if upstream doesn't exist, use origin instead)
-2. Read `./brave-core-bot/prd.json` for stories
-3. Read `./brave-core-bot/progress.txt` (check Codebase Patterns section)
-4. Read `./brave-core-bot/run-state.json` for current run state
+**Determine the brave-core-bot directory:** This CLAUDE.md file lives inside the `brave-core-bot/` directory. Use this file's path to derive the absolute path to that directory, and use it for all `./brave-core-bot/` references below. Do NOT assume your current working directory contains `brave-core-bot/` — you may be cd'd into `src/brave/` or another location.
+
+1. Sync brave-core-bot repo: `cd <absolute-path-to-brave-core-bot> && git fetch upstream && git reset upstream/master --hard` (if upstream doesn't exist, use origin instead). Then `cd -` to return to your previous directory.
+2. Read `<brave-core-bot>/prd.json` for stories
+3. Read `<brave-core-bot>/progress.txt` (check Codebase Patterns section)
+4. Read `<brave-core-bot>/run-state.json` for current run state
 5. Follow **[docs/workflow-state-machine.md](./docs/workflow-state-machine.md)** for task selection
 6. Execute the workflow for the selected story's status (see status workflow docs above)

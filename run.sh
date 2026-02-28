@@ -119,14 +119,6 @@ if ! python3 "$SCRIPT_DIR/check-prd-has-work.py"; then
   exit 0
 fi
 
-# Sync brave-core-bot repo to latest upstream master before starting
-echo "Syncing brave-core-bot to upstream/master..."
-cd "$SCRIPT_DIR"
-git fetch upstream 2>/dev/null || git fetch origin
-git checkout master
-git reset --hard upstream/master 2>/dev/null || git reset --hard origin/master
-cd - > /dev/null
-
 echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
 echo "Logs will be saved to: $LOGS_DIR"
 
@@ -140,6 +132,14 @@ work_iteration=0
 
 while [ $loop_count -lt $MAX_ITERATIONS ]; do
   ((++loop_count))
+
+  # Sync brave-core-bot repo to latest upstream master before each iteration
+  echo "Syncing brave-core-bot to upstream/master..."
+  cd "$SCRIPT_DIR"
+  git fetch upstream 2>/dev/null || git fetch origin
+  git checkout master 2>/dev/null
+  git reset --hard upstream/master 2>/dev/null || git reset --hard origin/master
+  cd - > /dev/null
 
   # Check if PRD still has active stories before each iteration
   if ! python3 "$SCRIPT_DIR/check-prd-has-work.py" > /dev/null 2>&1; then

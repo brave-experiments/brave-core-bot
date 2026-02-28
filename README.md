@@ -172,11 +172,21 @@ Follow the prompts, then use `/prd-json` to convert to `prd.json`.
 
 ### Run the Bot
 
+Run `run.sh` from the `brave-browser/` directory (the parent of both `src/` and `brave-core-bot/`):
+
+```bash
+cd brave-browser
+./brave-core-bot/run.sh           # Default: 10 iterations
+./brave-core-bot/run.sh 20        # Run 20 iterations
+./brave-core-bot/run.sh 10 tui    # TUI mode (interactive terminal UI)
+```
+
+Skills (like `/review-prs`) are run interactively from the `brave-core-bot/` directory:
+
 ```bash
 cd brave-core-bot
-./run.sh           # Default: 10 iterations
-./run.sh 20        # Run 20 iterations
-./run.sh 10 tui    # TUI mode (interactive terminal UI)
+claude
+> /review-prs 1d open
 ```
 
 ### Monitor Progress
