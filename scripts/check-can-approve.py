@@ -2,14 +2,14 @@
 """
 Gate check before the bot approves a PR.
 
-Returns exit code 0 and prints JSON with "can_approve": true ONLY when:
-  1. The bot has at least one review thread on the PR
-  2. ALL bot threads are resolved (zero unresolved)
-  3. The bot has not already approved at the current HEAD SHA
+The bot should ONLY approve when it has reviewed the PR AND has
+zero outstanding comments of any kind — inline threads or body-level.
 
-If any condition fails, returns exit code 1 and prints the reason.
-This script is the SINGLE SOURCE OF TRUTH for approval decisions —
-the LLM must not approve without a passing exit code from this script.
+Exit code 0 + "can_approve": true  → safe to approve
+Exit code 1 + "can_approve": false → do NOT approve
+
+This script is the SINGLE SOURCE OF TRUTH for approval decisions.
+The LLM must not approve without exit code 0 from this script.
 
 Usage:
     python3 check-can-approve.py <pr-number> <bot-username>
@@ -60,8 +60,13 @@ def gh_graphql(query, variables):
         return None
 
 
-def fetch_bot_thread_status(pr_number, bot_username):
-    """Fetch all review threads and return bot thread resolution stats."""
+def fetch_pr_data(pr_number, bot_username):
+    """Fetch all bot review data: inline threads + reviews.
+
+    Returns (head_sha, threads_info, body_comments, already_approved)
+    or (None, ...) on API failure.
+    """
+    # 1. Inline review threads via GraphQL
     query = """
     query($owner: String!, $name: String!, $number: Int!) {
       repository(owner: $owner, name: $name) {
@@ -88,47 +93,65 @@ def fetch_bot_thread_status(pr_number, bot_username):
         "number": pr_number,
     })
     if not data:
-        return None, None, None
+        return None, None, None, None
 
     try:
         pr = data["data"]["repository"]["pullRequest"]
         head_sha = pr["headRefOid"]
         threads = pr["reviewThreads"]["nodes"]
     except (KeyError, TypeError):
-        return None, None, None
+        return None, None, None, None
 
-    total = 0
-    unresolved = 0
-    unresolved_details = []
+    total_threads = 0
+    unresolved_threads = 0
+    unresolved_ids = []
     for thread in threads:
         first_comments = thread.get("comments", {}).get("nodes", [])
         if not first_comments:
             continue
         author = (first_comments[0].get("author") or {}).get("login", "")
         if author == bot_username:
-            total += 1
+            total_threads += 1
             if not thread.get("isResolved", False):
-                unresolved += 1
-                unresolved_details.append(thread["id"])
+                unresolved_threads += 1
+                unresolved_ids.append(thread["id"])
 
-    return head_sha, {
-        "total_bot_threads": total,
-        "unresolved_bot_threads": unresolved,
-        "unresolved_thread_ids": unresolved_details,
-    }, threads
+    threads_info = {
+        "total_bot_threads": total_threads,
+        "unresolved_bot_threads": unresolved_threads,
+        "unresolved_thread_ids": unresolved_ids,
+    }
 
-
-def check_already_approved(pr_number, bot_username, head_sha):
-    """Check if the bot already approved at the current HEAD SHA."""
+    # 2. Reviews via REST (for body-level comments and approval check)
     reviews = gh_api(f"repos/brave/brave-core/pulls/{pr_number}/reviews")
     if not reviews:
-        return False
+        reviews = []
+
+    body_comments = []
+    already_approved = False
     for review in reviews:
-        if (review.get("user", {}).get("login") == bot_username
-                and review.get("state") == "APPROVED"
+        if review.get("user", {}).get("login") != bot_username:
+            continue
+        state = review.get("state", "")
+        # Body-level comments: any COMMENTED review with non-empty body
+        if state == "COMMENTED" and review.get("body", "").strip():
+            body_comments.append({
+                "review_id": review.get("id"),
+                "body_preview": review["body"].strip()[:120],
+            })
+        # Already approved at current SHA
+        if (state == "APPROVED"
                 and review.get("commit_id") == head_sha):
-            return True
-    return False
+            already_approved = True
+
+    return head_sha, threads_info, body_comments, already_approved
+
+
+def fail(reason, **extra):
+    """Print failure JSON and exit 1."""
+    result = {"can_approve": False, "reason": reason, **extra}
+    print(json.dumps(result, indent=2))
+    sys.exit(1)
 
 
 def main():
@@ -139,63 +162,61 @@ def main():
     parser.add_argument("bot_username", help="Bot's GitHub username")
     args = parser.parse_args()
 
-    # Fetch thread status
-    head_sha, thread_info, _ = fetch_bot_thread_status(
+    head_sha, threads_info, body_comments, already_approved = fetch_pr_data(
         args.pr_number, args.bot_username
     )
-    if head_sha is None or thread_info is None:
-        result = {
-            "can_approve": False,
-            "reason": "Failed to fetch PR data from GitHub API",
-        }
-        print(json.dumps(result, indent=2))
-        sys.exit(1)
+    if head_sha is None:
+        fail("Failed to fetch PR data from GitHub API")
 
-    # Check 1: Bot must have at least one thread
-    if thread_info["total_bot_threads"] == 0:
-        result = {
-            "can_approve": False,
-            "reason": "Bot has no review threads on this PR — nothing to settle",
-            **thread_info,
-            "head_sha": head_sha,
-        }
-        print(json.dumps(result, indent=2))
-        sys.exit(1)
+    # How much feedback has the bot left on this PR?
+    has_threads = threads_info["total_bot_threads"] > 0
+    has_body_comments = len(body_comments) > 0
 
-    # Check 2: All bot threads must be resolved
-    if thread_info["unresolved_bot_threads"] > 0:
-        result = {
-            "can_approve": False,
-            "reason": (
-                f"{thread_info['unresolved_bot_threads']} of "
-                f"{thread_info['total_bot_threads']} bot threads are still "
-                f"unresolved"
-            ),
-            **thread_info,
-            "head_sha": head_sha,
-        }
-        print(json.dumps(result, indent=2))
-        sys.exit(1)
+    # Bot must have reviewed the PR (left some form of feedback)
+    if not has_threads and not has_body_comments:
+        fail(
+            "Bot has not left any comments on this PR",
+            head_sha=head_sha, **threads_info,
+        )
 
-    # Check 3: Bot must not have already approved this SHA
-    if check_already_approved(args.pr_number, args.bot_username, head_sha):
-        result = {
-            "can_approve": False,
-            "reason": "Bot already approved at this SHA",
-            **thread_info,
-            "head_sha": head_sha,
-        }
-        print(json.dumps(result, indent=2))
-        sys.exit(1)
+    # Bot must have NO outstanding body-level comments.
+    # These have no resolution mechanism — they always block.
+    if has_body_comments:
+        fail(
+            f"Bot has {len(body_comments)} outstanding body-level review "
+            f"comment(s). These are not trackable as review threads and "
+            f"cannot be resolved. The bot must not approve while it has "
+            f"unresolved comments of any kind",
+            body_comments=body_comments,
+            head_sha=head_sha, **threads_info,
+        )
 
-    # All checks pass
+    # Bot must have NO unresolved inline threads.
+    if threads_info["unresolved_bot_threads"] > 0:
+        fail(
+            f"{threads_info['unresolved_bot_threads']} of "
+            f"{threads_info['total_bot_threads']} bot review threads "
+            f"are still unresolved",
+            head_sha=head_sha, **threads_info,
+        )
+
+    # Bot must not have already approved at this SHA.
+    if already_approved:
+        fail(
+            "Bot already approved at this SHA",
+            head_sha=head_sha, **threads_info,
+        )
+
+    # All clear — bot has reviewed, all feedback is resolved, no
+    # outstanding comments of any kind.
     result = {
         "can_approve": True,
         "reason": (
-            f"All {thread_info['total_bot_threads']} bot threads resolved"
+            f"All {threads_info['total_bot_threads']} bot threads resolved, "
+            f"no outstanding comments"
         ),
-        **thread_info,
         "head_sha": head_sha,
+        **threads_info,
     }
     print(json.dumps(result, indent=2))
     sys.exit(0)
