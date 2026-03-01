@@ -18,7 +18,7 @@ CRON_JOBS=$(cat <<EOF
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 
 # Add backlog to PRD (1 hour before each run.sh) — skip if no prd.json
-0 3,12 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-has-prd.sh && $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
+0 3,11 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-has-prd.sh && $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
 
 # Main agent run — run.sh has its own prd check built in
 0 4,13 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./run.sh 3 >> $LOG_DIR/run-cron.log 2>&1
@@ -29,8 +29,8 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 # Learnable pattern search — skip if no recent merged PRs
 0 6 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-bot-prs.sh && $CLAUDE_BIN -p '/learnable-pattern-search 2d' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/learnable-pattern-search-cron.log 2>&1
 
-# Check Signal messages (every hour, only runs Claude if messages pending)
-0 * * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
+# Check Signal messages (every hour at :05, offset to avoid git lock contention with other jobs)
+5 * * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
 
 # === end brave-core-bot ===
 EOF
@@ -51,12 +51,12 @@ echo "$NEW_CRONTAB" | crontab -
 echo "Cron jobs installed successfully."
 echo ""
 echo "Current schedule:"
-echo "  Every hour - /check-signal (only if messages pending)"
+echo "  Every hour at :05 - /check-signal (only if messages pending)"
 echo "  03:00 - /add-backlog-to-prd"
 echo "  04:00 - run.sh (3 iterations)"
 echo "  05:00, 08-20 (even) - /review-prs"
 echo "  06:00 - /learnable-pattern-search"
-echo "  12:00 - /add-backlog-to-prd"
+echo "  11:00 - /add-backlog-to-prd"
 echo "  13:00 - run.sh (3 iterations)"
 echo ""
 crontab -l
