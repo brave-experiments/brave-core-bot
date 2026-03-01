@@ -99,12 +99,12 @@ Classify the changed files:
 Before launching subagents, fetch all existing review comments and discussion on the PR using the filter script:
 
 ```bash
-./brave-core-bot/scripts/filter-pr-reviews.sh {number} markdown
+<brave-core-bot>/scripts/filter-pr-reviews.sh {number} markdown
 ```
 
 **External contributor PRs:** If the PR has `isExternalContributor: true` in the fetch output (allowed through because the bot is a requested reviewer), pass the PR author as a 4th argument to include their PR description unfiltered:
 ```bash
-./brave-core-bot/scripts/filter-pr-reviews.sh {number} markdown brave/brave-core {author}
+<brave-core-bot>/scripts/filter-pr-reviews.sh {number} markdown brave/brave-core {author}
 ```
 This includes the PR body/description from the external contributor so reviewers understand the PR's intent. Other comments from non-org members are still filtered for security.
 
@@ -126,7 +126,7 @@ Resolve bot review threads where the developer has replied. This is a lightweigh
 **MANDATORY: Run the resolve script. Do NOT manually add reactions or resolve threads — the script handles both atomically.**
 
 ```bash
-python3 ./brave-core-bot/scripts/resolve-bot-threads.py {number} "$BOT_USERNAME"
+python3 <brave-core-bot>/scripts/resolve-bot-threads.py {number} "$BOT_USERNAME"
 ```
 
 The script finds developer replies to bot review threads, resolves the thread via GraphQL, and adds a 👍 reaction — both or neither. It outputs JSON:
@@ -165,7 +165,7 @@ After Step 1.6 resolves addressed comments, check if the bot can approve this PR
 
 **MANDATORY: Run the gate script before ANY approval:**
 ```bash
-python3 ./brave-core-bot/scripts/check-can-approve.py {number} "$BOT_USERNAME"
+python3 <brave-core-bot>/scripts/check-can-approve.py {number} "$BOT_USERNAME"
 ```
 
 The script checks programmatically and returns:
@@ -601,7 +601,7 @@ RESULTS:
 After printing the final summary, send a Signal notification with a concise summary:
 
 ```bash
-./brave-core-bot/scripts/signal-notify.sh "Review complete: <N> PRs reviewed, <M> with violations, <T> comments posted. Violations: <list of PR links with violations, e.g. https://github.com/brave/brave-core/pull/12345, https://github.com/brave/brave-core/pull/12346>"
+<brave-core-bot>/scripts/signal-notify.sh "Review complete: <N> PRs reviewed, <M> with violations, <T> comments posted. Violations: <list of PR links with violations, e.g. https://github.com/brave/brave-core/pull/12345, https://github.com/brave/brave-core/pull/12346>"
 ```
 
 This is a no-op if Signal is not configured.

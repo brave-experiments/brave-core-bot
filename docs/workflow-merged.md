@@ -60,7 +60,7 @@ When a merged story is picked for rechecking:
 ### 1. Fetch Post-Merge Comments
 
 ```bash
-./brave-core-bot/scripts/filter-pr-reviews.sh <pr-number> markdown <pr-repository>
+<brave-core-bot>/scripts/filter-pr-reviews.sh <pr-number> markdown <pr-repository>
 ```
 
 ### 2. Filter to Comments AFTER Merge
