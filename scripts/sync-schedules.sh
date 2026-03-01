@@ -16,7 +16,7 @@ LOG_DIR="$PROJECT_ROOT/.ignore"
 CRON_JOBS=$(cat <<EOF
 # === brave-core-bot scheduled jobs ===
 # Managed by sync-schedules.sh - do not edit manually
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+PATH=/home/bbondy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 
 # Add backlog to PRD (1 hour before each run.sh) — skip if no prd.json
 0 3,11 * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-has-prd.sh && $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
