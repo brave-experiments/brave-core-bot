@@ -115,7 +115,7 @@ def filter_stories(stories, run_state):
         if status == "merged":
             if not enable_merge_backoff:
                 continue
-            if merge_backoff_ids is not None and sid not in merge_backoff_ids:
+            if merge_backoff_ids and sid not in merge_backoff_ids:
                 continue
             next_check = story.get("nextMergedCheck")
             if next_check:
