@@ -90,7 +90,7 @@ Before merging, verify ALL of the following:
 
 5. **Set nightly milestone on the PR and linked issue:**
 
-   Fetch the content at `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` and find the "Current channel information" table. Look for the **Nightly** row to get its version (e.g., `1.89.x`). The milestone name is `<nightly-version> - Nightly` (e.g., `1.89.x - Nightly`).
+   Use the nightly version provided in the prompt (e.g., `1.89.x`). The milestone name is `<nightly-version> - Nightly` (e.g., `1.89.x - Nightly`). Only fetch `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` if no nightly version was provided in the prompt.
 
    ```bash
    # Set milestone on the PR

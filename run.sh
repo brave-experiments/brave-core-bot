@@ -122,6 +122,14 @@ fi
 echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
 echo "Logs will be saved to: $LOGS_DIR"
 
+# Fetch nightly version once per run (avoids redundant WebFetch in each iteration)
+NIGHTLY_VERSION=$(python3 "$SCRIPT_DIR/scripts/get-nightly-version.py" 2>/dev/null || echo "")
+if [ -n "$NIGHTLY_VERSION" ]; then
+  echo "Nightly version: $NIGHTLY_VERSION"
+else
+  echo "Warning: Could not fetch nightly version (agent will fetch if needed)"
+fi
+
 # Reset run state at the start of each run
 echo "Resetting run state for fresh start..."
 "$SCRIPT_DIR/scripts/reset-run-state.sh"
@@ -238,6 +246,11 @@ Read ./brave-core-bot/data/prd.json for full story details.
 Read ./brave-core-bot/data/progress.txt (check Codebase Patterns section).
 Follow ./brave-core-bot/docs/workflow-${STORY_STATUS}.md for the workflow.
 Follow the general instructions in ./brave-core-bot/.claude/CLAUDE.md."
+  if [ -n "$NIGHTLY_VERSION" ]; then
+    CLAUDE_PROMPT="$CLAUDE_PROMPT
+
+Nightly version: $NIGHTLY_VERSION (use this for milestone names like '$NIGHTLY_VERSION - Nightly', do NOT fetch the release schedule)."
+  fi
   if [ -n "$EXTRA_PROMPT" ]; then
     CLAUDE_PROMPT="$CLAUDE_PROMPT
 
