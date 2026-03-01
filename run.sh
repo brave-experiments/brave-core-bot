@@ -262,6 +262,12 @@ Nightly version: $NIGHTLY_VERSION (use this for milestone names like '$NIGHTLY_V
 Additional context: $EXTRA_PROMPT"
   fi
 
+  # Log the prompt to the iteration log so it can be audited later
+  if [ "$USE_TUI" != true ]; then
+    jq -n --arg storyId "$STORY_ID" --arg status "$STORY_STATUS" --arg tier "$TIER_NAME" --arg prompt "$CLAUDE_PROMPT" \
+      '{"type":"prompt","storyId":$storyId,"status":$status,"tier":$tier,"prompt":$prompt}' >> "$ITERATION_LOG"
+  fi
+
   if [ "$USE_TUI" = true ]; then
     # TUI mode: let Claude own the terminal directly (no piping)
     claude --dangerously-skip-permissions --model opus --session-id "$SESSION_ID" "$CLAUDE_PROMPT" || true
