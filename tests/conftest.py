@@ -51,7 +51,7 @@ def business_hours():
 def check_prd_has_work():
     return _load_module(
         "check_prd_has_work",
-        os.path.join(ROOT_DIR, "check-prd-has-work.py"),
+        os.path.join(SCRIPTS_DIR, "check-prd-has-work.py"),
     )
 
 

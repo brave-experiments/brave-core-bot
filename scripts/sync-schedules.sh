@@ -6,9 +6,10 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CLAUDE_BIN="/home/bbondy/.local/bin/claude"
 CLAUDE_TOOLS="Bash,Read,Glob,Grep,Write,Edit,Task,WebFetch"
-LOG_DIR="$SCRIPT_DIR/.ignore"
+LOG_DIR="$PROJECT_ROOT/.ignore"
 
 # Build the crontab content
 # Note: add-backlog-to-prd runs 1 hour before each run.sh invocation
@@ -18,19 +19,19 @@ CRON_JOBS=$(cat <<EOF
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 
 # Add backlog to PRD (1 hour before each run.sh) — skip if no prd.json
-0 3,11 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-has-prd.sh && $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
+0 3,11 * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-has-prd.sh && $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
 
 # Main agent run — run.sh has its own prd check built in
-0 4,13 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./run.sh 3 >> $LOG_DIR/run-cron.log 2>&1
+0 4,13 * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./run.sh 3 >> $LOG_DIR/run-cron.log 2>&1
 
 # Review PRs — skip if no recent open PRs
-0 5,8,10,12,14,16,18,20 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-new-prs.sh && $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
+0 5,8,10,12,14,16,18,20 * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-new-prs.sh && $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
 
 # Learnable pattern search — skip if no recent merged PRs
-0 6 * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-bot-prs.sh && $CLAUDE_BIN -p '/learnable-pattern-search 2d' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/learnable-pattern-search-cron.log 2>&1
+0 6 * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-bot-prs.sh && $CLAUDE_BIN -p '/learnable-pattern-search 2d' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/learnable-pattern-search-cron.log 2>&1
 
 # Check Signal messages (every hour at :05, offset to avoid git lock contention with other jobs)
-5 * * * * cd $SCRIPT_DIR && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
+5 * * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
 
 # === end brave-core-bot ===
 EOF

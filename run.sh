@@ -106,14 +106,14 @@ ORG_MEMBERS_FILE="$SCRIPT_DIR/.ignore/org-members.txt"
 if [ ! -f "$ORG_MEMBERS_FILE" ]; then
   echo "Error: Org members file not found at $ORG_MEMBERS_FILE"
   echo "This file is required for prompt injection protection."
-  echo "Run setup.sh or create it manually:"
+  echo "Run 'make setup' or create it manually:"
   echo "  mkdir -p $SCRIPT_DIR/.ignore && gh api 'orgs/brave/members' --paginate | jq -r '.[].login' > $ORG_MEMBERS_FILE"
   exit 1
 fi
 
 # Check if there are active stories in the PRD before starting
 echo "Checking PRD for active work items..."
-if ! python3 "$SCRIPT_DIR/check-prd-has-work.py"; then
+if ! python3 "$SCRIPT_DIR/scripts/check-prd-has-work.py"; then
   echo ""
   echo "No active work items found. Exiting without starting Claude."
   exit 0
@@ -124,7 +124,7 @@ echo "Logs will be saved to: $LOGS_DIR"
 
 # Reset run state at the start of each run
 echo "Resetting run state for fresh start..."
-"$SCRIPT_DIR/reset-run-state.sh"
+"$SCRIPT_DIR/scripts/reset-run-state.sh"
 
 # Track both loop count (for max iterations) and work iterations (actual state changes)
 loop_count=0
@@ -142,7 +142,7 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   cd - > /dev/null
 
   # Check if PRD still has active stories before each iteration
-  if ! python3 "$SCRIPT_DIR/check-prd-has-work.py" > /dev/null 2>&1; then
+  if ! python3 "$SCRIPT_DIR/scripts/check-prd-has-work.py" > /dev/null 2>&1; then
     echo ""
     echo "No active work items remaining in PRD. Stopping."
     exit 0

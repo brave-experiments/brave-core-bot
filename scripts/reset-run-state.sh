@@ -3,7 +3,8 @@
 # This allows all stories to be checked again
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUN_STATE_FILE="$SCRIPT_DIR/run-state.json"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+RUN_STATE_FILE="$PROJECT_ROOT/run-state.json"
 
 echo "Resetting run state..."
 

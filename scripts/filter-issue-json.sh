@@ -32,7 +32,7 @@ CACHE_FILE="$BOT_DIR/.ignore/org-members.txt"
 # Require org members file to exist
 if [ ! -f "$CACHE_FILE" ]; then
   echo "Error: Org members file not found at $CACHE_FILE" >&2
-  echo "Run setup.sh or create it manually:" >&2
+  echo "Run 'make setup' or create it manually:" >&2
   echo "  mkdir -p $BOT_DIR/.ignore && gh api 'orgs/brave/members' --paginate | jq -r '.[].login' > $CACHE_FILE" >&2
   exit 1
 fi

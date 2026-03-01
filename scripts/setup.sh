@@ -5,8 +5,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-HOOK_SOURCE="$SCRIPT_DIR/hooks/pre-commit"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BRAVE_ROOT="$(cd "$PROJECT_ROOT/.." && pwd)"
+HOOK_SOURCE="$PROJECT_ROOT/hooks/pre-commit"
 
 echo "==================================="
 echo "  Brave Core Bot Setup"
@@ -15,13 +16,13 @@ echo ""
 
 # Initialize brave-core-tools submodule
 echo "Initializing brave-core-tools submodule..."
-cd "$SCRIPT_DIR"
+cd "$PROJECT_ROOT"
 git submodule update --init --recursive
-echo "✓ Submodule initialized at: $SCRIPT_DIR/brave-core-tools"
+echo "✓ Submodule initialized at: $PROJECT_ROOT/brave-core-tools"
 echo ""
 
 # Validate directory structure
-EXPECTED_REPO_PATH="$(dirname "$SCRIPT_DIR")/src/brave"
+EXPECTED_REPO_PATH="$BRAVE_ROOT/src/brave"
 if [ ! -d "$EXPECTED_REPO_PATH" ]; then
   echo "⚠️  Warning: Expected directory structure not found"
   echo ""
@@ -44,14 +45,14 @@ if [ ! -d "$EXPECTED_REPO_PATH" ]; then
 fi
 
 # Check if prd.json exists
-if [ ! -f "$SCRIPT_DIR/prd.json" ]; then
+if [ ! -f "$PROJECT_ROOT/prd.json" ]; then
   echo "❌ Error: prd.json not found in $SCRIPT_DIR"
   echo "   Please create a prd.json file before running setup."
   exit 1
 fi
 
 # Extract git repo from prd.json
-GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$SCRIPT_DIR/prd.json" 2>/dev/null || echo "")
+GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PROJECT_ROOT/prd.json" 2>/dev/null || echo "")
 
 if [ -z "$GIT_REPO" ]; then
   echo "❌ Error: Could not find git repository in prd.json"
@@ -61,7 +62,6 @@ fi
 
 # Handle relative paths
 if [[ "$GIT_REPO" != /* ]]; then
-  BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   GIT_REPO="$BRAVE_ROOT/$GIT_REPO"
 fi
 
@@ -109,8 +109,8 @@ echo "✓ Pre-commit hook installed to $HOOK_DEST (bot user: $GIT_USER)"
 echo ""
 
 # Install pre-commit hook for brave-core-bot repo itself
-BOT_HOOK_SOURCE="$SCRIPT_DIR/hooks/pre-commit-bot-repo"
-BOT_HOOK_DEST="$SCRIPT_DIR/.git/hooks/pre-commit"
+BOT_HOOK_SOURCE="$PROJECT_ROOT/hooks/pre-commit-bot-repo"
+BOT_HOOK_DEST="$PROJECT_ROOT/.git/hooks/pre-commit"
 
 echo "Installing pre-commit hook to brave-core-bot repo..."
 cp "$BOT_HOOK_SOURCE" "$BOT_HOOK_DEST"
@@ -120,8 +120,8 @@ echo "  (Prevents committing prd.json, progress.txt, run-state.json)"
 echo ""
 
 # Check org members cache exists (manually maintained, never auto-generated)
-ORG_MEMBERS_FILE="$SCRIPT_DIR/.ignore/org-members.txt"
-mkdir -p "$SCRIPT_DIR/.ignore"
+ORG_MEMBERS_FILE="$PROJECT_ROOT/.ignore/org-members.txt"
+mkdir -p "$PROJECT_ROOT/.ignore"
 
 if [ -f "$ORG_MEMBERS_FILE" ]; then
   echo "✓ Org members file found: $(wc -l < "$ORG_MEMBERS_FILE") members"
@@ -139,5 +139,5 @@ echo ""
 echo "Next steps:"
 echo "1. Configure git user/email if not already set (see above)"
 echo "2. Review prd.json and update configuration as needed"
-echo "3. Run the bot: cd $SCRIPT_DIR && ./run.sh"
+echo "3. Run the bot: cd $PROJECT_ROOT && ./run.sh"
 echo ""
