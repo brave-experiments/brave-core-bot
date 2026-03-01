@@ -147,15 +147,28 @@ Before merging, verify ALL of the following:
 - No new comments since our last push
 - Confirm `lastActivityBy: "bot"` is already set in prd.json (or set it if not)
 
-**Check if reviewer reminder is needed (24 hour rule):**
+**Check if reviewer reminder is needed (1 business day rule):**
 
-1. **Get the timestamp of when we last pushed** from the filtered PR data (`timestamp_analysis.latest_push_timestamp`)
+Reminders use **business hours only** — weekends (Saturday and Sunday) do not count toward the 24-hour threshold. Use the helper script to check:
 
-2. **Check if we've already sent a reminder recently:**
-   - Look for `lastReviewerPing` field in the story's prd.json data
-   - If `lastReviewerPing` exists and was less than 24 hours ago, skip the reminder
+```bash
+python3 ./brave-core-bot/scripts/business-hours-elapsed.py <reference-timestamp>
+# Exit code 0 = 24+ business hours elapsed (send reminder)
+# Exit code 1 = less than 24 business hours (skip reminder)
+# Prints elapsed business hours for logging
+```
 
-3. **If more than 24 hours have passed since our last push (or since lastReviewerPing if it exists):**
+1. **Get the reference timestamp:**
+   - If `lastReviewerPing` exists in the story's prd.json data, use that as the reference
+   - Otherwise, use the last push timestamp from filtered PR data (`timestamp_analysis.latest_push_timestamp`)
+
+2. **Check if 24 business hours have elapsed:**
+   ```bash
+   python3 ./brave-core-bot/scripts/business-hours-elapsed.py "<reference-timestamp>"
+   ```
+   - If exit code is 1 (less than 24 business hours), skip the reminder
+
+3. **If 24+ business hours have elapsed (exit code 0):**
    - Get the list of requested reviewers:
      ```bash
      gh pr view <pr-number> --json reviewRequests -q '.reviewRequests[].login'
@@ -163,18 +176,18 @@ Before merging, verify ALL of the following:
    - If there are reviewers assigned, post a polite reminder:
      ```bash
      gh pr comment <pr-number> --body "$(cat <<'EOF'
-     👋 Friendly reminder: This PR has been waiting for review for over 24 hours.
+     👋 Friendly reminder: This PR has been waiting for review for over 1 business day.
 
      @reviewer1 @reviewer2 When you have a moment, could you please take a look? Thank you!
 
-     (I was asked to send reminders for PRs waiting more than a day)
+     (I was asked to send reminders for PRs waiting more than a business day)
      EOF
      )"
      ```
    - Update the story in prd.json: Set `lastReviewerPing` to current ISO timestamp
-   - Document the ping in progress.txt
+   - Document the ping in progress.txt (include the elapsed business hours from script output)
 
-4. **If less than 24 hours have passed OR no reviewers are assigned:**
+4. **If less than 24 business hours have passed OR no reviewers are assigned:**
    - Skip the reminder (normal status check)
 
 - Append to `./brave-core-bot/progress.txt` documenting the status check (no new comments, and whether reminder was sent)
