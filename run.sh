@@ -219,7 +219,7 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # Use a temp file to capture output while allowing real-time streaming
   TEMP_OUTPUT=$(mktemp)
 
-  # Change to the parent directory (brave-browser) so relative paths in CLAUDE.md work
+  # Change to the parent directory (brave-browser) so relative paths in .claude/CLAUDE.md work
   BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
   cd "$BRAVE_ROOT"
 
@@ -237,7 +237,7 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
 Read ./brave-core-bot/data/prd.json for full story details.
 Read ./brave-core-bot/data/progress.txt (check Codebase Patterns section).
 Follow ./brave-core-bot/docs/workflow-${STORY_STATUS}.md for the workflow.
-Follow the general instructions in ./brave-core-bot/CLAUDE.md."
+Follow the general instructions in ./brave-core-bot/.claude/CLAUDE.md."
   if [ -n "$EXTRA_PROMPT" ]; then
     CLAUDE_PROMPT="$CLAUDE_PROMPT
 

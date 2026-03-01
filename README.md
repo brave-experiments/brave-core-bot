@@ -281,7 +281,7 @@ Log of completed iterations:
 - Per-iteration entries with status transitions, files changed, test results
 - Learnings for future iterations
 
-### CLAUDE.md
+### .claude/CLAUDE.md
 
 Agent instructions defining workflow, testing requirements, git operations, security guidelines, and quality standards.
 
@@ -498,7 +498,6 @@ brave-core-bot/archive/
 ```
 brave-core-bot/
 ├── README.md                  # This file
-├── CLAUDE.md                  # Claude agent instructions
 ├── brave-core-tools/          # Git submodule: best practices, dev skills, shared scripts
 │   ├── BEST-PRACTICES.md      # Index of all best practices
 │   ├── SECURITY.md            # Security guidelines
@@ -518,6 +517,7 @@ brave-core-bot/
 ├── .ignore/
 │   └── org-members.txt        # Cached org members (security, gitignored)
 ├── .claude/
+│   ├── CLAUDE.md              # Claude agent instructions
 │   └── skills/                # Bot-only Claude Code skills (8 skills)
 │       ├── prd/               # PRD generation
 │       ├── prd-json/          # PRD to JSON converter
@@ -601,6 +601,6 @@ This project is licensed under the Mozilla Public License 2.0 (MPL-2.0). See the
 
 For issues or questions:
 - Check `data/progress.txt` for detailed logs
-- Review `CLAUDE.md` for agent behavior
+- Review `.claude/CLAUDE.md` for agent behavior
 - Verify configuration with `make setup`
 - Run `./tests/test-suite.sh` to validate setup
