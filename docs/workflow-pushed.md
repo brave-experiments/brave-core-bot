@@ -19,9 +19,10 @@ If a story has `status: "pushed"` with `prUrl` and `prNumber` already defined, t
 
    **If the PR state is "CLOSED" (not "MERGED"):**
    - The PR was closed by someone else without merging
-   - Update the PRD at `./brave-core-bot/prd.json`:
-     - Set `status: "invalid"`
-     - Set `skipReason: "PR was closed without merging"`
+   - Update the PRD status:
+     ```bash
+     python3 <brave-core-bot>/scripts/update-prd-status.py invalid <story-id> --reason "PR was closed without merging"
+     ```
    - Append to `./brave-core-bot/progress.txt`:
      - Document that PR was closed externally
    - **END THE ITERATION** - Story is marked as invalid
@@ -102,12 +103,10 @@ Before merging, verify ALL of the following:
    If setting the milestone fails (e.g., milestone doesn't exist yet), note it in progress.txt but continue — do not block the merge workflow.
 
 6. **Update State:**
-   - Update the PRD at `./brave-core-bot/prd.json`:
-     - Set `status: "merged"`
-     - Set `mergedAt` to current ISO timestamp (e.g., `"2026-02-02T10:00:00Z"`)
-     - Set `nextMergedCheck` to `mergedAt + 1 day`
-     - Set `mergedCheckCount` to `0`
-     - Set `mergedCheckFinalState` to `false`
+   - Update the PRD status:
+     ```bash
+     python3 <brave-core-bot>/scripts/update-prd-status.py merged <story-id>
+     ```
    - Append to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
 
 **IMPORTANT**: Always use `--squash` merge strategy to keep git history clean.
@@ -137,13 +136,19 @@ Before merging, verify ALL of the following:
 ### If who_went_last: "reviewer" (NEW COMMENTS to address)
 
 - There are new review comments to address
-- Update `lastActivityBy: "reviewer"` in prd.json
+- Update lastActivityBy:
+  ```bash
+  python3 <brave-core-bot>/scripts/update-prd-status.py set-activity <story-id> --who reviewer
+  ```
 - Continue with review response workflow below
 
 ### If who_went_last: "bot" (WAITING for reviewer)
 
 - No new comments since our last push
-- Confirm `lastActivityBy: "bot"` is already set in prd.json (or set it if not)
+- Ensure lastActivityBy is set:
+  ```bash
+  python3 <brave-core-bot>/scripts/update-prd-status.py set-activity <story-id> --who bot
+  ```
 
 **Check if reviewer reminder is needed (1 business day rule):**
 
@@ -182,7 +187,10 @@ python3 ./brave-core-bot/scripts/business-hours-elapsed.py <reference-timestamp>
      EOF
      )"
      ```
-   - Update the story in prd.json: Set `lastReviewerPing` to current ISO timestamp
+   - Update reviewer ping timestamp:
+     ```bash
+     python3 <brave-core-bot>/scripts/update-prd-status.py set-ping <story-id>
+     ```
    - Document the ping in progress.txt (include the elapsed business hours from script output)
 
 4. **If less than 24 business hours have passed OR no reviewers are assigned:**
@@ -246,10 +254,10 @@ Before implementing changes, analyze review comments to detect if the reviewer i
    gh pr close <pr-number> --comment "Closing as task is already completed elsewhere"
    ```
 
-3. **Update the PRD at `./brave-core-bot/prd.json`:**
-   - Set `status: "invalid"`
-   - Set `skipReason: "[Brief explanation from reviewer about why task is already done]"`
-   - Keep existing `prNumber`, `prUrl`, and `branchName` fields
+3. **Update the PRD status:**
+   ```bash
+   python3 <brave-core-bot>/scripts/update-prd-status.py invalid <story-id> --reason "[Brief explanation from reviewer about why task is already done]"
+   ```
 
 4. **Append to `./brave-core-bot/progress.txt`:**
    - Document that reviewer indicated task is already complete
@@ -300,7 +308,10 @@ Before implementing changes, analyze review comments to detect if the reviewer i
   gh pr comment <pr-number> --body "Fixed: [brief description of what was changed]"
   ```
 - **REQUIRED: Evaluate if feedback contains learnable patterns** (see checklist below)
-- Update the PRD: Set `lastActivityBy: "bot"` (we just responded)
+- Update the PRD:
+  ```bash
+  python3 <brave-core-bot>/scripts/update-prd-status.py set-activity <story-id> --who bot
+  ```
 - Update `./brave-core-bot/progress.txt` with what was changed
 - Keep `status: "pushed"` (stay in this state)
 - **Send Signal notification** (no-op if not configured):

@@ -24,7 +24,10 @@ Only read the docs relevant to your story — don't load all of them every time.
    **Check if story already has a branch:**
    - If story has `branchName` field with a value: Use that existing branch (`git checkout <branchName>`)
    - If story has NO `branchName` or it's null: Create NEW branch following naming convention below
-   - Store the branch name in prd.json `branchName` field
+   - Store the branch name:
+     ```bash
+     python3 <brave-core-bot>/scripts/update-prd-status.py set-branch <story-id> --branch <branch-name>
+     ```
 
    **Branch Naming Format:**
    - Pattern: `fix-<descriptive-name-in-kebab-case>`
@@ -98,9 +101,10 @@ Only read the docs relevant to your story — don't load all of them every time.
 
    - If an **open** PR exists that clearly addresses this issue:
      - Check the PR author and description to confirm it's for the same issue
-     - Update the story in `./brave-core-bot/prd.json`:
-       - Set `status: "skipped"`
-       - Add or update a `skipReason` field explaining why (e.g., "PR #XXXXX already exists for this issue")
+     - Update the story status:
+       ```bash
+       python3 <brave-core-bot>/scripts/update-prd-status.py skipped <story-id> --reason "PR #XXXXX already exists for this issue"
+       ```
      - Document in `./brave-core-bot/progress.txt` that you found an existing PR
      - **Post a comment on the GitHub issue** (if not already commented):
        ```bash
@@ -285,10 +289,10 @@ Only read the docs relevant to your story — don't load all of them every time.
    This ensures the final committed state is fully verified. Do NOT create a PR until all checks pass on the final committed state.
 
 12. **Once all verifications pass:**
-   - Update the PRD at `./brave-core-bot/prd.json`:
-     - Set `status: "committed"`
-     - Set `lastActivityBy: null` (not yet public)
-     - Ensure `branchName` field contains the branch name
+   - Update the PRD status:
+     ```bash
+     python3 <brave-core-bot>/scripts/update-prd-status.py committed <story-id> --branch <branch-name>
+     ```
    - Append your progress to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
    - **Continue in same iteration:** Do NOT mark story as checked yet - proceed immediately to push and create PR (see [workflow-committed.md](./workflow-committed.md))
 

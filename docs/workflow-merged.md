@@ -283,13 +283,11 @@ gh pr comment <pr-number> --body "[same body as above]"
 
 ### 6. Update the Recheck Schedule
 
-- Increment `mergedCheckCount` by 1
-- Calculate next interval:
-  - `mergedCheckCount == 0` (just did first check): next in 2 days
-  - `mergedCheckCount == 1` (just did second check): next in 4 days
-  - `mergedCheckCount == 2` (just did third check): next in 8 days
-  - `mergedCheckCount == 3` (just did fourth check): set `mergedCheckFinalState: true`, no more checks
-- Set `nextMergedCheck` to current time + interval (or null if final state)
+Run the merged-check command to increment the count and recalculate the backoff:
+```bash
+python3 <brave-core-bot>/scripts/update-prd-status.py merged-check <story-id>
+```
+This handles the exponential backoff schedule (2d, 4d, 8d) and sets `mergedCheckFinalState: true` after the fourth check.
 
 ### 7. Update progress.txt
 

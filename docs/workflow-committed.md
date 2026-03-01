@@ -98,11 +98,10 @@ EOF
    - `QA/No` — use judgment based on whether manual QA testing is needed
 
 7. **If push or PR creation succeeds:**
-   - Update the PRD at `./brave-core-bot/prd.json`:
-     - Store PR number in `prNumber` field
-     - Store PR URL in `prUrl` field (format: `https://github.com/brave/brave-core/pull/<number>`)
-     - Set `status: "pushed"`
-     - Set `lastActivityBy: "bot"` (we just created the PR)
+   - Update the PRD status:
+     ```bash
+     python3 <brave-core-bot>/scripts/update-prd-status.py pushed <story-id> --pr-number <number>
+     ```
    - Append to `./brave-core-bot/progress.txt` (see [progress-reporting.md](./progress-reporting.md))
    - **Send Signal notification** (no-op if not configured):
      ```bash
