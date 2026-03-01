@@ -223,7 +223,7 @@ Additional context: $EXTRA_PROMPT"
   # Check for completion signal (print mode only — TUI mode skips this since user is watching)
   COMPLETION_CHECK=0
   if [ "$USE_TUI" != true ]; then
-    COMPLETION_CHECK=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$TEMP_OUTPUT" 2>/dev/null | grep -c "<promise>COMPLETE</promise>" || echo "0")
+    COMPLETION_CHECK=$(jq -r 'select(.type == "assistant") | .message.content[]? | select(.type == "text") | .text' "$TEMP_OUTPUT" 2>/dev/null | grep -c "<promise>COMPLETE</promise>" || true)
   fi
   if [ "$COMPLETION_CHECK" -gt 0 ]; then
     echo ""
