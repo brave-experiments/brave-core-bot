@@ -16,6 +16,7 @@ LOG_DIR="$PROJECT_ROOT/.ignore"
 CRON_JOBS=$(cat <<EOF
 # === brave-core-bot scheduled jobs ===
 # Managed by sync-schedules.sh - do not edit manually
+SHELL=/bin/bash
 PATH=/home/bbondy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 
 # Add backlog to PRD (1 hour before each run.sh) — skip if no prd.json
