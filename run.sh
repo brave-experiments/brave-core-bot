@@ -56,7 +56,9 @@ cleanup_and_return_to_master() {
       if [ -d "$GIT_REPO/.git" ]; then
         echo ""
         echo "Switching back to master branch in $GIT_REPO..."
-        cd "$GIT_REPO" && git checkout master 2>/dev/null || git checkout main 2>/dev/null || echo "Could not switch to master/main branch"
+        cd "$GIT_REPO"
+        git stash --include-untracked 2>/dev/null || true
+        git checkout master 2>/dev/null || git checkout main 2>/dev/null || echo "Could not switch to master/main branch"
       fi
     fi
   fi
