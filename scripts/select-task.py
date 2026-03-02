@@ -20,8 +20,8 @@ from datetime import datetime, timezone
 
 TIER_URGENT = 1  # pushed + lastActivityBy == "reviewer"
 TIER_HIGH = 2  # committed
-TIER_MEDIUM = 3  # pushed + lastActivityBy != "reviewer"
-TIER_NORMAL = 4  # pending
+TIER_NORMAL = 3  # pending
+TIER_MEDIUM = 4  # pushed + lastActivityBy != "reviewer"
 TIER_LOW = 5  # merged (needs recheck)
 
 TIER_NAMES = {
@@ -75,7 +75,7 @@ def assign_tier(story):
 def sort_key(story):
     """Generate a sort key for a story within its tier.
 
-    - Pushed stories (tiers 1, 3): sort by lastProcessedDate asc, then priority
+    - Pushed stories (tiers 1, 4): sort by lastProcessedDate asc, then priority
     - Merged stories (tier 5): sort by nextMergedCheck asc, then priority
     - Other stories: sort by priority only
     """
