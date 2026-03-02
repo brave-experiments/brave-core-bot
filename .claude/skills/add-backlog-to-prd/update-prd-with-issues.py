@@ -132,8 +132,8 @@ def build_test_story(story_id, priority, issue):
     acceptance_criteria = [
         "Read ./BEST-PRACTICES.md for async testing patterns and common pitfalls",
         f"Fetch issue #{issue_num} details from brave/brave-browser GitHub API",
-        "Analyze stack trace and identify root cause",
-        "Implement fix for the intermittent failure",
+        "Analyze stack trace and identify root cause - determine whether this is a real bug in production code, a test-only issue, or both. Read the production code being tested, not just the test. If the test is catching a genuine bug, fix the production code",
+        "Implement fix targeting the correct layer (production code, test code, or both)",
         "Run npm run build from src/brave (must pass)",
         "Run npm run format from src/brave (must pass)",
         "Run npm run gn_check from src/brave (must pass)",

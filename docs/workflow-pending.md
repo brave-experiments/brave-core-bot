@@ -151,14 +151,22 @@ Only read the docs relevant to your story — don't load all of them every time.
 
 5. **Implement the user story**
 
-   **IMPORTANT: Where to Make Fixes**
+   **CRITICAL: Investigate Production Code First (Test Failures)**
 
-   When fixing test failures, the fix can be in:
-   - **Production code** (the code being tested) - if the implementation is wrong
+   When fixing intermittent test failures, you MUST investigate the production code being tested BEFORE looking at the test code. Intermittent failures often reveal real bugs — race conditions, missing synchronization, incorrect state management — in the code under test. Do not default to "fix the test."
+
+   **Mandatory investigation steps for test failure stories:**
+   1. **Read the production code** that the failing test exercises. Understand what it does and how it handles concurrency, state, and edge cases.
+   2. **Determine if the test is catching a real bug.** If the production code has a race condition, missing lock, incorrect assumption, or other defect, fix the production code — not the test.
+   3. **Only modify test code if the test itself is wrong** — e.g., incorrect assertions, missing waits for genuinely async operations, wrong test setup. A test that intermittently catches a real bug is a *good* test.
+   4. **Both may need fixes** — sometimes the production code has a bug AND the test has a separate issue.
+
+   The fix can be in:
+   - **Production code** (the code being tested) - if the implementation has a real bug
    - **Test code** (the test itself) - if the test has bugs, incorrect assumptions, or is testing the wrong thing
    - **Both** - sometimes both the implementation and test need corrections
 
-   Analyze the failure carefully to determine where the actual problem lies. Don't assume the production code is always wrong - tests can have bugs too.
+   **If you cannot determine whether the bug is in production code or test code, default to investigating the production code more deeply.** Do not take the easy path of changing the test.
 
    **CRITICAL: Minimal Change Scope**
 
@@ -367,7 +375,7 @@ The goal is to avoid infinite loops on impossible tasks while still giving suffi
   - Read relevant code thoroughly
   - Understand the data flow and control flow
   - Identify the actual root cause, not just symptoms
-  - **Determine whether the issue is in production code, test code, or both** - don't assume the production code is always at fault
+  - **Determine whether the issue is in production code, test code, or both** - don't assume the test is always at fault. Intermittent test failures frequently indicate real bugs in production code (race conditions, missing synchronization, incorrect state). Investigate the production code FIRST.
 - **Fixes must be high-confidence solutions** that address the core issue
 - If you cannot understand the root cause with high confidence, keep the story as `status: "pending"` and document why
 - Temporary hacks or arbitrary timing adjustments are NOT acceptable solutions
