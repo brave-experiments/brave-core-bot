@@ -33,6 +33,9 @@ PATH=/home/bbondy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
 # Check Signal messages (every hour at :05, offset to avoid git lock contention with other jobs)
 5 * * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
 
+# Sync src/brave origin/master from upstream/master (daily at 00:01)
+1 0 * * * cd /home/bbondy/projects/brave-browser/src/brave && git fetch upstream && git push origin upstream/master:master && git fetch origin >> $LOG_DIR/sync-brave-core-cron.log 2>&1
+
 # === end brave-core-bot ===
 EOF
 )
@@ -52,6 +55,7 @@ echo "$NEW_CRONTAB" | crontab -
 echo "Cron jobs installed successfully."
 echo ""
 echo "Current schedule:"
+echo "  00:01 - sync src/brave origin/master from upstream"
 echo "  Every hour at :05 - /check-signal (only if messages pending)"
 echo "  03:00 - /add-backlog-to-prd"
 echo "  04:00 - run.sh (3 iterations)"
