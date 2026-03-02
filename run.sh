@@ -250,7 +250,6 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # In TUI mode: omit --print to show the interactive TUI
   CLAUDE_PROMPT="You are working on story $STORY_ID (current status: $STORY_STATUS).
 Read ./brave-core-bot/data/prd.json for full story details.
-Read ./brave-core-bot/data/progress.txt (check Codebase Patterns section).
 Follow ./brave-core-bot/docs/workflow-${STORY_STATUS}.md for the workflow.
 Follow the general instructions in ./brave-core-bot/.claude/CLAUDE.md."
   if [ -n "$NIGHTLY_VERSION" ]; then

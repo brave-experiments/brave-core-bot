@@ -63,5 +63,4 @@ If ALL stories are merged, skipped, or invalid (no active stories remain), reply
 
 1. Sync brave-core-bot repo: `cd <absolute-path-to-brave-core-bot> && git fetch upstream && git reset upstream/master --hard` (if upstream doesn't exist, use origin instead). Then `cd -` to return to your previous directory.
 2. Read `<brave-core-bot>/data/prd.json` to get the full details for the assigned story
-3. Read `<brave-core-bot>/data/progress.txt` (check Codebase Patterns section)
-4. Execute the workflow for the story's status (see status workflow docs above)
+3. Execute the workflow for the story's status (see status workflow docs above)
