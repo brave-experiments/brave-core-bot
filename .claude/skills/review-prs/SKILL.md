@@ -117,6 +117,30 @@ This returns all past review comments, inline code comments, and discussion comm
 
 If there are no prior comments (first review), skip this step and omit the prior comments section from the subagent prompt.
 
+### Step 1.5.1: Extract PR Images (Visual Context)
+
+After fetching comments, extract and download any screenshots or images from the PR description and org-member comments. These give subagents visual context about UI changes, which improves review quality.
+
+```bash
+python3 <brave-core-bot>/scripts/extract-pr-images.py {number}
+```
+
+The script outputs JSON with downloaded image paths:
+```json
+{
+  "images": [
+    {"path": ".ignore/pr-images/12345/img_001.png", "abs_path": "/full/path/img_001.png", "source": "pr_body", "alt": "screenshot"},
+    {"path": ".ignore/pr-images/12345/img_002.jpg", "abs_path": "/full/path/img_002.jpg", "source": "comment_by_user1", "alt": ""}
+  ],
+  "skipped": [...],
+  "summary": {"downloaded": 2, "skipped": 0}
+}
+```
+
+**Security:** The script only downloads images from org-member content and only from GitHub-hosted URLs. External user images are always skipped.
+
+Save the `images` array as `PR_IMAGES` for use in Step 3. If no images were found (empty array), skip the image section in the subagent prompt.
+
 ### Step 1.6: Acknowledge and Resolve Addressed Comments
 
 Resolve bot review threads where the developer has replied. This is a lightweight courtesy step that runs before launching subagents.
@@ -269,7 +293,14 @@ Each subagent prompt MUST include:
    <PR_DIFF content>
    ```
    ````
-4. **The review rules** (copied into the subagent prompt):
+4. **PR images (visual context)** — if `PR_IMAGES` from Step 1.5.1 is non-empty, include the absolute file paths in the subagent prompt and instruct the subagent to view them:
+   ````
+   This PR includes screenshots/images. Use the Read tool to view each image for visual context about what the PR changes:
+   - <abs_path_1> (from: <source>, alt: "<alt>")
+   - <abs_path_2> (from: <source>, alt: "<alt>")
+   ````
+   The subagent can then use the Read tool on these local files to see the images (Claude is multimodal and can interpret images). This helps the subagent understand UI changes, visual regressions, or design intent shown in the PR. If `PR_IMAGES` is empty, omit this section entirely.
+5. **The review rules** (copied into the subagent prompt):
    - Only flag violations in ADDED lines (+ lines), not existing code
    - Also flag bugs introduced by the change (e.g., missing string separators, duplicate DEPS entries, code inside wrong `#if` guard)
    - **Check surrounding context before making claims.** When a violation involves dependencies, includes, or patterns, read the full file context (e.g., the BUILD.gn deps list, existing includes in the file) to verify your claim is accurate. Do NOT claim a PR "adds a dependency" or "introduces a pattern" if it already existed before the PR.
@@ -280,7 +311,7 @@ Each subagent prompt MUST include:
    - Do NOT flag: existing code the PR isn't changing, template functions defined in headers, simple inline getters in headers, style preferences not in the documented best practices, **include/import ordering** (this is handled by formatting tools and linters, not this bot)
    - **Every claim must be verified in the best practices source document.** Do NOT make claims based on general knowledge or assumptions about what "should" be a best practice. If the best practices docs do not contain a rule about something, do NOT flag it as a violation — even if you believe it to be true. For example, do NOT claim an API is "deprecated" or a pattern is "banned" unless the best practices doc explicitly says so. Hallucinated rules erode trust and waste developer time. When in doubt, do not comment.
    - Comment style: short (1-3 sentences), targeted, acknowledge context. Use "nit:" for genuinely minor/stylistic issues (including missing comments/documentation). Substantive issues (test reliability, correctness, banned APIs) should be direct without "nit:" prefix
-5. **Best practice link requirement** — each rule in the best practices docs has a stable ID anchor (e.g., `<a id="CS-001"></a>`) on the line before the heading. For each violation, the subagent MUST include a direct link using that ID. The link format is:
+6. **Best practice link requirement** — each rule in the best practices docs has a stable ID anchor (e.g., `<a id="CS-001"></a>`) on the line before the heading. For each violation, the subagent MUST include a direct link using that ID. The link format is:
    ```
    https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/<doc>.md#<ID>
    ```
@@ -289,14 +320,14 @@ Each subagent prompt MUST include:
    **CRITICAL: The `rule_link` fragment MUST be an exact `<a id="...">` value from the rules provided in your chunk.** Look for the `<a id="..."></a>` tag on the line before the heading you're referencing and use that ID verbatim. Do NOT invent IDs, guess ID numbers, or construct anchors from heading text. If no `<a id>` tag exists for the rule, or if your observation is a general bug/correctness issue that doesn't map to any specific heading, omit the `rule_link` field entirely.
 
    **CRITICAL: Do NOT invent rules or claim things are deprecated/banned without verification.** Every best-practice violation you flag MUST correspond to an actual rule provided in your chunk. If you cannot point to the specific heading in the provided rules that contains the rule, do not flag it. Do not rely on general knowledge about Chromium conventions — only flag what is explicitly documented. A hallucinated rule (e.g., claiming an API is "deprecated" when the rules say nothing about it) erodes developer trust and is worse than no comment at all.
-6. **Prior comments context (re-review awareness)** — if prior comments exist from Step 1.5, include them in the subagent prompt with these rules:
+7. **Prior comments context (re-review awareness)** — if prior comments exist from Step 1.5, include them in the subagent prompt with these rules:
    - **Do NOT re-raise issues that the author or a reviewer has already explained or justified.** If a prior comment thread shows the author explaining why a design choice was made (e.g., "only two subclasses will ever use this, both pass constants"), accept that explanation and do not flag the same issue again.
    - **Do NOT repeat your own previous comments.** If a comment from the bot (identified by `$BOT_USERNAME` from Step 0) already raised the same point, skip it — even if the code hasn't changed. The author has already seen it.
    - **Do NOT flag new issues on re-review that were missed the first time.** If an issue existed in the code during the first review and was not caught, do not raise it on a subsequent review — unless it is a serious correctness or security concern. Flagging new nits or minor issues on re-review that the bot simply missed earlier is annoying to developers and should be avoided. Only flag issues on re-review if they were **introduced in commits since the last reviewed commit**.
    - **DO re-raise an issue only if:** (a) the author's explanation is factually incorrect or introduces a real risk, OR (b) new code in the latest diff introduces a new instance of the same problem that wasn't previously discussed.
    - When in doubt about whether an issue was addressed, err on the side of NOT re-raising it. Repeating resolved feedback is more disruptive than missing a marginal issue.
-7. **The systematic audit requirement** (below)
-8. **Required output format** (below)
+8. **The systematic audit requirement** (below)
+9. **Required output format** (below)
 
 ### Step 4: Systematic Audit Requirement
 
