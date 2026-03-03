@@ -34,6 +34,9 @@ PATH=/home/bbondy/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/
 # Check Signal messages (every 5 min, offset to avoid git lock contention with other jobs)
 1,6,11,16,21,26,31,36,41,46,51,56 * * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && ./scripts/check-signal-messages.sh && $CLAUDE_BIN -p '/check-signal' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/check-signal-cron.log 2>&1
 
+# Update best practices from upstream Chromium docs (twice daily)
+15 4,14 * * * cd $PROJECT_ROOT && git fetch origin && git checkout master && git reset --hard origin/master && git submodule update --init --recursive && source .envrc && $CLAUDE_BIN -p '/update-best-practices' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/update-best-practices-cron.log 2>&1
+
 # Sync src/brave origin/master from upstream/master (daily at 00:01)
 1 0 * * * cd /home/bbondy/projects/brave-browser/src/brave && git fetch upstream && git push origin upstream/master:master && git fetch origin >> $LOG_DIR/sync-brave-core-cron.log 2>&1
 
@@ -62,6 +65,7 @@ echo "  Every 5 min at :01,:06,:11,...,:56 - /check-signal (only if messages pen
 echo "  03:45, 07:45, 11:45, 15:45, 19:45, 23:45 - /add-backlog-to-prd"
 echo "  04:00, 08:00, 12:00, 16:00, 20:00 - run.sh (3 iterations)"
 echo "  08:00-20:00 (hourly), 23:00, 02:00, 05:00 - /review-prs"
+echo "  04:15, 14:15 - /update-best-practices"
 echo "  06:00 - /learnable-pattern-search"
 echo ""
 crontab -l
