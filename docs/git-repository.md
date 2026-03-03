@@ -70,6 +70,13 @@ Only create commits when requested by the user. If unclear, ask first. When the 
 - IMPORTANT: Never use git commands with the -i flag (like git rebase -i or git add -i) since they require interactive input which is not supported.
 - IMPORTANT: Do not use --no-edit with git rebase commands, as the --no-edit flag is not a valid option for git rebase.
 - If there are no changes to commit (i.e., no untracked files and no modifications), do not create an empty commit
+- **NEVER create empty commits to retrigger CI.** Use the `make-ci-green` skill (`retrigger-ci.py`) to retrigger failed CI jobs via the Jenkins API. If for some reason you must retrigger CI through a push, amend the last commit and force push with `--force-with-lease` — never create a new empty commit.
+- **NEVER merge master into a feature branch.** Always rebase on upstream/master instead. Merge commits pollute PR history and make reviews harder. To update a branch:
+  ```bash
+  git fetch upstream
+  git rebase upstream/master
+  git push --force-with-lease
+  ```
 - In order to ensure good formatting, ALWAYS pass the commit message via a HEREDOC, a la this example:
 
 **Example:**

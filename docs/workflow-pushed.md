@@ -72,6 +72,8 @@ Before merging, verify ALL of the following:
 
    **Only merge if ALL checks show ✓ (pass)**
 
+   **If CI checks are failing and need to be retriggered**, use the `make-ci-green` skill (`retrigger-ci.py`). NEVER create empty commits to retrigger CI.
+
    For programmatic checking:
    ```bash
    # Get failing/pending checks (should be empty)
@@ -274,12 +276,18 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 - Identify which files and code sections need changes
 - Plan the implementation approach that satisfies BOTH the original requirements AND the review feedback
 
-### 4. Checkout Correct Branch
+### 4. Checkout Correct Branch and Rebase
 
 - Get branch name from story's `branchName` field
 - `cd [workingDirectory from prd.json config]`
 - `git checkout <branchName>`
 - Ensure you're on the story's existing branch
+- **Rebase on upstream/master** to pick up any new changes:
+  ```bash
+  git fetch upstream
+  git rebase upstream/master
+  ```
+  **NEVER merge master into the feature branch.** Always rebase. If the rebase has conflicts, resolve them before proceeding.
 
 ### 5. Implement Changes
 
