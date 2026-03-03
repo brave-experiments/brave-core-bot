@@ -624,9 +624,16 @@ After printing the final summary, send a Signal notification. The message MUST i
 
 ```bash
 <brave-core-bot>/scripts/signal-notify.sh "Review complete: <N> PRs reviewed, <M> with violations, <T> comments posted.
-✅ Approved: https://github.com/brave/brave-core/pull/111, https://github.com/brave/brave-core/pull/222
-❌ Violations: https://github.com/brave/brave-core/pull/333
-⏭️ Skipped: https://github.com/brave/brave-core/pull/444"
+
+✅ Approved:
+https://github.com/brave/brave-core/pull/111
+https://github.com/brave/brave-core/pull/222
+
+❌ Violations:
+https://github.com/brave/brave-core/pull/333
+
+⏭️ Skipped:
+https://github.com/brave/brave-core/pull/444"
 ```
 
 Rules:
