@@ -28,7 +28,7 @@ fi
 
 # --- Receive messages ---
 
-RAW_MESSAGES=$(signal-cli -u "$SIGNAL_SENDER" receive --json 2>/dev/null || true)
+RAW_MESSAGES=$(signal-cli --output=json -u "$SIGNAL_SENDER" receive 2>/dev/null || true)
 
 if [[ -z "$RAW_MESSAGES" ]]; then
   exit 1
