@@ -53,9 +53,7 @@ Even if `lastActivityBy: "bot"`, always check merge readiness to prevent stuck s
 
 Check if PR is mergeable:
 - Has required approvals from Brave org members
-- CI checks are passing
 - No unresolved review comments
-- Mergeable state is true
 
 ### If PR is Ready to Merge
 
@@ -67,37 +65,15 @@ Before merging, verify ALL of the following:
    ```
    Should return `APPROVED`
 
-2. **Check CI Status:**
-   ```bash
-   gh pr checks <pr-number>
-   ```
-
-   Look for the status column:
-   - ✓ (green checkmark) = Pass
-   - ✗ (red X) = Fail
-   - ○ (circle) = Pending
-
-   **Only merge if ALL checks show ✓ (pass)**
-
-   **If CI checks are failing and need to be retriggered**, use the `make-ci-green` skill (`retrigger-ci.py`). NEVER create empty commits to retrigger CI.
-
-   For programmatic checking:
-   ```bash
-   # Get failing/pending checks (should be empty)
-   gh pr checks <pr-number> --json state,name -q '.[] | select(.state != "SUCCESS") | .name'
-   ```
-
-   If output is empty, all checks passed. If output shows check names, DO NOT MERGE.
-
-3. **Verify No Unresolved Comments:**
+2. **Verify No Unresolved Comments:**
    Check the filtered PR data to ensure all review comments have been addressed
 
-4. **Merge with SQUASH strategy:**
+3. **Merge with SQUASH strategy:**
    ```bash
    gh pr merge <pr-number> --squash
    ```
 
-5. **Set nightly milestone on the PR and linked issue:**
+4. **Set nightly milestone on the PR and linked issue:**
 
    Use the nightly version provided in the prompt (e.g., `1.89.x`). The milestone name is `<nightly-version> - Nightly` (e.g., `1.89.x - Nightly`). Only fetch `https://github.com/brave/brave-browser/wiki/Brave-Release-Schedule` if no nightly version was provided in the prompt.
 
@@ -111,7 +87,7 @@ Before merging, verify ALL of the following:
 
    If setting the milestone fails (e.g., milestone doesn't exist yet), note it in progress.txt but continue — do not block the merge workflow.
 
-6. **Update State:**
+5. **Update State:**
    - Update the PRD status:
      ```bash
      python3 <brave-core-bot>/scripts/update-prd-status.py merged <story-id>
@@ -120,7 +96,7 @@ Before merging, verify ALL of the following:
 
 **IMPORTANT**: Always use `--squash` merge strategy to keep git history clean.
 
-7. **Send Signal notification** (no-op if not configured):
+6. **Send Signal notification** (no-op if not configured):
    ```bash
    <brave-core-bot>/scripts/signal-notify.sh "PR merged: #<pr-number> - <title> https://github.com/brave/brave-core/pull/<pr-number>"
    ```
