@@ -118,14 +118,6 @@ if [ ! -f "$ORG_MEMBERS_FILE" ]; then
   exit 1
 fi
 
-# Check if there are active stories in the PRD before starting
-echo "Checking PRD for active work items..."
-if ! python3 "$SCRIPT_DIR/scripts/check-prd-has-work.py"; then
-  echo ""
-  echo "No active work items found. Exiting without starting Claude."
-  exit 0
-fi
-
 echo "Starting Claude Code agent - Max iterations: $MAX_ITERATIONS"
 echo "Logs will be saved to: $LOGS_DIR"
 
@@ -148,12 +140,53 @@ work_iteration=0
 while [ $loop_count -lt $MAX_ITERATIONS ]; do
   ((++loop_count))
 
-  # Check if PRD still has active stories before each iteration
-  if ! python3 "$SCRIPT_DIR/scripts/check-prd-has-work.py" > /dev/null 2>&1; then
-    echo ""
-    echo "No active work items remaining in PRD. Stopping."
-    exit 0
+  # Initialize runId if it's null (start of new run)
+  RUN_ID=$(jq -r '.runId // "null"' "$RUN_STATE_FILE" 2>/dev/null || echo "null")
+  if [ "$RUN_ID" = "null" ]; then
+    # Initialize new run with current timestamp
+    RUN_ID=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    TMP_RUN_STATE=$(mktemp)
+    jq --arg runId "$RUN_ID" '.runId = $runId | .storiesCheckedThisRun = [] | .lastIterationHadStateChange = true' "$RUN_STATE_FILE" > "$TMP_RUN_STATE" && mv "$TMP_RUN_STATE" "$RUN_STATE_FILE"
   fi
+
+  # Generate log file path for this iteration (needed by select-task.py)
+  RUN_ID_SAFE=$(echo "$RUN_ID" | sed 's/[^a-zA-Z0-9-]/-/g')
+  ITERATION_LOG="$LOGS_DIR/iteration-${RUN_ID_SAFE}-loop-${loop_count}.log"
+
+  # Select next task — this is the gate check; exit early if no candidates
+  TASK_JSON=""
+  if [ -n "$EXTRA_PROMPT" ]; then
+    TASK_JSON=$(python3 "$SCRIPT_DIR/scripts/select-task.py" \
+      --prd "$PRD_FILE" \
+      --run-state "$RUN_STATE_FILE" \
+      --iteration-log "$ITERATION_LOG" \
+      --extra-prompt "$EXTRA_PROMPT") || true
+  else
+    TASK_JSON=$(python3 "$SCRIPT_DIR/scripts/select-task.py" \
+      --prd "$PRD_FILE" \
+      --run-state "$RUN_STATE_FILE" \
+      --iteration-log "$ITERATION_LOG") || true
+  fi
+
+  TASK_SELECTED=$(echo "$TASK_JSON" | jq -r '.selected // false' 2>/dev/null || echo "false")
+  if [ "$TASK_SELECTED" != "true" ]; then
+    REASON=$(echo "$TASK_JSON" | jq -r '.reason // "unknown"' 2>/dev/null || echo "unknown")
+    echo "No more tasks to process: $REASON"
+    break
+  fi
+
+  STORY_ID=$(echo "$TASK_JSON" | jq -r '.storyId')
+  STORY_STATUS=$(echo "$TASK_JSON" | jq -r '.status')
+  TIER_NAME=$(echo "$TASK_JSON" | jq -r '.tierName')
+  STORY_TITLE=$(echo "$TASK_JSON" | jq -r '.title')
+  STORY_DETAILS=$(echo "$TASK_JSON" | jq -c '.storyDetails')
+  PRD_CONFIG=$(echo "$TASK_JSON" | jq -c '.config')
+  echo "Selected: $STORY_ID - $STORY_TITLE (status: $STORY_STATUS, tier: $TIER_NAME)"
+
+  # Task confirmed — proceed with iteration setup
+  # Store the current iteration log path in run-state.json
+  TMP_RUN_STATE=$(mktemp)
+  jq --arg logPath "$ITERATION_LOG" '.currentIterationLogPath = $logPath' "$RUN_STATE_FILE" > "$TMP_RUN_STATE" && mv "$TMP_RUN_STATE" "$RUN_STATE_FILE"
 
   # Check if last iteration had state change (default to true for first iteration)
   HAD_STATE_CHANGE=$(jq -r '.lastIterationHadStateChange // true' "$RUN_STATE_FILE" 2>/dev/null || echo "true")
@@ -173,56 +206,7 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
     echo "==============================================================="
   fi
 
-  # Initialize runId if it's null (start of new run)
-  RUN_ID=$(jq -r '.runId // "null"' "$RUN_STATE_FILE" 2>/dev/null || echo "null")
-  if [ "$RUN_ID" = "null" ]; then
-    # Initialize new run with current timestamp
-    RUN_ID=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    TMP_RUN_STATE=$(mktemp)
-    jq --arg runId "$RUN_ID" '.runId = $runId | .storiesCheckedThisRun = [] | .lastIterationHadStateChange = true' "$RUN_STATE_FILE" > "$TMP_RUN_STATE" && mv "$TMP_RUN_STATE" "$RUN_STATE_FILE"
-  fi
-
-  # Generate log file path for this iteration
-  # Create a filename-safe version of runId (replace colons and other special chars)
-  RUN_ID_SAFE=$(echo "$RUN_ID" | sed 's/[^a-zA-Z0-9-]/-/g')
-  ITERATION_LOG="$LOGS_DIR/iteration-${RUN_ID_SAFE}-loop-${loop_count}.log"
-
-  # Store the current iteration log path in run-state.json
-  TMP_RUN_STATE=$(mktemp)
-  jq --arg logPath "$ITERATION_LOG" '.currentIterationLogPath = $logPath' "$RUN_STATE_FILE" > "$TMP_RUN_STATE" && mv "$TMP_RUN_STATE" "$RUN_STATE_FILE"
-
   echo "Logging to: $ITERATION_LOG"
-
-  # Select next task deterministically
-  TASK_JSON=""
-  if [ -n "$EXTRA_PROMPT" ]; then
-    TASK_JSON=$(python3 "$SCRIPT_DIR/scripts/select-task.py" \
-      --prd "$PRD_FILE" \
-      --run-state "$RUN_STATE_FILE" \
-      --iteration-log "$ITERATION_LOG" \
-      --extra-prompt "$EXTRA_PROMPT") || true
-  else
-    TASK_JSON=$(python3 "$SCRIPT_DIR/scripts/select-task.py" \
-      --prd "$PRD_FILE" \
-      --run-state "$RUN_STATE_FILE" \
-      --iteration-log "$ITERATION_LOG") || true
-  fi
-
-  # Check if task was selected
-  TASK_SELECTED=$(echo "$TASK_JSON" | jq -r '.selected // false' 2>/dev/null || echo "false")
-  if [ "$TASK_SELECTED" != "true" ]; then
-    REASON=$(echo "$TASK_JSON" | jq -r '.reason // "unknown"' 2>/dev/null || echo "unknown")
-    echo "No more tasks to process: $REASON"
-    break
-  fi
-
-  STORY_ID=$(echo "$TASK_JSON" | jq -r '.storyId')
-  STORY_STATUS=$(echo "$TASK_JSON" | jq -r '.status')
-  TIER_NAME=$(echo "$TASK_JSON" | jq -r '.tierName')
-  STORY_TITLE=$(echo "$TASK_JSON" | jq -r '.title')
-  STORY_DETAILS=$(echo "$TASK_JSON" | jq -c '.storyDetails')
-  PRD_CONFIG=$(echo "$TASK_JSON" | jq -c '.config')
-  echo "Selected: $STORY_ID - $STORY_TITLE (status: $STORY_STATUS, tier: $TIER_NAME)"
 
   # Run Claude Code with the agent prompt
   # Use a temp file to capture output while allowing real-time streaming
