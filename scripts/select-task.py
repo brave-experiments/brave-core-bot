@@ -273,7 +273,10 @@ def main():
     # Update prd.json
     update_prd(prd_path, prd, selected, args.iteration_log)
 
-    # Output result
+    # Extract config (ralphConfig or config section)
+    config = prd.get("ralphConfig") or prd.get("config") or {}
+
+    # Output result with full story details and config embedded in prompt
     result = {
         "selected": True,
         "storyId": story_id,
@@ -283,6 +286,8 @@ def main():
         "title": selected.get("title", ""),
         "priority": selected.get("priority"),
         "candidateCount": len(candidates),
+        "storyDetails": selected,
+        "config": config,
     }
     print(json.dumps(result))
     return 0

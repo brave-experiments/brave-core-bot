@@ -228,6 +228,8 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   STORY_STATUS=$(echo "$TASK_JSON" | jq -r '.status')
   TIER_NAME=$(echo "$TASK_JSON" | jq -r '.tierName')
   STORY_TITLE=$(echo "$TASK_JSON" | jq -r '.title')
+  STORY_DETAILS=$(echo "$TASK_JSON" | jq -c '.storyDetails')
+  PRD_CONFIG=$(echo "$TASK_JSON" | jq -c '.config')
   echo "Selected: $STORY_ID - $STORY_TITLE (status: $STORY_STATUS, tier: $TIER_NAME)"
 
   # Run Claude Code with the agent prompt
@@ -249,9 +251,14 @@ while [ $loop_count -lt $MAX_ITERATIONS ]; do
   # In print mode: use stream-json output format with verbose flag to capture detailed execution logs
   # In TUI mode: omit --print to show the interactive TUI
   CLAUDE_PROMPT="You are working on story $STORY_ID (current status: $STORY_STATUS).
-Read ./brave-core-bot/data/prd.json for full story details.
 Follow ./brave-core-bot/docs/workflow-${STORY_STATUS}.md for the workflow.
-Follow the general instructions in ./brave-core-bot/.claude/CLAUDE.md."
+Follow the general instructions in ./brave-core-bot/.claude/CLAUDE.md.
+
+Story details:
+$STORY_DETAILS
+
+PRD config:
+$PRD_CONFIG"
   if [ -n "$NIGHTLY_VERSION" ]; then
     CLAUDE_PROMPT="$CLAUDE_PROMPT
 
