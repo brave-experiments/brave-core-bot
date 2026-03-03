@@ -166,6 +166,31 @@ Successfully fetched 15 open issues from the `bot/type/test` label and added 7 m
 
 ---
 
+## Step 5: Signal Notification
+
+After the recap, send a Signal notification summarizing what was added. Each issue link goes on its own line.
+
+**If new issues were added:**
+
+```bash
+<brave-core-bot>/scripts/signal-notify.sh "PRD backlog updated: added <N> new issues.
+https://github.com/brave/brave-browser/issues/<number1>
+https://github.com/brave/brave-browser/issues/<number2>
+https://github.com/brave/brave-browser/issues/<number3>"
+```
+
+**If no new issues were added:**
+
+```bash
+<brave-core-bot>/scripts/signal-notify.sh "PRD backlog sync: no new issues to add. <N> issues already tracked."
+```
+
+Do NOT send a notification without issue links when issues were added.
+
+This is a no-op if Signal is not configured.
+
+---
+
 ## Error Handling
 
 - If `gh` CLI is not available, report error and exit
