@@ -58,10 +58,14 @@ Process incoming Signal messages and execute the requested commands. Messages ar
       ```
       Replace `TIMESTAMP` with the actual timestamp value from the message.
 
-   d. **Send a Signal reply** with a concise summary of the result:
+   d. **Send a Signal reply** as a threaded reply to the original message:
       ```bash
-      <brave-core-bot>/scripts/signal-notify.sh "Re: <first 50 chars of original message>... — <brief result summary>"
+      <brave-core-bot>/scripts/signal-notify.sh "<brief result summary>" \
+        --quote-timestamp <message_timestamp> \
+        --quote-author "<message_source>" \
+        --quote-message "<first 100 chars of original message>"
       ```
+      This creates a native Signal reply (the recipient sees it threaded under their original message).
       Keep replies short and informative. If the task produced detailed output, summarize the key findings. **Always include a relevant link** (e.g., PR URL, issue URL, crash report URL) when the result relates to a specific item so the recipient can quickly navigate to it.
 
 3. **Clean up** — delete the pending messages file after all messages are processed:
