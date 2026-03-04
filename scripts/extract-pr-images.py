@@ -234,55 +234,58 @@ def main():
         for img in extract_image_urls(pr_body):
             skipped.append({"url": img["url"], "reason": "external author (PR body)", "source": f"pr_body_by_{pr_author}"})
 
-    # 2. Review comments (inline code comments)
-    review_comments = gh_api(f"repos/{args.repo}/pulls/{args.pr_number}/comments")
-    if review_comments:
-        for comment in review_comments:
-            user = comment.get("user", {}).get("login", "")
-            body = comment.get("body") or ""
-            if is_trusted(user, org_members, trusted_reviewers) and body:
-                for img in extract_image_urls(body):
-                    if is_allowed_url(img["url"]):
-                        images.append({**img, "source": f"review_comment_by_{user}", "author": user})
-                    else:
-                        skipped.append({"url": img["url"], "reason": "disallowed host",
+    # Only fetch comments if PR body contained images (most PRs have none,
+    # so this skips 3 API calls in the common case)
+    if images or skipped:
+        # 2. Review comments (inline code comments)
+        review_comments = gh_api(f"repos/{args.repo}/pulls/{args.pr_number}/comments")
+        if review_comments:
+            for comment in review_comments:
+                user = comment.get("user", {}).get("login", "")
+                body = comment.get("body") or ""
+                if is_trusted(user, org_members, trusted_reviewers) and body:
+                    for img in extract_image_urls(body):
+                        if is_allowed_url(img["url"]):
+                            images.append({**img, "source": f"review_comment_by_{user}", "author": user})
+                        else:
+                            skipped.append({"url": img["url"], "reason": "disallowed host",
+                                            "source": f"review_comment_by_{user}"})
+                elif body:
+                    for img in extract_image_urls(body):
+                        skipped.append({"url": img["url"], "reason": "external user",
                                         "source": f"review_comment_by_{user}"})
-            elif body:
-                for img in extract_image_urls(body):
-                    skipped.append({"url": img["url"], "reason": "external user",
-                                    "source": f"review_comment_by_{user}"})
 
-    # 3. Issue comments (PR discussion)
-    issue_comments = gh_api(f"repos/{args.repo}/issues/{args.pr_number}/comments")
-    if issue_comments:
-        for comment in issue_comments:
-            user = comment.get("user", {}).get("login", "")
-            body = comment.get("body") or ""
-            if is_trusted(user, org_members, trusted_reviewers) and body:
-                for img in extract_image_urls(body):
-                    if is_allowed_url(img["url"]):
-                        images.append({**img, "source": f"discussion_comment_by_{user}", "author": user})
-                    else:
-                        skipped.append({"url": img["url"], "reason": "disallowed host",
+        # 3. Issue comments (PR discussion)
+        issue_comments = gh_api(f"repos/{args.repo}/issues/{args.pr_number}/comments")
+        if issue_comments:
+            for comment in issue_comments:
+                user = comment.get("user", {}).get("login", "")
+                body = comment.get("body") or ""
+                if is_trusted(user, org_members, trusted_reviewers) and body:
+                    for img in extract_image_urls(body):
+                        if is_allowed_url(img["url"]):
+                            images.append({**img, "source": f"discussion_comment_by_{user}", "author": user})
+                        else:
+                            skipped.append({"url": img["url"], "reason": "disallowed host",
+                                            "source": f"discussion_comment_by_{user}"})
+                elif body:
+                    for img in extract_image_urls(body):
+                        skipped.append({"url": img["url"], "reason": "external user",
                                         "source": f"discussion_comment_by_{user}"})
-            elif body:
-                for img in extract_image_urls(body):
-                    skipped.append({"url": img["url"], "reason": "external user",
-                                    "source": f"discussion_comment_by_{user}"})
 
-    # 4. Review body text (the body of each review submission)
-    reviews = gh_api(f"repos/{args.repo}/pulls/{args.pr_number}/reviews")
-    if reviews:
-        for review in reviews:
-            user = review.get("user", {}).get("login", "")
-            body = review.get("body") or ""
-            if is_trusted(user, org_members, trusted_reviewers) and body:
-                for img in extract_image_urls(body):
-                    if is_allowed_url(img["url"]):
-                        images.append({**img, "source": f"review_by_{user}", "author": user})
-                    else:
-                        skipped.append({"url": img["url"], "reason": "disallowed host",
-                                        "source": f"review_by_{user}"})
+        # 4. Review body text (the body of each review submission)
+        reviews = gh_api(f"repos/{args.repo}/pulls/{args.pr_number}/reviews")
+        if reviews:
+            for review in reviews:
+                user = review.get("user", {}).get("login", "")
+                body = review.get("body") or ""
+                if is_trusted(user, org_members, trusted_reviewers) and body:
+                    for img in extract_image_urls(body):
+                        if is_allowed_url(img["url"]):
+                            images.append({**img, "source": f"review_by_{user}", "author": user})
+                        else:
+                            skipped.append({"url": img["url"], "reason": "disallowed host",
+                                            "source": f"review_by_{user}"})
 
     # --- Deduplicate by URL ---
     seen_urls = set()
