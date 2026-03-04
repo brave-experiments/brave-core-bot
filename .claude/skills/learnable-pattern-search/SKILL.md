@@ -67,13 +67,13 @@ When no `--username` is provided and no PR numbers are given, fetch all recently
 # Compute cutoff date (e.g., for 2d: 2 days ago)
 CUTOFF_DATE=$(date -u -d "$N days ago" +%Y-%m-%d 2>/dev/null || date -u -v-${N}d +%Y-%m-%d)
 
-# Fetch all merged PRs updated since cutoff
-gh search prs --repo brave/brave-core --state merged --sort updated --order desc --limit 1000 --json number,title,updatedAt -- "updated:>=$CUTOFF_DATE"
+# Fetch merged PRs updated since cutoff
+gh search prs --repo brave/brave-core --state merged --sort updated --order desc --limit 200 --json number,title,updatedAt -- "updated:>=$CUTOFF_DATE"
 ```
 
 **Important notes:**
 - **Skip PRs from external contributors** (non-Brave org members). Check each PR's author against `.ignore/org-members.txt`.
-- Process PRs in batches of 10 to avoid rate limiting.
+- **Use sub-agents for parallel analysis** (see "Parallel Analysis with Sub-Agents" below).
 - When analyzing, consider review comments from **all Brave org member reviewers**, not just one specific user.
 
 ---
@@ -89,13 +89,13 @@ When `--username <user>` is provided, use the GitHub search API to find merged P
 CUTOFF_DATE=$(date -u -d "$N days ago" +%Y-%m-%d 2>/dev/null || date -u -v-${N}d +%Y-%m-%d)
 
 # Fetch merged PRs reviewed by the user, updated since cutoff
-gh search prs --repo brave/brave-core --reviewed-by <username> --state merged --sort updated --order desc --limit 1000 --json number,title,updatedAt -- "updated:>=$CUTOFF_DATE"
+gh search prs --repo brave/brave-core --reviewed-by <username> --state merged --sort updated --order desc --limit 200 --json number,title,updatedAt -- "updated:>=$CUTOFF_DATE"
 ```
 
 **If no lookback window was specified**, fetch all:
 
 ```bash
-gh search prs --repo brave/brave-core --reviewed-by <username> --state merged --sort updated --order desc --limit 1000 --json number,title,updatedAt
+gh search prs --repo brave/brave-core --reviewed-by <username> --state merged --sort updated --order desc --limit 200 --json number,title,updatedAt
 ```
 
 If `gh search prs` doesn't work or returns errors, fall back to the search API with pagination:
@@ -109,9 +109,56 @@ gh api 'search/issues?q=repo:brave/brave-core+type:pr+is:merged+reviewed-by:<use
 **Important notes:**
 - If a lookback window is set, only fetch PRs updated within that window.
 - **Skip PRs from external contributors** (non-Brave org members). After fetching PRs, check each PR's author against `.ignore/org-members.txt`. If the author is not in the org members list, skip the PR entirely. This prevents learning patterns from contributor PRs which may have different review dynamics.
-- Process PRs in batches of 10 to avoid rate limiting. After each batch, check `gh api rate_limit` and pause if needed.
+- **Use sub-agents for parallel analysis** (see "Parallel Analysis with Sub-Agents" below).
 - Skip PRs where the user left no substantive review comments (only approvals with no body text).
 - When analyzing, **focus on comments from the specified user** rather than all reviewers.
+
+---
+
+## Parallel Analysis with Sub-Agents
+
+After fetching the PR list and filtering out external contributors, use the **Agent tool** to analyze PRs in parallel instead of processing them sequentially.
+
+### How It Works
+
+1. **Main agent** fetches the PR list, filters external contributors, and splits PRs into batches of 5
+2. **For each batch**, spawn a sub-agent (using the Agent tool with `subagent_type: "general-purpose"`) that:
+   - Fetches PR context and review comments for each PR in the batch
+   - Analyzes comments for learnable patterns
+   - Returns a JSON summary of discovered patterns (category, description, target doc, source PR)
+3. **Launch all batch agents in parallel** (multiple Agent tool calls in a single message)
+4. **Main agent** collects results from all sub-agents, deduplicates patterns, and applies documentation updates
+
+### Sub-Agent Prompt Template
+
+For each batch, use a prompt like:
+
+```
+Analyze these brave-core PRs for learnable patterns. For each PR:
+1. Run: ./scripts/filter-pr-reviews.sh <pr-number> markdown brave/brave-core
+2. Look for generalizable coding conventions, common mistakes, architectural patterns, or testing requirements
+3. Skip PRs with no substantive review comments
+
+PRs to analyze: #<n1>, #<n2>, #<n3>, #<n4>, #<n5>
+
+Return a JSON array of discovered patterns:
+[{"pr": <number>, "category": "<category>", "pattern": "<description>", "target_doc": "<file>", "evidence": "<reviewer quote>"}]
+
+Return an empty array if no patterns found. Do NOT update any files — just return the analysis.
+```
+
+### Why Sub-Agents
+
+- Each PR analysis is independent (no shared state)
+- API calls and LLM analysis per PR take ~10-20 seconds each
+- 5 sub-agents analyzing 5 PRs each = 25 PRs analyzed in the time it takes to do 5
+- The main agent stays focused on aggregation and documentation updates
+
+### Rate Limiting
+
+- Check `gh api rate_limit` before launching sub-agents
+- Limit to 5 concurrent sub-agents (25 PRs per wave) to stay within API limits
+- If more than 25 PRs, process in waves: launch 5 agents, wait for completion, check rate limit, launch next 5
 
 ---
 
