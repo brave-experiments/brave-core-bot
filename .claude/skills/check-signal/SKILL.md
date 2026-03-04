@@ -11,7 +11,7 @@ Process incoming Signal messages and execute the requested commands. Messages ar
 
 ## The Job
 
-1. **Read pending messages** from `./brave-core-bot/.ignore/signal-pending-messages.json`. This file is written by the pre-check script and contains an array of messages:
+1. **Read pending messages** from `./.ignore/signal-pending-messages.json`. This file is written by the pre-check script and contains an array of messages:
    ```json
    [
      {
@@ -46,11 +46,11 @@ Process incoming Signal messages and execute the requested commands. Messages ar
       - "Run preflight checks" — run build/test checks
       - "What stories are in progress?" — read data/prd.json
 
-   c. **Update the cache** after processing each message. Read the current cache from `./brave-core-bot/.ignore/signal-messages-cache.json` (create if missing), append the processed timestamp, keep only the last 1000 entries, and write back:
+   c. **Update the cache** after processing each message. Read the current cache from `./.ignore/signal-messages-cache.json` (create if missing), append the processed timestamp, keep only the last 1000 entries, and write back:
       ```bash
       python3 -c "
       import json, os
-      cache_file = './brave-core-bot/.ignore/signal-messages-cache.json'
+      cache_file = './.ignore/signal-messages-cache.json'
       cached = []
       if os.path.exists(cache_file):
           try:
@@ -78,7 +78,7 @@ Process incoming Signal messages and execute the requested commands. Messages ar
 
 3. **Clean up** — delete the pending messages file after all messages are processed:
    ```bash
-   rm -f ./brave-core-bot/.ignore/signal-pending-messages.json
+   rm -f ./.ignore/signal-pending-messages.json
    ```
 
 4. **Print final summary** to stdout:

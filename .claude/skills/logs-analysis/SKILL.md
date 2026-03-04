@@ -5,7 +5,7 @@ description: "Analyze iteration logs in ./logs for errors, schedule gaps, and pr
 
 # Logs Analysis
 
-Analyze iteration log files in `./brave-core-bot/logs/` (top-level only, **never** look in `processed/`) and cron logs in `./brave-core-bot/.ignore/*-cron.log` to identify problems and assess schedule health.
+Analyze iteration log files in `./logs/` (top-level only, **never** look in `processed/`) and cron logs in `./.ignore/*-cron.log` to identify problems and assess schedule health.
 
 **Determine the brave-core-bot directory:** This SKILL.md file lives inside `brave-core-bot/.claude/skills/logs-analysis/`. Use this file's path to derive the absolute path to the `brave-core-bot/` directory.
 
