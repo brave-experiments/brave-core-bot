@@ -13,12 +13,38 @@ if [ -z "$ISSUE_NUMBER" ]; then
   exit 1
 fi
 
+# Load org members into memory once (avoids per-user API calls)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+CACHE_FILE="$BOT_DIR/.ignore/org-members.txt"
+ALLOWLIST_FILE="$SCRIPT_DIR/trusted-reviewers.txt"
+
+if [ -f "$CACHE_FILE" ]; then
+  _ORG_MEMBERS=$'\n'"$(cat "$CACHE_FILE")"$'\n'
+else
+  _ORG_MEMBERS=$'\n'
+fi
+if [ -f "$ALLOWLIST_FILE" ]; then
+  _ORG_MEMBERS="$_ORG_MEMBERS$(cat "$ALLOWLIST_FILE")"$'\n'
+fi
+
 # Check if user is a Brave org member
 is_org_member() {
   local username="$1"
-  # Returns 204 if member, 404 if not
-  gh api "orgs/$ORG/members/$username" --silent 2>/dev/null
-  return $?
+
+  # Fast string match against preloaded list
+  if [[ "$_ORG_MEMBERS" == *$'\n'"$username"$'\n'* ]]; then
+    return 0
+  fi
+
+  # Fallback: Direct API check for private members
+  if gh api "orgs/$ORG/members/$username" --silent 2>/dev/null; then
+    echo "$username" >> "$CACHE_FILE"
+    _ORG_MEMBERS="$_ORG_MEMBERS$username"$'\n'
+    return 0
+  fi
+
+  return 1
 }
 
 echo "Fetching issue #$ISSUE_NUMBER from $REPO..."

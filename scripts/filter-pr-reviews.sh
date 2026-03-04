@@ -37,17 +37,18 @@ if [ ! -f "$CACHE_FILE" ]; then
   exit 1
 fi
 
+# Load org members + allowlist into memory once (avoids per-user grep calls)
+_ORG_MEMBERS=$'\n'"$(cat "$CACHE_FILE")"$'\n'
+if [ -f "$ALLOWLIST_FILE" ]; then
+  _ORG_MEMBERS="$_ORG_MEMBERS$(cat "$ALLOWLIST_FILE")"$'\n'
+fi
+
 # Function to check if user is org member
 is_org_member() {
   local username="$1"
 
-  # First check allowlist (for trusted reviewers when using external account)
-  if [ -f "$ALLOWLIST_FILE" ] && grep -q "^${username}$" "$ALLOWLIST_FILE"; then
-    return 0
-  fi
-
-  # Check cache (fast path)
-  if grep -q "^${username}$" "$CACHE_FILE"; then
+  # Fast string match against preloaded list
+  if [[ "$_ORG_MEMBERS" == *$'\n'"$username"$'\n'* ]]; then
     return 0
   fi
 
@@ -56,6 +57,7 @@ is_org_member() {
   if gh api "orgs/brave/members/$username" --silent 2>/dev/null; then
     # Add to cache for future lookups
     echo "$username" >> "$CACHE_FILE"
+    _ORG_MEMBERS="$_ORG_MEMBERS$username"$'\n'
     return 0
   fi
 
