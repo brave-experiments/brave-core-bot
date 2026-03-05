@@ -1,0 +1,64 @@
+#!/bin/bash
+# Wrapper that ensures only one instance of a job runs at a time.
+# Also kills the job if it exceeds a timeout (default: 2 hours).
+#
+# Usage: with-lock.sh <lock-name> [--timeout <seconds>] -- <command...>
+# Example: with-lock.sh review-prs -- claude -p '/review-prs ...'
+#          with-lock.sh review-prs --timeout 3600 -- claude -p '/review-prs ...'
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCK_DIR="$SCRIPT_DIR/../.ignore"
+mkdir -p "$LOCK_DIR"
+
+LOCK_NAME="$1"
+shift
+
+if [ -z "$LOCK_NAME" ]; then
+  echo "Usage: with-lock.sh <lock-name> [--timeout <seconds>] -- <command...>"
+  exit 1
+fi
+
+# Default timeout: 2 hours
+TIMEOUT=7200
+
+# Parse optional --timeout
+while [ "$1" != "--" ] && [ $# -gt 0 ]; do
+  case "$1" in
+    --timeout)
+      TIMEOUT="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+# Skip the "--" separator
+if [ "$1" = "--" ]; then
+  shift
+fi
+
+if [ $# -eq 0 ]; then
+  echo "No command specified after --"
+  exit 1
+fi
+
+LOCKFILE="$LOCK_DIR/.${LOCK_NAME}.lock"
+
+# Acquire exclusive lock or exit
+exec 200>"$LOCKFILE"
+flock -n 200 || { echo "Another $LOCK_NAME job is already running. Exiting."; exit 0; }
+
+# Run the command with a timeout
+timeout "$TIMEOUT" "$@"
+EXIT_CODE=$?
+
+if [ $EXIT_CODE -eq 124 ]; then
+  echo "$LOCK_NAME job killed after exceeding timeout of ${TIMEOUT}s"
+fi
+
+exit $EXIT_CODE
