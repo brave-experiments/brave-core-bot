@@ -226,29 +226,21 @@ Before implementing changes, analyze review comments to detect if the reviewer i
 
 **If reviewer indicates task is already complete:**
 
-1. **Post thank you comment:**
+1. **Close the PR with explanation:**
    ```bash
-   gh pr comment <pr-number> --body "$(cat <<'EOF'
-   Thank you for reviewing! I understand this fix is no longer needed. Closing this PR and marking the task as invalid.
-   EOF
-   )"
+   gh pr close <pr-number> --comment "Thank you for reviewing! I understand this fix is no longer needed. Closing this PR and marking the task as invalid."
    ```
 
-2. **Close the PR:**
-   ```bash
-   gh pr close <pr-number> --comment "Closing as task is already completed elsewhere"
-   ```
-
-3. **Update the PRD status:**
+2. **Update the PRD status:**
    ```bash
    python3 <brave-core-bot>/scripts/update-prd-status.py invalid <story-id> --reason "[Brief explanation from reviewer about why task is already done]"
    ```
 
-4. **Append to `./brave-core-bot/data/progress.txt`:**
+3. **Append to `./brave-core-bot/data/progress.txt`:**
    - Document that reviewer indicated task is already complete
    - Include the skip reason
 
-5. **END THE ITERATION** - Story is complete (marked as invalid)
+4. **END THE ITERATION** - Story is complete (marked as invalid)
 
 **If reviewer requests actual changes (not indicating task is already done), continue below:**
 
