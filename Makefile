@@ -1,4 +1,4 @@
-.PHONY: test lint format setup schedules clean archive archive-progress archive-prd
+.PHONY: test lint format setup schedules view-schedules clean archive archive-progress archive-prd
 
 # Run the test suite
 test:
@@ -22,6 +22,10 @@ setup:
 # Install/update cron schedules
 schedules:
 	./scripts/sync-schedules.sh
+
+# Show schedule summary
+view-schedules:
+	./scripts/view-schedules.sh
 
 # Archive progress.txt (append to progress.archived.txt, reset progress.txt)
 archive-progress:
