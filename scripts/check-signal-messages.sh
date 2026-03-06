@@ -17,6 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 CACHE_FILE="$BOT_DIR/.ignore/signal-messages-cache.json"
 PENDING_FILE="$BOT_DIR/.ignore/signal-pending-messages.json"
+HISTORY_FILE="$BOT_DIR/.ignore/signal-message-history.json"
 TRANSCRIBE_SCRIPT="$SCRIPT_DIR/transcribe-audio.py"
 
 # --- Pre-checks (exit silently if not configured) ---
@@ -48,6 +49,7 @@ import subprocess
 signal_recipient = os.environ.get('SIGNAL_RECIPIENT', '')
 cache_file = '$CACHE_FILE'
 pending_file = '$PENDING_FILE'
+history_file = '$HISTORY_FILE'
 transcribe_script = '$TRANSCRIBE_SCRIPT'
 signal_attachments_dir = os.path.expanduser(
     '~/.var/app/org.asamk.SignalCli/data/signal-cli/attachments'
@@ -117,6 +119,43 @@ if os.path.exists(cache_file):
     except (json.JSONDecodeError, IOError):
         cached_timestamps = set()
 
+# Load message history for recursive quote resolution
+# Format: {timestamp_str: {text, quote_id}}
+message_history = {}
+if os.path.exists(history_file):
+    try:
+        with open(history_file) as f:
+            message_history = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        message_history = {}
+
+def resolve_quote_chain(quote_id, direct_quote_text):
+    \"\"\"Build a quoted_message string with recursive quote context.\"\"\"
+    if not direct_quote_text:
+        return None
+    # Look up the quoted message in history to find its own quote chain
+    chain = [direct_quote_text]
+    current_id = str(quote_id) if quote_id else None
+    seen = set()
+    while current_id and current_id in message_history and current_id not in seen:
+        seen.add(current_id)
+        entry = message_history[current_id]
+        parent_id = entry.get('quote_id')
+        if parent_id and str(parent_id) in message_history:
+            parent_text = message_history[str(parent_id)].get('text', '')
+            if parent_text:
+                chain.append(parent_text)
+            current_id = str(parent_id)
+        else:
+            break
+    if len(chain) == 1:
+        return chain[0]
+    # Format: direct quote first, then older context with indent markers
+    parts = [chain[0]]
+    for i, text in enumerate(chain[1:], 1):
+        parts.append(f'[in reply to]: {text}')
+    return '\n'.join(parts)
+
 # Parse raw messages (one JSON object per line)
 raw_lines = sys.stdin.read().strip().split('\n')
 new_messages = []
@@ -149,14 +188,16 @@ for line in raw_lines:
 
     message_text = data_message.get('message', '')
     quoted_message = None
+    quote_id = None
     image_paths = []
 
     # Extract quote-reply context (when user replies to an earlier message)
     quote = data_message.get('quote')
     if quote:
         quoted_text = quote.get('text', '')
+        quote_id = quote.get('id')
         if quoted_text:
-            quoted_message = quoted_text
+            quoted_message = resolve_quote_chain(quote_id, quoted_text)
 
     # Process attachments
     attachments = data_message.get('attachments', [])
@@ -178,6 +219,12 @@ for line in raw_lines:
     if not message_text and not image_paths:
         continue
 
+    # Save incoming message to history for future quote chain resolution
+    history_entry = {'text': message_text or '[image]'}
+    if quote_id:
+        history_entry['quote_id'] = quote_id
+    message_history[str(timestamp)] = history_entry
+
     msg_entry = {
         'timestamp': timestamp,
         'source': source,
@@ -190,7 +237,22 @@ for line in raw_lines:
     new_messages.append(msg_entry)
 
 if not new_messages:
+    # Still save history even if all messages were cached
+    if message_history:
+        # Prune history to last 2000 entries by timestamp
+        if len(message_history) > 2000:
+            sorted_keys = sorted(message_history.keys(), key=lambda k: int(k))
+            message_history = {k: message_history[k] for k in sorted_keys[-2000:]}
+        with open(history_file, 'w') as f:
+            json.dump(message_history, f)
     sys.exit(1)
+
+# Save message history (prune to last 2000 entries)
+if len(message_history) > 2000:
+    sorted_keys = sorted(message_history.keys(), key=lambda k: int(k))
+    message_history = {k: message_history[k] for k in sorted_keys[-2000:]}
+with open(history_file, 'w') as f:
+    json.dump(message_history, f)
 
 # Merge with existing pending messages (preserves unconsumed messages from
 # previous runs where signal-cli consumed messages but Claude couldn't process
