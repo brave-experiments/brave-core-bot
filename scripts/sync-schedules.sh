@@ -21,7 +21,9 @@ SYNC_REPO_ENABLED=$(bot_config '.schedules.syncRepo')
 SYNC_REPO_PATH=$(bot_config '.schedules.syncRepoPath')
 
 # Use project name for cron block marker to allow multiple projects on same machine
-CRON_MARKER="brave-bot [$BOT_PROJECT_NAME]"
+# Avoid special regex characters — use parentheses instead of brackets so the
+# marker survives sed pattern matching without escaping.
+CRON_MARKER="brave-bot ($BOT_PROJECT_NAME)"
 
 # Build the crontab content
 # Note: add-backlog-to-prd runs 1 hour before each run.sh invocation
@@ -65,13 +67,18 @@ fi)
 EOF
 )
 
-# Extract existing crontab, stripping any previous block for this project
+# Extract existing crontab, stripping any previous block for this project.
+# Use fixed-string matching (no regex) to avoid issues with special characters
+# in the project name.
 EXISTING=$(crontab -l 2>/dev/null || true)
-CLEANED=$(echo "$EXISTING" | sed "/^# === $CRON_MARKER scheduled jobs ===/,/^# === end $CRON_MARKER ===/d")
+BLOCK_START="# === $CRON_MARKER scheduled jobs ==="
+BLOCK_END="# === end $CRON_MARKER ==="
+CLEANED=$(awk -v start="$BLOCK_START" -v end="$BLOCK_END" '$0==start{skip=1} $0==end{skip=0;next} !skip' <<< "$EXISTING")
 
 # Also strip legacy brave-core-bot blocks if present
 CLEANED=$(echo "$CLEANED" | sed '/^# === brave-core-bot scheduled jobs ===/,/^# === end brave-core-bot ===/d')
-CLEANED=$(echo "$CLEANED" | grep -v "brave-core-bot" || true)
+# Strip old bracket-style markers too: brave-bot [name]
+CLEANED=$(echo "$CLEANED" | sed '/^# === brave-bot \[.*\] scheduled jobs ===/,/^# === end brave-bot \[.*\] ===/d')
 
 # Combine preserved entries with new block
 NEW_CRONTAB=$(printf '%s\n%s\n' "$CLEANED" "$CRON_JOBS" | sed '/^$/N;/^\n$/d')
@@ -81,7 +88,7 @@ echo "$NEW_CRONTAB" | crontab -
 echo "Cron jobs installed successfully."
 echo ""
 echo "Current schedule:"
-echo "  00:01 - sync src/brave origin/master from upstream"
+echo "  00:01 - sync repo origin/$BOT_DEFAULT_BRANCH from upstream (if enabled)"
 echo "  00:10 - run.sh (3 iterations)"
 echo "  Every 5 min at :01,:06,:11,...,:56 - /check-signal (only if messages pending)"
 echo "  03:45, 07:45, 15:45, 19:45 - /add-backlog-to-prd"
