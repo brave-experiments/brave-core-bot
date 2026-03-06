@@ -35,6 +35,13 @@ if [ -f "$CONFIG_FILE" ]; then
     WRITE_CONFIG=false
   fi
 else
+  if [ ! -t 0 ]; then
+    echo "Error: No config.json found and no interactive terminal available."
+    echo "  Either run setup.sh directly from a terminal, or create config.json first:"
+    echo "    cp config.example.json config.json   # then edit with your values"
+    echo "    cp config.brave-core.json config.json # for existing brave-core deployments"
+    exit 1
+  fi
   echo "No config.json found — starting setup wizard."
   echo ""
   WRITE_CONFIG=true

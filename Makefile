@@ -16,8 +16,13 @@ format:
 
 # Install dev dependencies and run project setup
 setup:
-	@command -v pip3 >/dev/null 2>&1 || { echo "Error: pip3 not found. Install it with: sudo apt install python3-pip"; exit 1; }
-	pip3 install -e ".[dev]"
+	@if command -v uv >/dev/null 2>&1; then \
+		uv pip install -e ".[dev]"; \
+	elif command -v pip3 >/dev/null 2>&1; then \
+		pip3 install -e ".[dev]"; \
+	else \
+		echo "Error: Neither uv nor pip3 found. Install uv (https://docs.astral.sh/uv/) or pip3."; exit 1; \
+	fi
 	./scripts/setup.sh
 
 # Install/update cron schedules

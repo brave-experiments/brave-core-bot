@@ -6,6 +6,9 @@ requires-python = ">=3.9"
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
 
+[tool.setuptools]
+packages = []
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["scripts", "."]
