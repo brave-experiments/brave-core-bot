@@ -41,6 +41,19 @@ BOT_CLAUDE_BIN=$(bot_config '.bot.claudeBin')
 
 BOT_BP_SUBMODULE=$(bot_config '.bestPractices.submodule')
 
+# Validate required fields
+_missing=""
+[ -z "$BOT_PROJECT_NAME" ] && _missing="$_missing project.name"
+[ -z "$BOT_ORG" ] && _missing="$_missing project.org"
+[ -z "$BOT_PR_REPO" ] && _missing="$_missing project.prRepository"
+[ -z "$BOT_ISSUE_REPO" ] && _missing="$_missing project.issueRepository"
+[ -z "$BOT_USERNAME" ] && _missing="$_missing bot.username"
+if [ -n "$_missing" ]; then
+  echo "Error: Missing required config values in $BOT_CONFIG_FILE:$_missing" >&2
+  echo "  Run 'make setup' or edit config.json directly." >&2
+  return 1 2>/dev/null || exit 1
+fi
+
 # Fall back to 'claude' if claudeBin is not set
 if [ -z "$BOT_CLAUDE_BIN" ]; then
   BOT_CLAUDE_BIN="$(which claude 2>/dev/null || echo "claude")"

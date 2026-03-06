@@ -48,9 +48,9 @@ def get_config(config, dotted_key, default=None):
 
 
 def require_config(config, dotted_key):
-    """Read a dotted key from the config dict, exit with error if missing."""
+    """Read a dotted key from the config dict, exit with error if missing or empty."""
     value = get_config(config, dotted_key)
-    if value is None:
+    if not value:
         print(f"Error: '{dotted_key}' not set in config.json. Run 'make setup'.", file=sys.stderr)
         sys.exit(1)
     return value
