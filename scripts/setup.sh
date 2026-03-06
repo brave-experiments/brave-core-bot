@@ -59,14 +59,20 @@ if [ "$WRITE_CONFIG" = true ]; then
     eval "$var_name=\$value"
   }
 
-  prompt_required CFG_PROJECT_NAME "Project name (e.g. brave-core): "
-  prompt_required CFG_ORG "GitHub org (e.g. brave): "
-  prompt_required CFG_PR_REPO "PR repository (owner/repo, e.g. brave/brave-core): "
-  prompt_required CFG_ISSUE_REPO "Issue repository (owner/repo, e.g. brave/brave-browser): "
-  read -p "Default branch (e.g. master) [master]: " CFG_DEFAULT_BRANCH
+  echo "─── Target Project ───"
+  prompt_required CFG_PR_REPO "Repo where the bot creates PRs (owner/repo, e.g. brave/brave-core): "
+  prompt_required CFG_ISSUE_REPO "Repo where issues/backlog lives (owner/repo, e.g. brave/brave-browser): "
+  read -p "Default branch for PRs [master]: " CFG_DEFAULT_BRANCH
   CFG_DEFAULT_BRANCH="${CFG_DEFAULT_BRANCH:-master}"
-  prompt_required CFG_BOT_USER "Bot GitHub username (e.g. netzenbot): "
-  prompt_required CFG_BOT_EMAIL "Bot email (e.g. bot@example.com): "
+
+  # Derive org and project name from PR repo
+  CFG_ORG="${CFG_PR_REPO%%/*}"
+  CFG_PROJECT_NAME="${CFG_PR_REPO##*/}"
+
+  echo ""
+  echo "─── Bot Identity ───"
+  prompt_required CFG_BOT_USER "GitHub username the bot commits as (e.g. netzenbot): "
+  prompt_required CFG_BOT_EMAIL "Email for git commits (e.g. bot@example.com): "
   read -p "Issue labels (comma-separated, e.g. bot/type/test): " CFG_LABELS_RAW
 
   # Build config.json safely via Python to avoid JSON injection from user input
