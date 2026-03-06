@@ -1,6 +1,8 @@
 #!/bin/bash
 # Setup script for brave-bot
-# This script creates config.json (if missing), installs hooks, and validates the environment.
+# Fully idempotent — safe to re-run at any time.
+# Creates config.json, data files, hooks, and org-members cache as needed.
+# Never overwrites existing files without an explicit confirmation.
 
 set -e
 
@@ -15,11 +17,30 @@ echo "  Brave Bot Setup"
 echo "==================================="
 echo ""
 
-# --- Config wizard: create config.json if missing ---
-if [ ! -f "$CONFIG_FILE" ]; then
-  echo "No config.json found. Let's set up a new project."
-  echo ""
+# ─── Step 1: config.json ─────────────────────────────────────────────────────
 
+if [ -f "$CONFIG_FILE" ]; then
+  echo "✓ config.json already exists"
+  # Show current values
+  echo "  project:   $(jq -r '.project.name' "$CONFIG_FILE")"
+  echo "  org:       $(jq -r '.project.org' "$CONFIG_FILE")"
+  echo "  PR repo:   $(jq -r '.project.prRepository' "$CONFIG_FILE")"
+  echo "  issue repo: $(jq -r '.project.issueRepository' "$CONFIG_FILE")"
+  echo ""
+  read -p "  Reconfigure? This will OVERWRITE config.json. (y/N) " -n 1 -r
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    WRITE_CONFIG=true
+  else
+    WRITE_CONFIG=false
+  fi
+else
+  echo "No config.json found — starting setup wizard."
+  echo ""
+  WRITE_CONFIG=true
+fi
+
+if [ "$WRITE_CONFIG" = true ]; then
   read -p "Project name (e.g. brave-core): " CFG_PROJECT_NAME
   read -p "GitHub org (e.g. brave): " CFG_ORG
   read -p "PR repository (owner/repo, e.g. brave/brave-core): " CFG_PR_REPO
@@ -73,140 +94,185 @@ with open(sys.argv[9], 'w') as f:
   echo ""
 fi
 
-# Source config
+# Source config (needed for all subsequent steps)
 source "$SCRIPT_DIR/lib/load-config.sh"
 
-# Initialize submodule
+# ─── Step 2: Submodule ───────────────────────────────────────────────────────
+
 echo "Initializing $BOT_BP_SUBMODULE submodule..."
 cd "$PROJECT_ROOT"
 git submodule update --init --recursive
 echo "✓ Submodule initialized"
 echo ""
 
-# Check if prd.json exists (not required — can be created later)
-if [ ! -f "$PROJECT_ROOT/data/prd.json" ]; then
-  echo "ℹ️  No data/prd.json found (this is normal for fresh setup)."
-  echo "   Create one when you're ready to start the bot."
-  echo "   See data/prd.example.json for the template."
-  echo ""
+# ─── Step 3: Data files ──────────────────────────────────────────────────────
 
-  # Without a prd.json we can't validate the git repo. Skip hook installation
-  # for now — it will be done on the next setup run.
-  SKIP_GIT_VALIDATION=true
-fi
+mkdir -p "$PROJECT_ROOT/data"
 
-# Extract git repo from data/prd.json if it exists
-GIT_REPO=""
-if [ "${SKIP_GIT_VALIDATION:-}" != "true" ]; then
-  GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PROJECT_ROOT/data/prd.json" 2>/dev/null || echo "")
-
-  if [ -z "$GIT_REPO" ]; then
-    echo "⚠️  Warning: Could not find git repository in prd.json"
-    echo "   Please set config.workingDirectory or config.gitRepo"
-    echo ""
-    SKIP_GIT_VALIDATION=true
-  fi
-fi
-
-if [ "${SKIP_GIT_VALIDATION:-}" != "true" ]; then
-  # Handle relative paths
-  if [[ "$GIT_REPO" != /* ]]; then
-    GIT_REPO="$PARENT_ROOT/$GIT_REPO"
-  fi
-
-  echo "Target git repository: $GIT_REPO"
-  echo ""
-
-  # Verify git repo exists
-  if [ ! -d "$GIT_REPO/.git" ]; then
-    echo "⚠️  Warning: $GIT_REPO is not a git repository"
-    echo "   Hook installation skipped."
-    echo ""
-    SKIP_GIT_VALIDATION=true
-  fi
-fi
-
-if [ "${SKIP_GIT_VALIDATION:-}" != "true" ]; then
-  # Check git config (needed before hook installation)
-  echo "Checking git configuration..."
-  cd "$GIT_REPO"
-
-  GIT_USER=$(git config user.name || echo "")
-  GIT_EMAIL=$(git config user.email || echo "")
-
-  if [ -z "$GIT_USER" ] || [ -z "$GIT_EMAIL" ]; then
-    echo ""
-    echo "⚠️  Git user configuration not found in target repo."
-    echo "   Configure it with:"
-    echo ""
-    echo "  cd $GIT_REPO"
-    echo "  git config user.name \"$BOT_USERNAME\""
-    echo "  git config user.email \"$BOT_EMAIL\""
-    echo ""
+create_if_missing() {
+  local target="$1" template="$2" label="$3"
+  if [ -f "$target" ]; then
+    echo "✓ $label already exists"
+  elif [ -f "$template" ]; then
+    cp "$template" "$target"
+    echo "✓ $label created from template"
   else
-    echo "✓ Git user: $GIT_USER"
-    echo "✓ Git email: $GIT_EMAIL"
-    echo ""
+    echo "⚠️  $label template not found at $template"
   fi
+}
 
-  # Install pre-commit hook for target repo
-  if [ -n "$GIT_USER" ]; then
-    HOOK_DEST="$GIT_REPO/.git/hooks/pre-commit"
-    echo "Installing pre-commit hook to target repo..."
-    sed "s/__BOT_USERNAME__/$GIT_USER/g" "$HOOK_SOURCE" > "$HOOK_DEST"
-    chmod +x "$HOOK_DEST"
-    echo "✓ Pre-commit hook installed to $HOOK_DEST (bot user: $GIT_USER)"
-    echo ""
-  fi
-fi
-
-# Install pre-commit hook for bot repo itself
-BOT_HOOK_SOURCE="$PROJECT_ROOT/hooks/pre-commit-bot-repo"
-BOT_HOOK_DEST="$PROJECT_ROOT/.git/hooks/pre-commit"
-
-echo "Installing pre-commit hook to bot repo..."
-cp "$BOT_HOOK_SOURCE" "$BOT_HOOK_DEST"
-chmod +x "$BOT_HOOK_DEST"
-echo "✓ Pre-commit hook installed to $BOT_HOOK_DEST"
-echo "  (Prevents committing data/prd.json, data/progress.txt, data/run-state.json)"
+create_if_missing "$PROJECT_ROOT/data/prd.json" \
+  "$PROJECT_ROOT/data/prd.example.json" "data/prd.json"
+create_if_missing "$PROJECT_ROOT/data/run-state.json" \
+  "$PROJECT_ROOT/data/run-state.example.json" "data/run-state.json"
+create_if_missing "$PROJECT_ROOT/data/progress.txt" \
+  "$PROJECT_ROOT/data/progress.example.txt" "data/progress.txt"
 echo ""
 
-# Check org members cache exists (manually maintained, never auto-generated)
+# ─── Step 4: Org members cache ───────────────────────────────────────────────
+
 ORG_MEMBERS_FILE="$PROJECT_ROOT/.ignore/org-members.txt"
 mkdir -p "$PROJECT_ROOT/.ignore"
 
 if [ -f "$ORG_MEMBERS_FILE" ]; then
   echo "✓ Org members file found: $(wc -l < "$ORG_MEMBERS_FILE") members"
 else
-  echo "⚠️  Warning: Org members file not found at $ORG_MEMBERS_FILE"
-  echo "   This file must be created manually. It is never auto-generated."
-  echo "   Create it with one GitHub username per line."
+  echo "No org members cache found."
+  read -p "  Generate it now via GitHub API? (Y/n) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    echo "  Fetching members of $BOT_ORG..."
+    if gh api "/orgs/$BOT_ORG/members" --paginate --jq '.[].login' > "$ORG_MEMBERS_FILE" 2>/dev/null; then
+      echo "  ✓ Wrote $(wc -l < "$ORG_MEMBERS_FILE") members to $ORG_MEMBERS_FILE"
+    else
+      echo "  ⚠️  Failed to fetch org members (check gh auth and org access)"
+      echo "     Create it manually: one GitHub username per line"
+      rm -f "$ORG_MEMBERS_FILE"
+    fi
+  else
+    echo "  Skipped. Create it manually when ready:"
+    echo "    gh api /orgs/$BOT_ORG/members --paginate --jq '.[].login' > $ORG_MEMBERS_FILE"
+  fi
 fi
 echo ""
 
-# Check for xvfb on Linux (needed for browser tests in headless/SSH environments)
-if [[ "$(uname)" == "Linux" ]]; then
-  if ! command -v xvfb-run &> /dev/null; then
-    echo "⚠️  Warning: xvfb-run not found"
-    echo "   Browser tests require a display server. On headless Linux (SSH, CI), install xvfb:"
-    echo "   sudo apt-get install xvfb"
-    echo ""
-  else
-    echo "✓ xvfb-run found (needed for browser tests in headless environments)"
-    echo ""
+# ─── Step 5: Target repo git config + hooks ──────────────────────────────────
+
+GIT_REPO=""
+SKIP_GIT=false
+
+# Try to find the target repo from prd.json
+if [ -f "$PROJECT_ROOT/data/prd.json" ]; then
+  GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PROJECT_ROOT/data/prd.json" 2>/dev/null || echo "")
+fi
+
+if [ -z "$GIT_REPO" ]; then
+  echo "ℹ️  No workingDirectory found in prd.json — skipping target repo setup."
+  echo "   Edit data/prd.json to set config.workingDirectory, then re-run setup."
+  SKIP_GIT=true
+fi
+
+if [ "$SKIP_GIT" = false ]; then
+  # Handle relative paths
+  if [[ "$GIT_REPO" != /* ]]; then
+    GIT_REPO="$PARENT_ROOT/$GIT_REPO"
+  fi
+
+  if [ ! -d "$GIT_REPO/.git" ]; then
+    echo "⚠️  $GIT_REPO is not a git repository — skipping target repo setup."
+    SKIP_GIT=true
   fi
 fi
 
+if [ "$SKIP_GIT" = false ]; then
+  echo "Target git repository: $GIT_REPO"
+  cd "$GIT_REPO"
+
+  GIT_USER=$(git config user.name || echo "")
+  GIT_EMAIL=$(git config user.email || echo "")
+
+  if [ -z "$GIT_USER" ] || [ -z "$GIT_EMAIL" ]; then
+    echo "  Git user not configured in target repo."
+    read -p "  Set user.name to '$BOT_USERNAME' and user.email to '$BOT_EMAIL'? (Y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+      git config user.name "$BOT_USERNAME"
+      git config user.email "$BOT_EMAIL"
+      GIT_USER="$BOT_USERNAME"
+      GIT_EMAIL="$BOT_EMAIL"
+      echo "  ✓ Git identity configured"
+    else
+      echo "  Skipped. Configure manually:"
+      echo "    cd $GIT_REPO"
+      echo "    git config user.name \"$BOT_USERNAME\""
+      echo "    git config user.email \"$BOT_EMAIL\""
+    fi
+  else
+    echo "  ✓ Git user: $GIT_USER <$GIT_EMAIL>"
+  fi
+
+  # Install pre-commit hook for target repo
+  if [ -n "$GIT_USER" ]; then
+    HOOK_DEST="$GIT_REPO/.git/hooks/pre-commit"
+    sed "s/__BOT_USERNAME__/$GIT_USER/g" "$HOOK_SOURCE" > "$HOOK_DEST"
+    chmod +x "$HOOK_DEST"
+    echo "  ✓ Pre-commit hook installed (blocks $GIT_USER from modifying dependencies)"
+  fi
+  echo ""
+fi
+
+# ─── Step 6: Bot repo hook ───────────────────────────────────────────────────
+
+BOT_HOOK_SOURCE="$PROJECT_ROOT/hooks/pre-commit-bot-repo"
+BOT_HOOK_DEST="$PROJECT_ROOT/.git/hooks/pre-commit"
+
+cp "$BOT_HOOK_SOURCE" "$BOT_HOOK_DEST"
+chmod +x "$BOT_HOOK_DEST"
+echo "✓ Bot repo pre-commit hook installed"
+echo "  (Prevents committing data/prd.json, data/progress.txt, data/run-state.json)"
+echo ""
+
+# ─── Step 7: Environment checks ──────────────────────────────────────────────
+
+if [[ "$(uname)" == "Linux" ]]; then
+  if ! command -v xvfb-run &> /dev/null; then
+    echo "⚠️  xvfb-run not found (needed for browser tests in headless environments)"
+    echo "   sudo apt-get install xvfb"
+    echo ""
+  else
+    echo "✓ xvfb-run found"
+  fi
+fi
+
+# ─── Done ─────────────────────────────────────────────────────────────────────
+
+echo ""
 echo "==================================="
 echo "  Setup Complete!"
 echo "==================================="
 echo ""
-echo "Project: $BOT_PROJECT_NAME"
-echo "PR Repository: $BOT_PR_REPO"
-echo "Issue Repository: $BOT_ISSUE_REPO"
+echo "  Project:    $BOT_PROJECT_NAME"
+echo "  PR repo:    $BOT_PR_REPO"
+echo "  Issue repo: $BOT_ISSUE_REPO"
 echo ""
-echo "Next steps:"
-echo "1. Create data/prd.json (see data/prd.example.json)"
-echo "2. Configure git user/email in the target repo"
-echo "3. Run the bot: cd $PROJECT_ROOT && ./run.sh"
+
+# Show next steps based on what's still needed
+NEXT=()
+if [ ! -f "$PROJECT_ROOT/data/prd.json" ] || \
+   [ "$(jq -r '.userStories // .stories | length' "$PROJECT_ROOT/data/prd.json" 2>/dev/null)" = "0" ]; then
+  NEXT+=("Edit data/prd.json with your user stories (or use /prd-json skill)")
+fi
+if [ "$SKIP_GIT" = true ]; then
+  NEXT+=("Set config.workingDirectory in data/prd.json, then re-run: make setup")
+fi
+
+if [ ${#NEXT[@]} -gt 0 ]; then
+  echo "Next steps:"
+  for i in "${!NEXT[@]}"; do
+    echo "  $((i+1)). ${NEXT[$i]}"
+  done
+  echo ""
+fi
+
+echo "Run the bot: ./run.sh"
 echo ""
