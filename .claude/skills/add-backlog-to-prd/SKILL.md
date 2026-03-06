@@ -178,9 +178,9 @@ After the recap, send a Signal notification summarizing what was added. Each iss
 
 ```bash
 $BOT_DIR/scripts/signal-notify.sh "PRD backlog updated: added <N> new issues.
-https://github.com/brave/brave-browser/issues/<number1>
-https://github.com/brave/brave-browser/issues/<number2>
-https://github.com/brave/brave-browser/issues/<number3>"
+https://github.com/$ISSUE_REPO/issues/<number1>
+https://github.com/$ISSUE_REPO/issues/<number2>
+https://github.com/$ISSUE_REPO/issues/<number3>"
 ```
 
 **If no new issues were added:**
