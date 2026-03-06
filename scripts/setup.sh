@@ -30,44 +30,44 @@ if [ ! -f "$CONFIG_FILE" ]; then
   read -p "Bot email (e.g. netzenbot@brave.com): " CFG_BOT_EMAIL
   read -p "Issue labels (comma-separated, e.g. bot/type/test): " CFG_LABELS_RAW
 
-  # Build labels JSON array
-  CFG_LABELS_JSON=$(echo "$CFG_LABELS_RAW" | python3 -c "
-import sys, json
-labels = [l.strip() for l in sys.stdin.read().split(',') if l.strip()]
-print(json.dumps(labels))
-")
-
-  cat > "$CONFIG_FILE" <<CFGEOF
-{
-  "project": {
-    "name": "$CFG_PROJECT_NAME",
-    "org": "$CFG_ORG",
-    "prRepository": "$CFG_PR_REPO",
-    "issueRepository": "$CFG_ISSUE_REPO",
-    "defaultBranch": "$CFG_DEFAULT_BRANCH"
-  },
-  "bot": {
-    "username": "$CFG_BOT_USER",
-    "email": "$CFG_BOT_EMAIL",
-    "claudeModel": "opus",
-    "claudeBin": null
-  },
-  "labels": {
-    "prLabels": ["ai-generated"],
-    "issueLabels": $CFG_LABELS_JSON,
-    "disabledTestLabel": "disabled-brave-test"
-  },
-  "bestPractices": {
-    "submodule": "brave-core-tools",
-    "indexFile": "BEST-PRACTICES.md",
-    "securityFile": "SECURITY.md"
-  },
-  "schedules": {
-    "syncRepo": false,
-    "syncRepoPath": null
-  }
+  # Build config.json safely via Python to avoid JSON injection from user input
+  python3 -c "
+import json, sys
+config = {
+    'project': {
+        'name': sys.argv[1],
+        'org': sys.argv[2],
+        'prRepository': sys.argv[3],
+        'issueRepository': sys.argv[4],
+        'defaultBranch': sys.argv[5],
+    },
+    'bot': {
+        'username': sys.argv[6],
+        'email': sys.argv[7],
+        'claudeModel': 'opus',
+        'claudeBin': None,
+    },
+    'labels': {
+        'prLabels': ['ai-generated'],
+        'issueLabels': [l.strip() for l in sys.argv[8].split(',') if l.strip()],
+        'disabledTestLabel': '',
+    },
+    'bestPractices': {
+        'submodule': 'brave-core-tools',
+        'indexFile': 'BEST-PRACTICES.md',
+        'securityFile': 'SECURITY.md',
+    },
+    'schedules': {
+        'syncRepo': False,
+        'syncRepoPath': None,
+    },
 }
-CFGEOF
+with open(sys.argv[9], 'w') as f:
+    json.dump(config, f, indent=2)
+    f.write('\n')
+" "$CFG_PROJECT_NAME" "$CFG_ORG" "$CFG_PR_REPO" "$CFG_ISSUE_REPO" \
+  "$CFG_DEFAULT_BRANCH" "$CFG_BOT_USER" "$CFG_BOT_EMAIL" "$CFG_LABELS_RAW" \
+  "$CONFIG_FILE"
   echo ""
   echo "✓ Config written to $CONFIG_FILE"
   echo ""
