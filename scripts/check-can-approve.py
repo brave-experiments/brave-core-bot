@@ -18,8 +18,11 @@ Usage:
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+
+REVIEW_CACHE_PATH = ".ignore/review-prs-cache.json"
 
 
 def gh_api(endpoint, method="GET", input_data=None):
@@ -206,6 +209,20 @@ def main():
             head_sha=head_sha,
             **threads_info,
         )
+
+    # Also check the local review cache — prevents double approval within
+    # the same run if the GitHub API hasn't propagated the first approval yet.
+    try:
+        with open(REVIEW_CACHE_PATH) as f:
+            cache = json.load(f)
+        if str(args.pr_number) in set(cache.get("_approved", [])):
+            fail(
+                "PR already marked as approved in local cache",
+                head_sha=head_sha,
+                **threads_info,
+            )
+    except (FileNotFoundError, json.JSONDecodeError, IOError):
+        pass  # No cache — that's fine, skip this check
 
     # All clear — no outstanding comments of any kind.
     # This covers both: all prior threads resolved, or clean first

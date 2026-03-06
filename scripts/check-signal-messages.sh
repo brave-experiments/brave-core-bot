@@ -148,7 +148,15 @@ for line in raw_lines:
         continue
 
     message_text = data_message.get('message', '')
+    quoted_message = None
     image_paths = []
+
+    # Extract quote-reply context (when user replies to an earlier message)
+    quote = data_message.get('quote')
+    if quote:
+        quoted_text = quote.get('text', '')
+        if quoted_text:
+            quoted_message = quoted_text
 
     # Process attachments
     attachments = data_message.get('attachments', [])
@@ -175,6 +183,8 @@ for line in raw_lines:
         'source': source,
         'message': message_text or '[image]'
     }
+    if quoted_message:
+        msg_entry['quoted_message'] = quoted_message
     if image_paths:
         msg_entry['attachments'] = image_paths
     new_messages.append(msg_entry)

@@ -24,6 +24,12 @@ Process incoming Signal messages and execute the requested commands. Messages ar
        "source": "+14155559876",
        "message": "What is this image of?",
        "attachments": ["/path/to/.ignore/signal-attachments/1708905700000_abc123.jpg"]
+     },
+     {
+       "timestamp": 1708905800000,
+       "source": "+14155559876",
+       "message": "That's wrong, fix it",
+       "quoted_message": "The original message the user is replying to appears here"
      }
    ]
    ```
@@ -31,6 +37,8 @@ Process incoming Signal messages and execute the requested commands. Messages ar
    If the file doesn't exist or is empty, reply "No pending Signal messages" and stop.
 
    **Image attachments:** If a message has an `attachments` array, use the **Read** tool to view each image file path. Claude's vision capabilities will analyze the image content. Include your image analysis in the response to the user.
+
+   **Quote replies:** If a message has a `quoted_message` field, this is the text of the original message the user is replying to. The user's new message in `message` is a response/follow-up to the `quoted_message`. Read both together to understand the full context of the conversation. The quoted message provides critical context — e.g., if the user says "That's wrong" while quoting a previous bot response, you need the quoted text to know what they're referring to.
 
 2. **Process each message sequentially.** For each message:
 

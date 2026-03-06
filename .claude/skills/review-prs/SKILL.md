@@ -185,6 +185,8 @@ This is ONLY for general issue comments (the PR conversation tab), NOT for revie
 
 ### Step 1.7: Approve if Settled (No Remaining Unresolved Threads)
 
+**CRITICAL: This step is ONLY for cached PRs (the `cached_prs` array).** For PRs in the `prs` array that will get a full subagent review, do NOT run this step — approval is handled in Step 6 Step 7 after all subagents complete. Running Step 1.7 for full-review PRs causes duplicate approvals.
+
 After Step 1.6 resolves addressed comments, check if the bot can approve this PR. **You MUST call the gate script — do NOT approve based on your own judgement or the Step 1.6 output alone.**
 
 **MANDATORY: Run the gate script before ANY approval:**
@@ -220,10 +222,10 @@ EOF
 python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID> --approve
 ```
 
-**When NOT to approve (enforced by the gate script):**
-- If the bot has ANY outstanding comments — inline threads or body-level review comments. If the bot raised a concern, it must not approve until that concern is resolved.
-- If the bot already approved at this SHA
-- If Step 2 (full review) is about to run and may find new violations — for full reviews, defer approval to Step 6 after aggregation
+**When NOT to approve:**
+- If the bot has ANY outstanding comments — inline threads or body-level review comments (enforced by gate script)
+- If the bot already approved at this SHA (enforced by gate script)
+- **If a full subagent review (Step 2) is about to run** — this means the PR is in the `prs` array, NOT `cached_prs`. Do NOT approve here; defer to Step 6 Step 7
 
 **Don't Haunt Developers:** Once the bot approves a PR, it is marked as settled in the cache. Future runs will completely skip this PR — no re-reviews, no comment checks, nothing. The bot has said its piece and moved on. The only way to re-review an approved PR is to explicitly request it with `#<PR_NUMBER>`.
 
