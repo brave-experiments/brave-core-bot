@@ -1,5 +1,5 @@
 #!/bin/bash
-# Idempotent cron job setup for brave-bot
+# Idempotent cron job setup for brave-dev-bot
 # Run this script to install/update all cron jobs.
 # All schedule changes should be made here and committed to source control.
 
@@ -23,7 +23,7 @@ SYNC_REPO_PATH=$(bot_config '.schedules.syncRepoPath')
 # Use project name for cron block marker to allow multiple projects on same machine
 # Avoid special regex characters — use parentheses instead of brackets so the
 # marker survives sed pattern matching without escaping.
-CRON_MARKER="brave-bot ($BOT_PROJECT_NAME)"
+CRON_MARKER="brave-dev-bot ($BOT_PROJECT_NAME)"
 
 # Build the crontab content
 # Note: add-backlog-to-prd runs 1 hour before each run.sh invocation
@@ -75,10 +75,10 @@ BLOCK_START="# === $CRON_MARKER scheduled jobs ==="
 BLOCK_END="# === end $CRON_MARKER ==="
 CLEANED=$(awk -v start="$BLOCK_START" -v end="$BLOCK_END" '$0==start{skip=1} $0==end{skip=0;next} !skip' <<< "$EXISTING")
 
-# Also strip legacy brave-core-bot blocks if present
+# Strip legacy marker formats from previous versions
 CLEANED=$(echo "$CLEANED" | sed '/^# === brave-core-bot scheduled jobs ===/,/^# === end brave-core-bot ===/d')
-# Strip old bracket-style markers too: brave-bot [name]
 CLEANED=$(echo "$CLEANED" | sed '/^# === brave-bot \[.*\] scheduled jobs ===/,/^# === end brave-bot \[.*\] ===/d')
+CLEANED=$(echo "$CLEANED" | sed '/^# === brave-bot (.*) scheduled jobs ===/,/^# === end brave-bot (.*) ===/d')
 
 # Combine preserved entries with new block
 NEW_CRONTAB=$(printf '%s\n%s\n' "$CLEANED" "$CRON_JOBS" | sed '/^$/N;/^\n$/d')
