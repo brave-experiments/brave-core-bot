@@ -8,7 +8,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-PARENT_ROOT="$(cd "$PROJECT_ROOT/.." && pwd)"
 HOOK_SOURCE="$PROJECT_ROOT/hooks/pre-commit"
 CONFIG_FILE="$PROJECT_ROOT/config.json"
 
@@ -77,7 +76,7 @@ if [ "$WRITE_CONFIG" = true ]; then
   echo ""
   echo "─── Target Repository Path ───"
   echo "Path to the git repo where the bot commits code."
-  echo "Relative to $(dirname "$PROJECT_ROOT") or absolute."
+  echo "Relative to the bot directory ($PROJECT_ROOT) or absolute."
   # Load previous value from config.json (with prd.json fallback for migration)
   PREV_TARGET_REPO=""
   if [ -f "$CONFIG_FILE" ]; then
@@ -219,9 +218,9 @@ fi
 
 if [ "$SKIP_GIT" = false ]; then
   GIT_REPO_RAW="$GIT_REPO"
-  # Handle relative paths
+  # Handle relative paths (relative to the bot directory)
   if [[ "$GIT_REPO" != /* ]]; then
-    GIT_REPO="$PARENT_ROOT/$GIT_REPO"
+    GIT_REPO="$PROJECT_ROOT/$GIT_REPO"
   fi
 
   if [ ! -d "$GIT_REPO/.git" ]; then
