@@ -41,28 +41,24 @@ LOGS_DIR="$SCRIPT_DIR/logs"
 LAST_BRANCH_FILE="$SCRIPT_DIR/.last-branch"
 RUN_STATE_FILE="$SCRIPT_DIR/data/run-state.json"
 
+# Resolve target repo path from config.json (with prd.json fallback for migration)
+GIT_REPO="${BOT_TARGET_REPO_PATH:-}"
+if [ -z "$GIT_REPO" ] && [ -f "$PRD_FILE" ]; then
+  GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PRD_FILE" 2>/dev/null || echo "")
+fi
+if [ -n "$GIT_REPO" ] && [[ "$GIT_REPO" != /* ]]; then
+  PARENT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  GIT_REPO="$PARENT_ROOT/$GIT_REPO"
+fi
+
 # Function to switch back to master branch on exit
 cleanup_and_return_to_master() {
-  # Extract git repo directory from prd.json
-  if [ -f "$PRD_FILE" ]; then
-    GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PRD_FILE" 2>/dev/null || echo "")
-
-    if [ -n "$GIT_REPO" ]; then
-      # Handle relative paths - make them absolute from brave-browser root
-      if [[ "$GIT_REPO" != /* ]]; then
-        # Assume it's relative to parent directory (parent of bot repo)
-        BRAVE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-        GIT_REPO="$BRAVE_ROOT/$GIT_REPO"
-      fi
-
-      if [ -d "$GIT_REPO/.git" ]; then
-        echo ""
-        echo "Switching back to master branch in $GIT_REPO..."
-        cd "$GIT_REPO"
-        git stash --include-untracked 2>/dev/null || true
-        git checkout master 2>/dev/null || git checkout main 2>/dev/null || echo "Could not switch to master/main branch"
-      fi
-    fi
+  if [ -n "$GIT_REPO" ] && [ -d "$GIT_REPO/.git" ]; then
+    echo ""
+    echo "Switching back to $BOT_DEFAULT_BRANCH branch in $GIT_REPO..."
+    cd "$GIT_REPO"
+    git stash --include-untracked 2>/dev/null || true
+    git checkout "$BOT_DEFAULT_BRANCH" 2>/dev/null || echo "Could not switch to $BOT_DEFAULT_BRANCH branch"
   fi
 }
 

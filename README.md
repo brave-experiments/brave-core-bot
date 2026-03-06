@@ -227,7 +227,8 @@ Project-specific configuration (gitignored, created by `make setup`). Keys:
 - `project.org`: GitHub organization (e.g. `brave`)
 - `project.prRepository`: PR repository as `owner/repo` (e.g. `brave/brave-core`)
 - `project.issueRepository`: Issue repository as `owner/repo` (e.g. `brave/brave-browser`)
-- `project.defaultBranch`: Default branch name (e.g. `master`)
+- `project.defaultBranch`: Default branch for the PR repo (e.g. `master`)
+- `project.targetRepoPath`: Path to the target git repo (relative to parent dir or absolute)
 - `bot.username`: Bot's GitHub username
 - `bot.email`: Bot's email for git commits
 - `bot.claudeModel`: Claude model to use (`opus`, `sonnet`, etc.)
@@ -241,7 +242,6 @@ A `config.example.json` template and `config.brave-core.json` reference config a
 
 Product Requirements Document defining user stories and acceptance criteria.
 
-- `config.workingDirectory`: Path to the target git repository (relative to parent dir or absolute)
 - `userStories[].id`: Unique story identifier
 - `userStories[].priority`: Execution order (1 = highest)
 - `userStories[].status`: Story state

@@ -33,6 +33,7 @@ BOT_ORG=$(bot_config '.project.org')
 BOT_PR_REPO=$(bot_config '.project.prRepository')
 BOT_ISSUE_REPO=$(bot_config '.project.issueRepository')
 BOT_DEFAULT_BRANCH=$(bot_config '.project.defaultBranch')
+BOT_TARGET_REPO_PATH=$(bot_config '.project.targetRepoPath')
 
 BOT_USERNAME=$(bot_config '.bot.username')
 BOT_EMAIL=$(bot_config '.bot.email')
@@ -60,6 +61,6 @@ if [ -z "$BOT_CLAUDE_BIN" ]; then
 fi
 
 export BOT_DIR BOT_CONFIG_FILE
-export BOT_PROJECT_NAME BOT_ORG BOT_PR_REPO BOT_ISSUE_REPO BOT_DEFAULT_BRANCH
+export BOT_PROJECT_NAME BOT_ORG BOT_PR_REPO BOT_ISSUE_REPO BOT_DEFAULT_BRANCH BOT_TARGET_REPO_PATH
 export BOT_USERNAME BOT_EMAIL BOT_CLAUDE_MODEL BOT_CLAUDE_BIN
 export BOT_BP_SUBMODULE

@@ -86,6 +86,20 @@ if [ "$WRITE_CONFIG" = true ]; then
   CFG_PROJECT_NAME="${CFG_PR_REPO##*/}"
 
   echo ""
+  echo "─── Target Repository Path ───"
+  echo "Path to the git repo where the bot commits code."
+  echo "Relative to $(dirname "$PROJECT_ROOT") or absolute."
+  # Load previous value from config.json (with prd.json fallback for migration)
+  PREV_TARGET_REPO=""
+  if [ -f "$CONFIG_FILE" ]; then
+    PREV_TARGET_REPO=$(jq -r '.project.targetRepoPath // empty' "$CONFIG_FILE" 2>/dev/null || echo "")
+  fi
+  if [ -z "$PREV_TARGET_REPO" ] && [ -f "$PROJECT_ROOT/data/prd.json" ]; then
+    PREV_TARGET_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PROJECT_ROOT/data/prd.json" 2>/dev/null || echo "")
+  fi
+  prompt_required CFG_TARGET_REPO "Target repo path (e.g. src/brave, ../my-project): " "$PREV_TARGET_REPO"
+
+  echo ""
   echo "─── Bot Identity ───"
   prompt_required CFG_BOT_USER "GitHub username the bot commits as: " "$PREV_BOT_USER"
   prompt_required CFG_BOT_EMAIL "Email for git commits: " "$PREV_BOT_EMAIL"
@@ -102,16 +116,17 @@ config = {
         'prRepository': sys.argv[3],
         'issueRepository': sys.argv[4],
         'defaultBranch': sys.argv[5],
+        'targetRepoPath': sys.argv[6],
     },
     'bot': {
-        'username': sys.argv[6],
-        'email': sys.argv[7],
+        'username': sys.argv[7],
+        'email': sys.argv[8],
         'claudeModel': 'opus',
         'claudeBin': None,
     },
     'labels': {
         'prLabels': ['ai-generated'],
-        'issueLabels': [l.strip() for l in sys.argv[8].split(',') if l.strip()],
+        'issueLabels': [l.strip() for l in sys.argv[9].split(',') if l.strip()],
         'disabledTestLabel': '',
     },
     'bestPractices': {
@@ -124,11 +139,11 @@ config = {
         'syncRepoPath': None,
     },
 }
-with open(sys.argv[9], 'w') as f:
+with open(sys.argv[10], 'w') as f:
     json.dump(config, f, indent=2)
     f.write('\n')
 " "$CFG_PROJECT_NAME" "$CFG_ORG" "$CFG_PR_REPO" "$CFG_ISSUE_REPO" \
-  "$CFG_DEFAULT_BRANCH" "$CFG_BOT_USER" "$CFG_BOT_EMAIL" "$CFG_LABELS_RAW" \
+  "$CFG_DEFAULT_BRANCH" "$CFG_TARGET_REPO" "$CFG_BOT_USER" "$CFG_BOT_EMAIL" "$CFG_LABELS_RAW" \
   "$CONFIG_FILE"
   echo ""
   echo "✓ Config written to $CONFIG_FILE"
@@ -199,23 +214,18 @@ echo ""
 
 # ─── Step 5: Target repo git config + hooks ──────────────────────────────────
 
-GIT_REPO=""
 SKIP_GIT=false
 
-# Try to find the target repo from prd.json
-if [ -f "$PROJECT_ROOT/data/prd.json" ]; then
-  GIT_REPO=$(jq -r '.config.workingDirectory // .config.gitRepo // .ralphConfig.workingDirectory // .ralphConfig.gitRepo // empty' "$PROJECT_ROOT/data/prd.json" 2>/dev/null || echo "")
+# Use value from wizard if we ran it, otherwise read from config.json
+if [ -n "${CFG_TARGET_REPO:-}" ]; then
+  GIT_REPO="$CFG_TARGET_REPO"
+else
+  GIT_REPO="$BOT_TARGET_REPO_PATH"
 fi
 
 if [ -z "$GIT_REPO" ]; then
-  echo "─── Target Repository Path ───"
-  echo "Path to the git repo where the bot will commit code."
-  echo "Can be absolute or relative to $(dirname "$PROJECT_ROOT")."
-  read -p "Target repo path (e.g. src/brave, ../my-project): " GIT_REPO
-  if [ -z "$GIT_REPO" ]; then
-    echo "  Skipped — you can set config.workingDirectory in data/prd.json later."
-    SKIP_GIT=true
-  fi
+  echo "ℹ️  No target repo path configured — skipping git identity and hooks."
+  SKIP_GIT=true
 fi
 
 if [ "$SKIP_GIT" = false ]; then
@@ -228,18 +238,6 @@ if [ "$SKIP_GIT" = false ]; then
   if [ ! -d "$GIT_REPO/.git" ]; then
     echo "⚠️  $GIT_REPO is not a git repository — skipping target repo setup."
     SKIP_GIT=true
-  else
-    # Write workingDirectory into prd.json if not already set
-    if [ -f "$PROJECT_ROOT/data/prd.json" ]; then
-      EXISTING_WD=$(jq -r '.config.workingDirectory // empty' "$PROJECT_ROOT/data/prd.json" 2>/dev/null || echo "")
-      if [ -z "$EXISTING_WD" ]; then
-        # Ensure .config exists, then set workingDirectory
-        jq --arg wd "$GIT_REPO_RAW" '.config = (.config // {}) | .config.workingDirectory = $wd' \
-          "$PROJECT_ROOT/data/prd.json" > "$PROJECT_ROOT/data/prd.json.tmp" && \
-          mv "$PROJECT_ROOT/data/prd.json.tmp" "$PROJECT_ROOT/data/prd.json"
-        echo "  ✓ Set config.workingDirectory = \"$GIT_REPO_RAW\" in data/prd.json"
-      fi
-    fi
   fi
 fi
 

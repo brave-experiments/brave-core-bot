@@ -4,7 +4,8 @@
     "org": "my-org",
     "prRepository": "my-org/my-project",
     "issueRepository": "my-org/my-project",
-    "defaultBranch": "main"
+    "defaultBranch": "main",
+    "targetRepoPath": "../my-project"
   },
   "bot": {
     "username": "my-bot",
