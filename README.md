@@ -77,7 +77,7 @@ merged  └─► (check again next iteration)
 Clone alongside (or near) your target project's repository:
 
 ```bash
-git clone git@github.com:brave-experiments/brave-core-bot.git my-project-bot
+git clone git@github.com:brave-experiments/brave-dev-bot.git my-project-bot
 cd my-project-bot
 ```
 
@@ -473,7 +473,7 @@ archive/
 ## Project Structure
 
 ```
-brave-bot/                     # (or your clone name)
+brave-dev-bot/                 # (or your clone name)
 ├── README.md                  # This file
 ├── config.json                # Project config (gitignored, created by setup)
 ├── config.example.json        # Config template
