@@ -140,7 +140,7 @@ def fetch_pr_data(pr_number, bot_username, repo_owner="brave", repo_name="brave-
     # Body text patterns that are just bot signatures, not actual concerns.
     # These should not block approval.
     HARMLESS_BODY_PATTERNS = {
-        "review via brave-core-bot",
+        "review via brave-dev-bot",
     }
 
     body_comments = []
