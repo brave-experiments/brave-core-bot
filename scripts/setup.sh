@@ -27,7 +27,7 @@ if [ -f "$CONFIG_FILE" ]; then
   echo "  PR repo:   $(jq -r '.project.prRepository' "$CONFIG_FILE")"
   echo "  issue repo: $(jq -r '.project.issueRepository' "$CONFIG_FILE")"
   echo ""
-  read -p "  Reconfigure? This will OVERWRITE config.json. (y/N) " -n 1 -r
+  read -p "  Reconfigure? (y/N) " -n 1 -r
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
     WRITE_CONFIG=true
@@ -319,8 +319,19 @@ if [ ! -f "$PROJECT_ROOT/data/prd.json" ] || \
    [ "$(jq -r '.userStories // .stories | length' "$PROJECT_ROOT/data/prd.json" 2>/dev/null)" = "0" ]; then
   NEXT+=("Edit data/prd.json with your user stories (or use /prd-json skill)")
 fi
-if [ "$SKIP_GIT" = true ]; then
+if [ "$SKIP_GIT" = true ] && [ -z "${GIT_REPO_RAW:-}" ]; then
   NEXT+=("Re-run 'make setup' and provide the target repo path to configure git identity and hooks")
+elif [ "$SKIP_GIT" = true ]; then
+  NEXT+=("Ensure $GIT_REPO_RAW exists as a git repository, then re-run 'make setup'")
+fi
+
+# Remind about forking if bot username differs from the org
+if [ -n "${BOT_USERNAME:-}" ] && [ -n "${BOT_PR_REPO:-}" ]; then
+  FORK_ORG="${BOT_PR_REPO%%/*}"
+  if [ "$BOT_USERNAME" != "$FORK_ORG" ]; then
+    FORK_REPO="${BOT_PR_REPO##*/}"
+    NEXT+=("Ensure $BOT_PR_REPO is forked into the $BOT_USERNAME account (https://github.com/$BOT_USERNAME/$FORK_REPO)")
+  fi
 fi
 
 if [ ${#NEXT[@]} -gt 0 ]; then
