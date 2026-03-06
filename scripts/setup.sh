@@ -257,6 +257,127 @@ if [ "$SKIP_GIT" = false ]; then
     echo "  ✓ Git user: $GIT_USER <$GIT_EMAIL>"
   fi
 
+  # ─── Configure git remotes ────────────────────────────────────────────────
+  # Expected layout: origin = bot's fork, upstream = main repo
+  FORK_REPO_NAME="${BOT_PR_REPO##*/}"
+  EXPECTED_ORIGIN="https://github.com/$BOT_USERNAME/$FORK_REPO_NAME.git"
+  EXPECTED_ORIGIN_SSH="git@github.com:$BOT_USERNAME/$FORK_REPO_NAME.git"
+  EXPECTED_UPSTREAM="https://github.com/$BOT_PR_REPO.git"
+  EXPECTED_UPSTREAM_SSH="git@github.com:$BOT_PR_REPO.git"
+
+  CURRENT_ORIGIN=$(git -C "$GIT_REPO" remote get-url origin 2>/dev/null || echo "")
+  CURRENT_UPSTREAM=$(git -C "$GIT_REPO" remote get-url upstream 2>/dev/null || echo "")
+
+  # Helper: check if a URL matches expected (HTTPS or SSH)
+  url_matches() {
+    local actual="$1" expected_https="$2" expected_ssh="$3"
+    local norm_actual="${actual%.git}" norm_https="${expected_https%.git}" norm_ssh="${expected_ssh%.git}"
+    [ "$norm_actual" = "$norm_https" ] || [ "$norm_actual" = "$norm_ssh" ]
+  }
+
+  origin_is_main_repo() {
+    local norm="${1%.git}"
+    [ "$norm" = "${EXPECTED_UPSTREAM%.git}" ] || [ "$norm" = "${EXPECTED_UPSTREAM_SSH%.git}" ]
+  }
+
+  # Build a list of changes needed
+  REMOTE_ACTIONS=()
+  REMOTES_OK=true
+
+  # Check if the bot's fork exists on GitHub
+  FORK_EXISTS=false
+  if gh repo view "$BOT_USERNAME/$FORK_REPO_NAME" --json name >/dev/null 2>&1; then
+    FORK_EXISTS=true
+  fi
+
+  if [ "$FORK_EXISTS" = false ]; then
+    echo ""
+    echo "  ⚠️  Fork $BOT_USERNAME/$FORK_REPO_NAME not found on GitHub."
+    echo "     Create it: gh repo fork $BOT_PR_REPO --clone=false"
+    echo "     Or visit: https://github.com/$BOT_PR_REPO/fork"
+    echo "     Then re-run 'make setup' to configure remotes."
+    REMOTES_OK=false
+  else
+    # Determine what remote changes are needed
+    if [ -z "$CURRENT_ORIGIN" ]; then
+      REMOTE_ACTIONS+=("Add origin → $BOT_USERNAME/$FORK_REPO_NAME ($EXPECTED_ORIGIN_SSH)")
+    elif origin_is_main_repo "$CURRENT_ORIGIN"; then
+      if [ -z "$CURRENT_UPSTREAM" ]; then
+        REMOTE_ACTIONS+=("Rename origin → upstream (keeps $CURRENT_ORIGIN as upstream)")
+      fi
+      REMOTE_ACTIONS+=("Set origin → $BOT_USERNAME/$FORK_REPO_NAME ($EXPECTED_ORIGIN_SSH)")
+    elif ! url_matches "$CURRENT_ORIGIN" "$EXPECTED_ORIGIN" "$EXPECTED_ORIGIN_SSH"; then
+      echo "  ⚠️  origin points to unexpected URL: $CURRENT_ORIGIN"
+      echo "     Expected: $EXPECTED_ORIGIN_SSH (or HTTPS equivalent)"
+      REMOTES_OK=false
+    fi
+
+    if [ "$REMOTES_OK" = true ]; then
+      # Re-read upstream in case origin was going to be renamed
+      FUTURE_UPSTREAM="$CURRENT_UPSTREAM"
+      if [ -z "$CURRENT_UPSTREAM" ] && origin_is_main_repo "$CURRENT_ORIGIN"; then
+        FUTURE_UPSTREAM="$CURRENT_ORIGIN"
+      fi
+
+      if [ -z "$FUTURE_UPSTREAM" ]; then
+        REMOTE_ACTIONS+=("Add upstream → $BOT_PR_REPO ($EXPECTED_UPSTREAM_SSH)")
+      elif ! url_matches "$FUTURE_UPSTREAM" "$EXPECTED_UPSTREAM" "$EXPECTED_UPSTREAM_SSH"; then
+        echo "  ⚠️  upstream points to unexpected URL: $CURRENT_UPSTREAM"
+        echo "     Expected: $EXPECTED_UPSTREAM_SSH (or HTTPS equivalent)"
+        REMOTES_OK=false
+      fi
+    fi
+  fi
+
+  # If everything is already correct, just report it
+  if [ "$REMOTES_OK" = true ] && [ ${#REMOTE_ACTIONS[@]} -eq 0 ]; then
+    echo "  ✓ origin → $BOT_USERNAME/$FORK_REPO_NAME"
+    echo "  ✓ upstream → $BOT_PR_REPO"
+    echo "  ✓ Remotes configured correctly"
+  fi
+
+  # If there are changes to make, describe them and ask for confirmation
+  if [ "$REMOTES_OK" = true ] && [ ${#REMOTE_ACTIONS[@]} -gt 0 ]; then
+    echo ""
+    echo "  The following remote changes are needed:"
+    for action in "${REMOTE_ACTIONS[@]}"; do
+      echo "    • $action"
+    done
+    echo ""
+    read -p "  Apply these remote changes? (Y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+      # Apply the changes
+      if [ -z "$CURRENT_ORIGIN" ]; then
+        git -C "$GIT_REPO" remote add origin "$EXPECTED_ORIGIN_SSH"
+        echo "  ✓ origin added → $BOT_USERNAME/$FORK_REPO_NAME"
+      elif origin_is_main_repo "$CURRENT_ORIGIN"; then
+        if [ -z "$CURRENT_UPSTREAM" ]; then
+          git -C "$GIT_REPO" remote rename origin upstream
+          echo "  ✓ Renamed origin → upstream ($BOT_PR_REPO)"
+          CURRENT_UPSTREAM="$CURRENT_ORIGIN"
+          git -C "$GIT_REPO" remote add origin "$EXPECTED_ORIGIN_SSH"
+        else
+          git -C "$GIT_REPO" remote set-url origin "$EXPECTED_ORIGIN_SSH"
+        fi
+        echo "  ✓ origin → $BOT_USERNAME/$FORK_REPO_NAME"
+      fi
+
+      CURRENT_UPSTREAM=$(git -C "$GIT_REPO" remote get-url upstream 2>/dev/null || echo "")
+      if [ -z "$CURRENT_UPSTREAM" ]; then
+        git -C "$GIT_REPO" remote add upstream "$EXPECTED_UPSTREAM_SSH"
+        echo "  ✓ upstream added → $BOT_PR_REPO"
+      fi
+
+      echo "  ✓ Remotes configured"
+    else
+      echo "  Skipped. Configure manually:"
+      echo "    cd $GIT_REPO"
+      echo "    git remote set-url origin $EXPECTED_ORIGIN_SSH"
+      echo "    git remote add upstream $EXPECTED_UPSTREAM_SSH"
+    fi
+  fi
+
   # Install pre-commit hook for target repo
   if [ -n "$GIT_USER" ]; then
     HOOK_DEST="$GIT_REPO/.git/hooks/pre-commit"
@@ -309,18 +430,9 @@ if [ ! -f "$PROJECT_ROOT/data/prd.json" ] || \
   NEXT+=("Edit data/prd.json with your user stories (or use /prd-json skill)")
 fi
 if [ "$SKIP_GIT" = true ] && [ -z "${GIT_REPO_RAW:-}" ]; then
-  NEXT+=("Re-run 'make setup' and provide the target repo path to configure git identity and hooks")
+  NEXT+=("Re-run 'make setup' and provide the target repo path to configure git identity, remotes, and hooks")
 elif [ "$SKIP_GIT" = true ]; then
   NEXT+=("Ensure $GIT_REPO_RAW exists as a git repository, then re-run 'make setup'")
-fi
-
-# Remind about forking if bot username differs from the org
-if [ -n "${BOT_USERNAME:-}" ] && [ -n "${BOT_PR_REPO:-}" ]; then
-  FORK_ORG="${BOT_PR_REPO%%/*}"
-  if [ "$BOT_USERNAME" != "$FORK_ORG" ]; then
-    FORK_REPO="${BOT_PR_REPO##*/}"
-    NEXT+=("Ensure $BOT_PR_REPO is forked into the $BOT_USERNAME account (https://github.com/$BOT_USERNAME/$FORK_REPO)")
-  fi
 fi
 
 if [ ${#NEXT[@]} -gt 0 ]; then
