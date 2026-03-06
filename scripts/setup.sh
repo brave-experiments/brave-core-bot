@@ -292,12 +292,25 @@ if [ "$SKIP_GIT" = false ]; then
 
   if [ "$FORK_EXISTS" = false ]; then
     echo ""
-    echo "  ⚠️  Fork $BOT_USERNAME/$FORK_REPO_NAME not found on GitHub."
-    echo "     Create it: gh repo fork $BOT_PR_REPO --clone=false"
-    echo "     Or visit: https://github.com/$BOT_PR_REPO/fork"
-    echo "     Then re-run 'make setup' to configure remotes."
-    REMOTES_OK=false
-  else
+    echo "  Fork $BOT_USERNAME/$FORK_REPO_NAME not found on GitHub."
+    read -p "  Create fork now? (Y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+      if gh repo fork "$BOT_PR_REPO" --clone=false 2>/dev/null; then
+        echo "  ✓ Fork created: $BOT_USERNAME/$FORK_REPO_NAME"
+        FORK_EXISTS=true
+      else
+        echo "  ⚠️  Failed to create fork. Create it manually:"
+        echo "     https://github.com/$BOT_PR_REPO/fork"
+        REMOTES_OK=false
+      fi
+    else
+      echo "  Skipped. Create it manually: https://github.com/$BOT_PR_REPO/fork"
+      REMOTES_OK=false
+    fi
+  fi
+
+  if [ "$FORK_EXISTS" = true ]; then
     # Determine what remote changes are needed
     if [ -z "$CURRENT_ORIGIN" ]; then
       REMOTE_ACTIONS+=("Add origin → $BOT_USERNAME/$FORK_REPO_NAME ($EXPECTED_ORIGIN_SSH)")
