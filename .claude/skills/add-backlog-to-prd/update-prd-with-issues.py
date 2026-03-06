@@ -267,16 +267,19 @@ else:
         "projectName": "Brave Core Bot Backlog",
         "description": "Issues from brave/brave-browser repository to be resolved",
         "config": {"workingDirectory": "../src/brave"},
-        "userStories": [],
+        "stories": [],
     }
 
+# Detect which key the PRD uses for stories
+stories_key = "stories" if "stories" in prd else "userStories"
+
 # Create a deep copy of existing stories for verification
-original_stories = copy.deepcopy(prd["userStories"])
-existing_story_count = len(prd["userStories"])
+original_stories = copy.deepcopy(prd[stories_key])
+existing_story_count = len(prd[stories_key])
 
 # Extract existing issue numbers from PRD
 existing_issues = set()
-for story in prd["userStories"]:
+for story in prd[stories_key]:
     desc = story["description"]
     matches = re.findall(r"issue #(\d+)", desc)
     for match in matches:
@@ -285,7 +288,7 @@ for story in prd["userStories"]:
 # Find the highest existing ID number and priority
 max_id = 0
 max_priority = 0
-for story in prd["userStories"]:
+for story in prd[stories_key]:
     id_num = int(story["id"].split("-")[1])
     if id_num > max_id:
         max_id = id_num
@@ -315,9 +318,9 @@ for issue in github_issues:
 
 # SAFETY CHECK: Verify existing stories were not modified
 for i in range(existing_story_count):
-    if prd["userStories"][i] != original_stories[i]:
+    if prd[stories_key][i] != original_stories[i]:
         print(
-            f"ERROR: Existing story {prd['userStories'][i]['id']} was modified!",
+            f"ERROR: Existing story {prd[stories_key][i]['id']} was modified!",
             file=sys.stderr,
         )
         print(
@@ -326,7 +329,7 @@ for i in range(existing_story_count):
         sys.exit(1)
 
 # Add new stories to PRD (appends to end, doesn't modify existing)
-prd["userStories"].extend(new_stories)
+prd[stories_key].extend(new_stories)
 
 # Output updated PRD
 print(json.dumps(prd, indent=2))
