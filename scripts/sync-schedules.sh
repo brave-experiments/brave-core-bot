@@ -79,11 +79,6 @@ BLOCK_START="# === $CRON_MARKER scheduled jobs ==="
 BLOCK_END="# === end $CRON_MARKER ==="
 CLEANED=$(awk -v start="$BLOCK_START" -v end="$BLOCK_END" '$0==start{skip=1} $0==end{skip=0;next} !skip' <<< "$EXISTING")
 
-# Strip legacy marker formats from previous versions
-CLEANED=$(echo "$CLEANED" | sed '/^# === brave-core-bot scheduled jobs ===/,/^# === end brave-core-bot ===/d')
-CLEANED=$(echo "$CLEANED" | sed '/^# === brave-bot \[.*\] scheduled jobs ===/,/^# === end brave-bot \[.*\] ===/d')
-CLEANED=$(echo "$CLEANED" | sed '/^# === brave-bot (.*) scheduled jobs ===/,/^# === end brave-bot (.*) ===/d')
-
 # Combine preserved entries with new block
 NEW_CRONTAB=$(printf '%s\n%s\n' "$CLEANED" "$CRON_JOBS" | sed '/^$/N;/^\n$/d')
 

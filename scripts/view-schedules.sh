@@ -86,7 +86,7 @@ while IFS= read -r line; do
   fi
 
   # Skip boilerplate lines
-  if [[ "$line" =~ ^(SHELL|PATH)= ]] || [[ "$line" == *"do not edit"* ]] || [[ "$line" == *"=== brave-dev-bot"* ]] || [[ "$line" == *"=== end brave-dev-bot"* ]] || [[ "$line" == *"=== brave-bot"* ]] || [[ "$line" == *"=== end brave-bot"* ]]; then
+  if [[ "$line" =~ ^(SHELL|PATH)= ]] || [[ "$line" == *"do not edit"* ]] || [[ "$line" == *"=== brave-dev-bot"* ]] || [[ "$line" == *"=== end brave-dev-bot"* ]]; then
     continue
   fi
 
