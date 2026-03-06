@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.load_config import get_config, load_config
+from lib.load_config import get_config, load_config, require_config
 
 REVIEW_CACHE_PATH = ".ignore/review-prs-cache.json"
 
@@ -176,7 +176,7 @@ def fail(reason, **extra):
 
 def main():
     config = load_config()
-    pr_repo = get_config(config, "project.prRepository", "brave/brave-core")
+    pr_repo = require_config(config, "project.prRepository")
     repo_owner, repo_name = pr_repo.split("/", 1)
 
     parser = argparse.ArgumentParser(

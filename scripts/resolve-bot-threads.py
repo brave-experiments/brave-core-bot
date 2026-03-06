@@ -18,7 +18,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.load_config import get_config, load_config
+from lib.load_config import load_config, require_config
 
 
 def gh_rest(endpoint, method="GET", data=None):
@@ -159,7 +159,7 @@ def resolve_thread(thread_id, dry_run):
 
 def main():
     config = load_config()
-    default_repo = get_config(config, "project.prRepository", "brave/brave-core")
+    default_repo = require_config(config, "project.prRepository")
 
     parser = argparse.ArgumentParser(
         description="Resolve bot review threads on a PR."

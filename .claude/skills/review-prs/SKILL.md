@@ -65,7 +65,8 @@ Before processing any PRs, resolve the bot's GitHub username and the target PR r
 
 ```bash
 BOT_USERNAME=$(gh api user --jq '.login')
-PR_REPO=$(jq -r '.project.prRepository' $BOT_DIR/config.json 2>/dev/null || echo "brave/brave-core")
+PR_REPO=$(jq -r '.project.prRepository // empty' $BOT_DIR/config.json)
+if [ -z "$PR_REPO" ]; then echo "Error: project.prRepository not set in config.json. Run 'make setup'."; exit 1; fi
 ```
 
 Use `$BOT_USERNAME` in ALL subsequent jq queries and comparisons that need to identify the bot's own comments. Use `$PR_REPO` in ALL `gh` commands and GitHub URL construction instead of hardcoding a repo name. These variables are referenced throughout all subsequent steps.

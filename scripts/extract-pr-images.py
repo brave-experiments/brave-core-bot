@@ -34,7 +34,7 @@ import urllib.error
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.load_config import get_config, load_config
+from lib.load_config import load_config, require_config
 
 
 # Allowed image hosts (GitHub-hosted content only, for security)
@@ -194,7 +194,7 @@ def download_image(url, dest_path):
 
 def main():
     _config = load_config()
-    _default_repo = get_config(_config, "project.prRepository", "brave/brave-core")
+    _default_repo = require_config(_config, "project.prRepository")
 
     parser = argparse.ArgumentParser(description="Extract and download PR images")
     parser.add_argument("pr_number", type=int, help="PR number")

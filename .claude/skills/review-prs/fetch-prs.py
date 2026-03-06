@@ -29,10 +29,10 @@ from datetime import datetime, timedelta, timezone
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _bot_dir = os.path.join(_script_dir, "..", "..", "..")
 sys.path.insert(0, os.path.join(_bot_dir, "scripts"))
-from lib.load_config import get_config, load_config
+from lib.load_config import load_config, require_config
 
 _config = load_config()
-PR_REPO = get_config(_config, "project.prRepository", "brave/brave-core")
+PR_REPO = require_config(_config, "project.prRepository")
 
 CACHE_PATH = ".ignore/review-prs-cache.json"
 ORG_MEMBERS_PATH = ".ignore/org-members.txt"

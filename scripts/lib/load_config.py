@@ -1,15 +1,16 @@
 """Shared config helper for brave-bot Python scripts.
 
 Usage:
-    from lib.load_config import load_config, get_config
+    from lib.load_config import load_config, get_config, require_config
 
     config = load_config()               # auto-discovers config.json
-    org = get_config(config, "project.org", default="brave")
-    repo = get_config(config, "project.prRepository", default="brave/brave-core")
+    org = require_config(config, "project.org")          # errors if missing
+    repo = get_config(config, "project.prRepository")    # returns None if missing
 """
 
 import json
 import os
+import sys
 
 
 def load_config(config_path=None):
@@ -43,4 +44,13 @@ def get_config(config, dotted_key, default=None):
             return default
         if value is None:
             return default
+    return value
+
+
+def require_config(config, dotted_key):
+    """Read a dotted key from the config dict, exit with error if missing."""
+    value = get_config(config, dotted_key)
+    if value is None:
+        print(f"Error: '{dotted_key}' not set in config.json. Run 'make setup'.", file=sys.stderr)
+        sys.exit(1)
     return value

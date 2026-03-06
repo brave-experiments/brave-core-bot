@@ -10,8 +10,8 @@ source "$SCRIPT_DIR/lib/load-config.sh"
 
 ISSUE_NUMBER="$1"
 OUTPUT_FORMAT="${2:-json}"
-REPO="${BOT_ISSUE_REPO:-brave/brave-browser}"
-ORG="${BOT_ORG:-brave}"
+REPO="${BOT_ISSUE_REPO:?Error: BOT_ISSUE_REPO not set in config.json. Run 'make setup'.}"
+ORG="${BOT_ORG:?Error: BOT_ORG not set in config.json. Run 'make setup'.}"
 
 if [ -z "$ISSUE_NUMBER" ]; then
   echo "Usage: $0 <issue-number> [json|markdown]"

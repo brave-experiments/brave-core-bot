@@ -18,7 +18,7 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.load_config import get_config, load_config
+from lib.load_config import load_config, require_config
 
 TERMINAL_STATUSES = {"skipped", "invalid"}
 
@@ -143,7 +143,7 @@ def handle_committed(story, args):
 
 def handle_pushed(story, args):
     config = load_config()
-    pr_repo = get_config(config, "project.prRepository", "brave/brave-core")
+    pr_repo = require_config(config, "project.prRepository")
     pr_number = args.pr_number
     pr_url = f"https://github.com/{pr_repo}/pull/{pr_number}"
     changes = {}

@@ -11,10 +11,10 @@ import sys
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from lib.load_config import get_config, load_config
+from lib.load_config import load_config, require_config
 
 _config = load_config()
-_issue_repo = get_config(_config, "project.issueRepository", "brave/brave-browser")
+_issue_repo = require_config(_config, "project.issueRepository")
 
 WIKI_URL = ("https://raw.githubusercontent.com/wiki/"
             f"{_issue_repo}/Brave-Release-Schedule.md")
