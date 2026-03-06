@@ -16,6 +16,7 @@ format:
 
 # Install dev dependencies and run project setup
 setup:
+	@command -v pip3 >/dev/null 2>&1 || { echo "Error: pip3 not found. Install it with: sudo apt install python3-pip"; exit 1; }
 	pip3 install -e ".[dev]"
 	./scripts/setup.sh
 
