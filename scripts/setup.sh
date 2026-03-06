@@ -20,20 +20,9 @@ echo ""
 # ─── Step 1: config.json ─────────────────────────────────────────────────────
 
 if [ -f "$CONFIG_FILE" ]; then
-  echo "✓ config.json already exists"
-  # Show current values
-  echo "  project:   $(jq -r '.project.name' "$CONFIG_FILE")"
-  echo "  org:       $(jq -r '.project.org' "$CONFIG_FILE")"
-  echo "  PR repo:   $(jq -r '.project.prRepository' "$CONFIG_FILE")"
-  echo "  issue repo: $(jq -r '.project.issueRepository' "$CONFIG_FILE")"
+  echo "✓ config.json found — reconfiguring with current values as defaults"
   echo ""
-  read -p "  Reconfigure? (y/N) " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    WRITE_CONFIG=true
-  else
-    WRITE_CONFIG=false
-  fi
+  WRITE_CONFIG=true
 else
   if [ ! -t 0 ]; then
     echo "Error: No config.json found and no interactive terminal available."
