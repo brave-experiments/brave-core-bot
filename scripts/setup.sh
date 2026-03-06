@@ -61,9 +61,9 @@ if [ "$WRITE_CONFIG" = true ]; then
 
   echo "─── Target Project ───"
   prompt_required CFG_PR_REPO "Repo where the bot creates PRs (owner/repo, e.g. brave/brave-core): "
-  prompt_required CFG_ISSUE_REPO "Repo where issues/backlog lives (owner/repo, e.g. brave/brave-browser): "
-  read -p "Default branch for PRs [master]: " CFG_DEFAULT_BRANCH
+  read -p "Default branch for ${CFG_PR_REPO} [master]: " CFG_DEFAULT_BRANCH
   CFG_DEFAULT_BRANCH="${CFG_DEFAULT_BRANCH:-master}"
+  prompt_required CFG_ISSUE_REPO "Repo where issues/backlog lives (owner/repo, e.g. brave/brave-browser): "
 
   # Derive org and project name from PR repo
   CFG_ORG="${CFG_PR_REPO%%/*}"
