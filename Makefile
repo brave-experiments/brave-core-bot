@@ -23,6 +23,7 @@ setup:
 	else \
 		echo "Error: Neither uv nor pip3 found. Install uv (https://docs.astral.sh/uv/) or pip3."; exit 1; \
 	fi
+	@rm -rf *.egg-info
 	./scripts/setup.sh
 
 # Install/update cron schedules
