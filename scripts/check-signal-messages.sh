@@ -192,9 +192,26 @@ for line in raw_lines:
 if not new_messages:
     sys.exit(1)
 
-# Write pending messages for the skill to process
+# Merge with existing pending messages (preserves unconsumed messages from
+# previous runs where signal-cli consumed messages but Claude couldn't process
+# them because the lock was held)
+existing_pending = []
+if os.path.exists(pending_file):
+    try:
+        with open(pending_file) as f:
+            existing_pending = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        existing_pending = []
+
+# Deduplicate by timestamp
+existing_timestamps = {m['timestamp'] for m in existing_pending}
+for msg in new_messages:
+    if msg['timestamp'] not in existing_timestamps:
+        existing_pending.append(msg)
+
+# Write merged pending messages for the skill to process
 with open(pending_file, 'w') as f:
-    json.dump(new_messages, f, indent=2)
+    json.dump(existing_pending, f, indent=2)
 
 print(f'Found {len(new_messages)} new Signal message(s) to process')
 sys.exit(0)
