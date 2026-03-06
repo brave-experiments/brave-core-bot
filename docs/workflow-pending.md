@@ -2,16 +2,6 @@
 
 **Goal: Implement and test the story**
 
-**📖 FIRST STEP**: Read `$BOT_DIR/brave-core-tools/BEST-PRACTICES.md` which indexes all best practices docs. Then read the specific docs relevant to your task:
-- **Test fixes**: Read the async testing, JS evaluation, navigation, and test isolation docs
-- **C++ code changes**: Read `docs/best-practices/coding-standards.md` (naming, ownership, Chromium APIs, banned patterns)
-- **Front-end (TypeScript/React) changes**: Read `docs/best-practices/frontend.md` (component props, XSS prevention)
-- **Architecture/service changes**: Read `docs/best-practices/architecture.md` (layering, factories, dependency injection)
-- **Build file changes**: Read `docs/best-practices/build-system.md` (GN organization, deps, buildflags)
-- **chromium_src changes**: Read `docs/best-practices/chromium-src-overrides.md` (override patterns, patch style)
-
-Only read the docs relevant to your story — don't load all of them every time.
-
 ## Implementation Steps
 
 1. **IMPORTANT**: All git operations must be done in `[workingDirectory from prd.json config]` directory
@@ -236,17 +226,19 @@ Only read the docs relevant to your story — don't load all of them every time.
 
 8. Update CLAUDE.md files if you discover reusable patterns (see below)
 
-9. **REQUIRED: Verify implementation against best practices:**
+9. **REQUIRED: Verify implementation against best practices (MUST use subagent):**
 
-   Before committing, spawn a **subagent** (using the Task tool with `subagent_type: "general-purpose"`) to audit your changes against the best practices docs. The subagent should:
+   **CRITICAL: You MUST use a subagent for this step. Do NOT read best practices docs in the main context — they are 1000+ lines each and will fill the context window, causing compaction. The entire audit must happen inside the subagent.**
+
+   Spawn a subagent (using the Agent tool with `subagent_type: "general-purpose"`) to audit your changes. Pass it the bot directory path and tell it to:
 
    1. Read the diff of all changed files (`git diff` or `git diff HEAD` depending on staging)
    2. Read the relevant best practices docs based on what changed:
-      - **Test changes**: `docs/best-practices/testing-async.md`, `testing-isolation.md`, `testing-javascript.md`
-      - **C++ changes**: `docs/best-practices/coding-standards.md`
-      - **Architecture changes**: `docs/best-practices/architecture.md`
-      - **Build file changes**: `docs/best-practices/build-system.md`
-      - **chromium_src changes**: `docs/best-practices/chromium-src-overrides.md`
+      - **Test changes**: `$BOT_DIR/brave-core-tools/docs/best-practices/testing-async.md`, `testing-isolation.md`, `testing-javascript.md`
+      - **C++ changes**: `$BOT_DIR/brave-core-tools/docs/best-practices/coding-standards.md`
+      - **Architecture changes**: `$BOT_DIR/brave-core-tools/docs/best-practices/architecture.md`
+      - **Build file changes**: `$BOT_DIR/brave-core-tools/docs/best-practices/build-system.md`
+      - **chromium_src changes**: `$BOT_DIR/brave-core-tools/docs/best-practices/chromium-src-overrides.md`
    3. For every new symbol (function, struct, class, constant, variable) introduced in the diff, check it against each relevant rule in the best practices docs — don't skim, check each symbol individually
    4. For every modification to existing code, verify the change is directly necessary for the fix
    5. Return a list of any violations found, with the specific rule and the offending code
