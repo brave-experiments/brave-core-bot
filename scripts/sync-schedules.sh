@@ -11,7 +11,8 @@ source "$SCRIPT_DIR/lib/load-config.sh"
 
 CLAUDE_BIN="$BOT_CLAUDE_BIN"
 CLAUDE_TOOLS="Bash,Read,Glob,Grep,Write,Edit,Task,WebFetch"
-LOG_DIR="$PROJECT_ROOT/.ignore"
+LOG_DIR="$PROJECT_ROOT/logs"
+mkdir -p "$LOG_DIR"
 
 # Derive the PATH from CLAUDE_BIN's directory
 CLAUDE_BIN_DIR=$(dirname "$CLAUDE_BIN")

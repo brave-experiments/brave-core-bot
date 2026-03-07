@@ -5,7 +5,7 @@ description: "Analyze iteration logs in ./logs for errors, schedule gaps, and pr
 
 # Logs Analysis
 
-Analyze iteration log files in `./logs/` (top-level only, **never** look in `processed/`) and cron logs in `./.ignore/*-cron.log` to identify problems and assess schedule health.
+Analyze iteration log files in `./logs/` (top-level only, **never** look in `processed/`) and cron logs in `./logs/*-cron.log` to identify problems and assess schedule health.
 
 **Determine the bot directory:** This SKILL.md file lives inside the bot's `.claude/skills/logs-analysis/` directory. Use this file's path to derive the absolute path to the bot directory (referred to as `$BOT_DIR` below).
 
@@ -22,7 +22,7 @@ find $BOT_DIR/logs -maxdepth 1 -name '*.log' -type f | sort
 Also list the cron logs:
 
 ```bash
-ls -la $BOT_DIR/.ignore/*-cron.log 2>/dev/null
+ls -la $BOT_DIR/logs/*-cron.log 2>/dev/null
 ```
 
 If there are **no log files** in the top-level logs directory, report "No unprocessed logs found" and stop.
