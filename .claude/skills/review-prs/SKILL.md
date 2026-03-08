@@ -57,7 +57,7 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto] [re
 
 ## Per-Document Review Workflow
 
-**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per chunk of ~20 rules — running in parallel. Large best-practice documents are split into evenly-sized chunks by a preprocessing script, so each subagent handles a focused set of rules. This ensures every rule is systematically checked rather than relying on a single subagent to hold many rules in mind.
+**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per chunk of ~10 rules — running in parallel. Large best-practice documents are split into evenly-sized chunks by a preprocessing script, so each subagent handles a focused set of rules. This ensures every rule is systematically checked rather than relying on a single subagent to hold many rules in mind.
 
 ### Step 0: Resolve Bot Username and PR Repository
 
@@ -95,6 +95,7 @@ Classify the changed files:
 - **has_ios_files**: `.swift` files, or paths containing `ios/`
 - **has_patch_files**: `.patch` files or paths containing `patches/`
 - **has_nala_files**: files matching `*/res/drawable/*`, `*/res/values/*`, or `*/res/values-night/*`, paths `components/vector_icons/`, `.icon` files, or `.svg` files
+- **has_localization_files**: `.grd`, `.grdp`, `.xtb` files, or paths containing `l10n/` or `strings/`
 
 ### Step 1.5: Fetch Existing PR Comments (Re-review Context)
 
@@ -236,14 +237,31 @@ python3 .claude/skills/review-prs/update-cache.py <PR_NUMBER> <HEAD_REF_OID> --a
 APPROVE: [PR #<number>](https://github.com/$PR_REPO/pull/<number>) (<title>) - all threads resolved, approved
 ```
 
-### Step 2: Chunk Documents and Launch Subagents in Parallel
+### Step 2: Discover Documents, Chunk, and Launch Subagents in Parallel
 
-For each applicable best-practice document, run the chunking script to split it into groups of ~20 rules, then launch one **Task subagent** (subagent_type: "general-purpose") per chunk. **Use multiple Task tool calls in a single message** so they run in parallel. Pass the `PR_DIFF` content (fetched in Step 1) directly in each subagent's prompt so they don't need to fetch it again.
+Best-practice documents are discovered dynamically — no hardcoded list. Run the discovery script with flags matching the PR's file types, then chunk each applicable document and launch subagents.
 
-**Chunking step:** For each applicable document, run:
+**Step 2a: Discover applicable documents.** Build the flag list from Step 1's file classification, then run:
 ```bash
-python3 $BOT_DIR/.claude/skills/review-prs/chunk-best-practices.py \
-  $BOT_DIR/$BP_SUBMODULE/docs/best-practices/<doc>.md
+python3 $BOT_DIR/.claude/skills/review-prs/discover-best-practices.py \
+  $BOT_DIR/$BP_SUBMODULE/docs/best-practices \
+  [--has-cpp] [--has-test] [--has-chromium-src] [--has-build] \
+  [--has-frontend] [--has-android] [--has-ios] [--has-patch] \
+  [--has-nala] [--has-localization]
+```
+
+Only pass the flags that are true for the current PR. The script discovers all `.md` files in the best-practices directory, determines each file's applicability condition (from an `<!-- applicability: CONDITION -->` comment in the file, or by naming convention), and returns only the matching documents plus any "always" documents. Output is JSON:
+```json
+[
+  {"doc": "architecture.md", "path": "/abs/path/architecture.md", "condition": "always"},
+  {"doc": "coding-standards.md", "path": "/abs/path/coding-standards.md", "condition": "has_cpp_files"},
+  ...
+]
+```
+
+**Step 2b: Chunk each applicable document.** For each document from the discovery output, run:
+```bash
+python3 $BOT_DIR/.claude/skills/review-prs/chunk-best-practices.py <path>
 ```
 
 This outputs JSON with one or more chunks per document. Each chunk contains:
@@ -253,30 +271,7 @@ This outputs JSON with one or more chunks per document. Each chunk contains:
 - `headings`: list of rule heading texts (for the audit trail)
 - `content`: the full text to pass to the subagent (includes the doc header + the chunk's rules)
 
-Small documents (≤20 rules) produce 1 chunk. Large documents are split evenly (e.g., 65 rules → 3 chunks of 22+22+21). Launch one subagent per chunk.
-
-**Document applicability table:**
-
-| Document | Condition |
-|----------|-----------|
-| `coding-standards.md` | has_cpp_files |
-| `coding-standards-memory.md` | has_cpp_files |
-| `coding-standards-apis.md` | has_cpp_files |
-| `architecture.md` | Always |
-| `documentation.md` | Always |
-| `build-system.md` | has_build_files |
-| `testing-async.md` | has_test_files |
-| `testing-javascript.md` | has_test_files |
-| `testing-navigation.md` | has_test_files |
-| `testing-isolation.md` | has_test_files |
-| `chromium-src-overrides.md` | has_chromium_src |
-| `frontend.md` | has_frontend_files |
-| `android.md` | has_android_files |
-| `ios.md` | has_ios_files |
-| `patches.md` | has_patch_files |
-| `nala.md` | has_nala_files |
-
-**Always launch at minimum:** architecture and documentation (apply to all PRs — layering, dependency injection, factory patterns, and documentation standards affect every change).
+Small documents (≤10 rules) produce 1 chunk. Large documents are split evenly (e.g., 30 rules → 3 chunks of 10). Launch one **Task subagent** (subagent_type: "general-purpose") per chunk. **Use multiple Task tool calls in a single message** so they run in parallel. Pass the `PR_DIFF` content (fetched in Step 1) directly in each subagent's prompt so they don't need to fetch it again.
 
 ### Step 3: Subagent Prompt
 
