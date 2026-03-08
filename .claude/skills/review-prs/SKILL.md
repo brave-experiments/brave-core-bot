@@ -57,7 +57,7 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto] [re
 
 ## Per-Document Review Workflow
 
-**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per chunk of ~10 rules — running in parallel. Large best-practice documents are split into evenly-sized chunks by a preprocessing script, so each subagent handles a focused set of rules. This ensures every rule is systematically checked rather than relying on a single subagent to hold many rules in mind.
+**IMPORTANT:** The main context does NOT load best practices docs or PR diffs. Each PR is reviewed by multiple focused subagents — one per chunk of ~3 rules — running in parallel. Large best-practice documents are split into evenly-sized chunks by a preprocessing script, so each subagent handles a focused set of rules. This ensures every rule is systematically checked rather than relying on a single subagent to hold many rules in mind.
 
 ### Step 0: Resolve Bot Username and PR Repository
 
@@ -271,7 +271,7 @@ This outputs JSON with one or more chunks per document. Each chunk contains:
 - `headings`: list of rule heading texts (for the audit trail)
 - `content`: the full text to pass to the subagent (includes the doc header + the chunk's rules)
 
-Small documents (≤10 rules) produce 1 chunk. Large documents are split evenly (e.g., 30 rules → 3 chunks of 10). Launch one **Task subagent** (subagent_type: "general-purpose") per chunk. **Use multiple Task tool calls in a single message** so they run in parallel. Pass the `PR_DIFF` content (fetched in Step 1) directly in each subagent's prompt so they don't need to fetch it again.
+Small documents (≤3 rules) produce 1 chunk. Large documents are split evenly (e.g., 30 rules → 10 chunks of 3). Launch one **Task subagent** (subagent_type: "general-purpose") per chunk. **Use multiple Task tool calls in a single message** so they run in parallel. Pass the `PR_DIFF` content (fetched in Step 1) directly in each subagent's prompt so they don't need to fetch it again.
 
 ### Step 3: Subagent Prompt
 
