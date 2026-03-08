@@ -31,7 +31,8 @@ BOT_REPO_BRANCH="${BOT_REPO_BRANCH:-master}"
 CRON_MARKER="brave-dev-bot ($BOT_PROJECT_NAME)"
 
 # Build the crontab content
-# Note: add-backlog-to-prd runs 1 hour before each run.sh invocation
+# Note: add-backlog-to-prd runs 15 min before each run.sh invocation
+# Weekday (1-5 = Mon-Fri) schedules run more frequently than weekend (0,6 = Sat-Sun)
 CRON_JOBS=$(cat <<EOF
 # === $CRON_MARKER scheduled jobs ===
 # Managed by sync-schedules.sh - do not edit manually
@@ -40,15 +41,24 @@ PATH=$CLAUDE_BIN_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bi
 
 # Add backlog to PRD (15 min before each run.sh) — skip if no prd.json
 # Gate check runs before git sync to avoid wasted fetches
-45 3,7,15,19 * * * cd $PROJECT_ROOT && source .envrc && ./scripts/check-has-prd.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh add-backlog -- $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
+# Weekdays: 4x/day
+45 3,7,15,19 * * 1-5 cd $PROJECT_ROOT && source .envrc && ./scripts/check-has-prd.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh add-backlog -- $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
+# Weekends: once/day (before run.sh)
+45 11 * * 0,6 cd $PROJECT_ROOT && source .envrc && ./scripts/check-has-prd.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh add-backlog -- $CLAUDE_BIN -p '/add-backlog-to-prd' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/add-backlog-cron.log 2>&1
 
 # Main agent run — skip if no actionable stories
 # Gate check runs before git sync to avoid wasted fetches
-10 0,8,12,16 * * * cd $PROJECT_ROOT && source .envrc && ./scripts/check-has-work.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./run.sh 3 >> $LOG_DIR/run-cron.log 2>&1
+# Weekdays: 4x/day
+10 0,8,12,16 * * 1-5 cd $PROJECT_ROOT && source .envrc && ./scripts/check-has-work.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./run.sh 3 >> $LOG_DIR/run-cron.log 2>&1
+# Weekends: once/day at 14:10
+10 14 * * 0,6 cd $PROJECT_ROOT && source .envrc && ./scripts/check-has-work.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./run.sh 3 >> $LOG_DIR/run-cron.log 2>&1
 
 # Review PRs — skip if no recent open PRs
 # Gate check runs before git sync to avoid wasted fetches
-0 0,4,8,10,12,14,16,18,20 * * * cd $PROJECT_ROOT && source .envrc && ./scripts/check-new-prs.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh review-prs -- $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
+# Weekdays: every 2h + off-hours
+0 0,4,8,10,12,14,16,18,20 * * 1-5 cd $PROJECT_ROOT && source .envrc && ./scripts/check-new-prs.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh review-prs -- $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
+# Weekends: once/day at noon
+0 12 * * 0,6 cd $PROJECT_ROOT && source .envrc && ./scripts/check-new-prs.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh review-prs -- $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
 
 # Learnable pattern search — skip if no recent merged PRs
 # Gate check runs before git sync to avoid wasted fetches
@@ -88,13 +98,18 @@ echo "$NEW_CRONTAB" | crontab -
 echo "Cron jobs installed successfully."
 echo ""
 echo "Current schedule:"
-echo "  00:01 - sync repo origin/$BOT_DEFAULT_BRANCH from upstream (if enabled)"
-echo "  00:10 - run.sh (3 iterations)"
-echo "  Every 5 min at :01,:06,:11,...,:56 - /check-signal (only if messages pending)"
-echo "  03:45, 07:45, 15:45, 19:45 - /add-backlog-to-prd"
-echo "  00:10, 08:00, 12:00, 16:00 - run.sh (3 iterations)"
-echo "  08:00-20:00 (every 2h), 00:00, 04:00 - /review-prs"
-echo "  1st of month, 04:15 - /update-best-practices"
-echo "  06:00 - /learnable-pattern-search"
+echo "  Weekdays (Mon-Fri):"
+echo "    00:10, 08:10, 12:10, 16:10 - run.sh (3 iterations)"
+echo "    03:45, 07:45, 15:45, 19:45 - /add-backlog-to-prd"
+echo "    00:00, 04:00, 08:00-20:00 (every 2h) - /review-prs"
+echo "  Weekends (Sat-Sun):"
+echo "    14:10 - run.sh (3 iterations)"
+echo "    11:45 - /add-backlog-to-prd"
+echo "    12:00 - /review-prs"
+echo "  Daily:"
+echo "    06:00 - /learnable-pattern-search"
+echo "    Every 5 min at :01,:06,...,:56 - /check-signal (only if messages pending)"
+echo "    1st of month, 04:15 - /update-best-practices"
+echo "    00:01 - sync repo origin/$BOT_DEFAULT_BRANCH from upstream (if enabled)"
 echo ""
 crontab -l
