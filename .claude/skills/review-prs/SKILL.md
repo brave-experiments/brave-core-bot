@@ -45,9 +45,12 @@ When invoked with `/review-prs [days|page<N>|#<PR>] [open|closed|all] [auto] [re
    PRs to review: [PR #12345](https://github.com/$PR_REPO/pull/12345) (title), [PR #12346](https://github.com/$PR_REPO/pull/12346) (title), ...
    Cached PRs for thread resolution: [PR #12347](https://github.com/$PR_REPO/pull/12347), ...
    ```
-3. **Review each PR** (from the `prs` array) one at a time using parallel chunk subagents (see Per-Document Review Workflow below)
-4. **Aggregate and present findings** from all chunk subagents
-5. **Update the cache for EVERY reviewed PR** — this is mandatory regardless of whether violations were found, comments were posted, or comments were skipped. See Step 6 in Per-Document Review Workflow.
+
+**The review workflow runs in three phases to maximize parallelism across PRs:**
+
+3. **Phase 1: Pre-work for ALL PRs** — For each PR in the `prs` array, run Steps 1 through 1.6 (fetch diff, classify files, fetch comments, extract images, resolve addressed threads). This produces the data needed for subagent prompts. Do this for ALL PRs before launching any subagents.
+4. **Phase 2: Launch ALL chunk subagents across ALL PRs in parallel** — After pre-work is complete for all PRs, build chunk subagent prompts for every PR (see Step 2 in Per-Document Review Workflow), then launch ALL subagents across ALL PRs in a **single message** so they run concurrently. Tag each subagent prompt with the PR number so results can be associated back. This is the key optimization: instead of reviewing PR1 fully then PR2 fully, ALL chunk subagents for ALL PRs run at the same time.
+5. **Phase 3: Aggregate and post per-PR** — After ALL subagents return, process results grouped by PR. For each PR: aggregate violations, validate, update cache, and post (see Step 6). Cache updates and posting happen per-PR in this phase.
 6. **If AUTO_MODE**: post all violations immediately and log each result (see Auto Posting below — the per-PR logging and final summary are MANDATORY). **Otherwise**: draft each comment and ask user to approve before posting
 7. **Process cached PRs for thread resolution** — for each PR in the `cached_prs` array, run ONLY Step 1.6 (Acknowledge and Resolve) and Step 1.7 (Approve if settled). Do NOT launch subagents or do full reviews — these PRs have already been reviewed at the current SHA
 
@@ -243,6 +246,8 @@ APPROVE: [PR #<number>](https://github.com/$PR_REPO/pull/<number>) (<title>) - a
 
 Best-practice documents are discovered dynamically — no hardcoded list. Run the discovery script with flags matching the PR's file types, then chunk each applicable document and launch subagents.
 
+**Cross-PR parallelism:** Build chunk subagent prompts for ALL PRs during Phase 1 pre-work, then launch ALL subagents across ALL PRs in a **single message** so they run concurrently. Each subagent prompt must include the PR number so results can be grouped by PR after they return. Do NOT launch subagents for one PR, wait, then launch for the next — launch everything at once.
+
 **Step 2a: Discover applicable documents.** Build the flag list from Step 1's file classification, then run:
 ```bash
 python3 $BOT_DIR/.claude/skills/review-prs/discover-best-practices.py \
@@ -388,7 +393,7 @@ The `SKIPPED_PRIOR` section provides transparency about issues that were intenti
 
 ### Step 6: Aggregate and Process Results
 
-Process PRs **one at a time** (sequentially). After ALL chunk subagents return for a PR:
+After ALL chunk subagents across ALL PRs have returned (Phase 2 complete), process results grouped by PR. For each PR:
 
 1. **Update the cache immediately** — run the cache update script right now, before doing anything else:
    ```bash
