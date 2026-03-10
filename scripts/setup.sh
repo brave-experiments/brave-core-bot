@@ -115,7 +115,7 @@ config = {
         'disabledTestLabel': '',
     },
     'bestPractices': {
-        'docsDir': sys.argv[6] + '/docs',
+        'docsDir': '../' + sys.argv[6] + '/docs',
         'indexFile': 'BEST-PRACTICES.md',
         'securityFile': 'SECURITY.md',
     },

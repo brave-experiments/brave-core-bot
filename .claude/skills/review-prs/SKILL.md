@@ -99,7 +99,7 @@ NO_VIOLATIONS
 
 Before posting, validate and enhance every violation by reading the actual source code. This is the one phase that genuinely requires LLM judgment.
 
-**Source code paths:** The target source tree is at `$BOT_DIR/../src/brave` (derived from `project.targetRepoPath` in config). File paths in violations are relative to this directory.
+**Source code paths:** The target source tree is at `$TARGET_REPO` (derived from `project.targetRepoPath` in config). File paths in violations are relative to this directory.
 
 **For each violation:**
 - **Read the actual source file** at and around the flagged line. Use the Read tool to see full context — surrounding functions, class definitions, includes, namespace scope.
@@ -141,7 +141,7 @@ Or pipe via stdin. The input JSON format:
           "line": 42,
           "severity": "high",
           "rule": "Rule heading",
-          "rule_link": "https://github.com/brave/brave-core/tree/master/docs/best-practices/coding-standards.md#CS-042",
+          "rule_link": "https://github.com/<pr-repo>/tree/<default-branch>/docs/best-practices/coding-standards.md#CS-042",
           "issue": "Brief description",
           "draft_comment": "The comment text to post. [best practice](url)"
         }

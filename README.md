@@ -197,9 +197,9 @@ Bot-only skills are available as slash commands in Claude Code. 8 bot-specific s
 |-------|-------------|
 | `/check-signal` | Check incoming Signal messages and execute commands |
 
-### Developer Skills (brave-core)
+### Developer Skills (target repo)
 
-Developer-facing skills (commit, pr, review, preflight, etc.) are maintained in [brave-core](https://github.com/brave/brave-core). Best practices docs live in `../src/brave/docs/`.
+Developer-facing skills (commit, pr, review, preflight, etc.) are maintained in the target repository. Best practices docs location is configured via `bestPractices.docsDir`.
 
 ## Run State Configuration
 
@@ -271,7 +271,7 @@ The bot enforces a comprehensive set of best practices organized by category:
 - **Chromium src/ Overrides** — Override patterns, minimizing duplication
 - **Documentation** — Inline comments, method docs
 
-See [BEST-PRACTICES.md](../src/brave/docs/BEST-PRACTICES.md) for the full index and quick checklist.
+See `BEST-PRACTICES.md` in the target repo's docs directory (configured via `bestPractices.docsDir`) for the full index and quick checklist.
 
 ## Git Workflow
 

@@ -33,7 +33,7 @@ from lib.load_config import load_config, get_config, require_config
 
 CACHE_PATH = os.path.join(BOT_DIR, ".ignore", "review-prs-cache.json")
 _config = load_config()
-_BP_DOCS_DIR = get_config(_config, "bestPractices.docsDir", "../src/brave/docs")
+_BP_DOCS_DIR = require_config(_config, "bestPractices.docsDir")
 _BP_BASE = os.path.normpath(os.path.join(BOT_DIR, _BP_DOCS_DIR, ".."))
 MANAGE_BP_IDS = os.path.join(_BP_BASE, "script", "manage-bp-ids.py")
 CHECK_CAN_APPROVE = os.path.join(BOT_DIR, "scripts", "check-can-approve.py")

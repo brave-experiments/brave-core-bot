@@ -20,16 +20,18 @@ SCRIPT_PATH = os.path.join(
     "chunk-best-practices.py",
 )
 
-# Path to real best-practices docs (in brave-core repo).
-BP_DIR = os.path.join(
-    os.path.dirname(__file__),
-    os.pardir,
-    os.pardir,
-    "src",
-    "brave",
-    "docs",
-    "best-practices",
-)
+# Path to real best-practices docs — derived from config if available.
+_BOT_DIR = os.path.join(os.path.dirname(__file__), os.pardir)
+_CONFIG_PATH = os.path.join(_BOT_DIR, "config.json")
+_BP_DOCS_DIR = None
+if os.path.isfile(_CONFIG_PATH):
+    import json as _json
+    with open(_CONFIG_PATH) as _f:
+        _bp = _json.load(_f).get("bestPractices", {})
+        _BP_DOCS_DIR = _bp.get("docsDir")
+if not _BP_DOCS_DIR:
+    _BP_DOCS_DIR = os.environ.get("BP_DOCS_DIR", "")
+BP_DIR = os.path.join(_BOT_DIR, _BP_DOCS_DIR, "best-practices") if _BP_DOCS_DIR else ""
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -275,13 +277,13 @@ class TestProcessDoc:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Real docs (only if submodule is present)
+# Real docs (only if best-practices dir is configured and present)
 # ═══════════════════════════════════════════════════════════════════════════
 
-HAS_REAL_DOCS = os.path.isdir(BP_DIR)
+HAS_REAL_DOCS = bool(BP_DIR) and os.path.isdir(BP_DIR)
 
 
-@pytest.mark.skipif(not HAS_REAL_DOCS, reason="brave-core best-practices docs not present")
+@pytest.mark.skipif(not HAS_REAL_DOCS, reason="best-practices docs not present")
 class TestRealDocs:
     """Smoke tests against actual best-practice documents."""
 
