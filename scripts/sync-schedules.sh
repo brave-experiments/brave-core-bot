@@ -57,7 +57,7 @@ PATH=$CLAUDE_BIN_DIR:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bi
 # Review PRs — skip if no recent open PRs
 # Gate check runs before git sync to avoid wasted fetches
 # Weekdays: 3x/day
-0 4,10,16 * * 1-5 cd $PROJECT_ROOT && source .envrc && ./scripts/check-new-prs.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh review-prs -- $TIMEOUT_TREE 7200 $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
+0 4,14,20 * * 1-5 cd $PROJECT_ROOT && source .envrc && ./scripts/check-new-prs.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh review-prs -- $TIMEOUT_TREE 7200 $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
 # Weekends: once/day at noon
 0 12 * * 0,6 cd $PROJECT_ROOT && source .envrc && ./scripts/check-new-prs.sh && git fetch origin && git checkout $BOT_REPO_BRANCH && git reset --hard origin/$BOT_REPO_BRANCH && ./scripts/update-submodule.sh && ./scripts/with-lock.sh review-prs -- $TIMEOUT_TREE 7200 $CLAUDE_BIN -p '/review-prs 1d open auto reviewer-priority' --allowedTools '$CLAUDE_TOOLS' >> $LOG_DIR/review-prs-cron.log 2>&1
 
@@ -102,7 +102,7 @@ echo "Current schedule:"
 echo "  Weekdays (Mon-Fri):"
 echo "    08:10, 16:10 - run.sh (3 iterations)"
 echo "    07:45 - /add-backlog-to-prd (sonnet)"
-echo "    04:00, 10:00, 16:00 - /review-prs"
+echo "    04:00, 14:00, 20:00 - /review-prs"
 echo "  Weekends (Sat-Sun):"
 echo "    14:10 - run.sh (3 iterations)"
 echo "    11:45 - /add-backlog-to-prd (sonnet)"
