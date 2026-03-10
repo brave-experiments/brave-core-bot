@@ -115,7 +115,7 @@ config = {
         'disabledTestLabel': '',
     },
     'bestPractices': {
-        'submodule': 'brave-core-tools',
+        'docsDir': sys.argv[6] + '/docs',
         'indexFile': 'BEST-PRACTICES.md',
         'securityFile': 'SECURITY.md',
     },
@@ -138,15 +138,7 @@ fi
 # Source config (needed for all subsequent steps)
 source "$SCRIPT_DIR/lib/load-config.sh"
 
-# ─── Step 2: Submodule ───────────────────────────────────────────────────────
-
-echo "Initializing $BOT_BP_SUBMODULE submodule..."
-cd "$PROJECT_ROOT"
-git submodule update --init --recursive
-echo "✓ Submodule initialized"
-echo ""
-
-# ─── Step 3: Data files ──────────────────────────────────────────────────────
+# ─── Step 2: Data files ──────────────────────────────────────────────────────
 
 mkdir -p "$PROJECT_ROOT/data"
 

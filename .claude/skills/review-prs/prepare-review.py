@@ -57,12 +57,12 @@ _ei_spec.loader.exec_module(_ei_mod)
 # ---------------------------------------------------------------------------
 _config = load_config()
 PR_REPO = require_config(_config, "project.prRepository")
-BP_SUBMODULE = get_config(_config, "bestPractices.submodule", "brave-core-tools")
+BP_DOCS_DIR = get_config(_config, "bestPractices.docsDir", "../src/brave/docs")
 ORG_MEMBERS_PATH = os.path.join(_BOT_DIR, ".ignore", "org-members.txt")
 TRUSTED_REVIEWERS_PATH = os.path.join(_BOT_DIR, "scripts", "trusted-reviewers.txt")
 CACHE_PATH = os.path.join(_BOT_DIR, ".ignore", "review-prs-cache.json")
-BP_DIR = os.path.join(_BOT_DIR, BP_SUBMODULE, "docs", "best-practices")
-BP_LINK_BASE = "https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices"
+BP_DIR = os.path.join(_BOT_DIR, BP_DOCS_DIR, "best-practices")
+BP_LINK_BASE = "https://github.com/brave/brave-core/tree/master/docs/best-practices"
 
 
 def log(msg):
@@ -602,7 +602,7 @@ Review Rules:
 
 _BEST_PRACTICE_LINK_REQUIREMENT = """\
 Best practice link requirement: each rule in the best practices docs has a stable ID anchor (e.g., <a id="CS-001"></a>) on the line before the heading. For each violation, you MUST include a direct link using that ID. The link format is:
-  https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/<doc>.md#<ID>
+  https://github.com/brave/brave-core/tree/master/docs/best-practices/<doc>.md#<ID>
 For example, if the heading has <a id="CS-042"></a> above it, the link is ...coding-standards.md#CS-042.
 
 CRITICAL: The rule_link fragment MUST be an exact <a id="..."> value from the rules provided in your chunk. Look for the <a id="..."></a> tag on the line before the heading you're referencing and use that ID verbatim. Do NOT invent IDs, guess ID numbers, or construct anchors from heading text. If no <a id> tag exists for the rule, or if your observation is a general bug/correctness issue that doesn't map to any specific heading, omit the rule_link field entirely.

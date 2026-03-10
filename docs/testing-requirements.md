@@ -135,7 +135,7 @@ Both must pass before committing. These are in addition to any C++ tests or othe
 
 **CRITICAL: Follow these guidelines when writing C++ tests for Chromium/Brave codebase.**
 
-**📖 READ FIRST:** Before implementing any test fixes, read [BEST-PRACTICES.md](../brave-core-tools/BEST-PRACTICES.md) for comprehensive async testing patterns, including:
+**📖 READ FIRST:** Before implementing any test fixes, read [BEST-PRACTICES.md](../../src/brave/docs/BEST-PRACTICES.md) for comprehensive async testing patterns, including:
 - Avoiding nested run loops (EvalJs inside RunUntil)
 - JavaScript evaluation patterns
 - Navigation and timing issues
@@ -276,7 +276,7 @@ Filter files are located in `test/filters/` and follow the pattern:
 3. **Determine if failure is build-type-specific** - e.g., ASAN/MSAN/UBSAN, OFFICIAL builds
 4. **Check upstream flakiness data (Chromium tests only)** - This step only applies to upstream Chromium tests (tests defined in `src/` but NOT in `src/brave/`). It does not apply to Brave-specific tests. Check the LUCI Analysis database:
    ```bash
-   python3 $BOT_DIR/brave-core-tools/scripts/check-upstream-flake.py "<TestSuite.TestMethod>"
+   python3 $TARGET_REPO/script/check-upstream-flake.py "<TestSuite.TestMethod>"
    ```
    This queries the Chromium CI flakiness database at `analysis.api.luci.app` and returns a verdict:
    - **Known upstream flake** (>=5% flake rate): Safe to filter. Include the flake rate in the filter comment.

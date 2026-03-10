@@ -210,7 +210,7 @@
    3. **Check upstream flakiness data (Chromium tests only):**
       This step only applies to upstream Chromium tests — skip it for Brave-specific tests (defined in `src/brave/`), which will not appear in the Chromium database.
       ```bash
-      python3 $BOT_DIR/brave-core-tools/scripts/check-upstream-flake.py "<TestClassName.TestMethod>"
+      python3 $TARGET_REPO/script/check-upstream-flake.py "<TestClassName.TestMethod>"
       ```
       - If the verdict is "Known upstream flake" or "Occasional upstream failures":
         Document this finding in the filter file comment and commit message
@@ -241,7 +241,7 @@
 
    ### Step 9.2: Classify files and determine applicable docs
 
-   Follow the exact same process as Steps 4 and 5 of the `/check-best-practices` skill (`$BOT_DIR/brave-core-tools/.claude/skills/check-best-practices/SKILL.md`): classify changed files, determine applicable best practices documents using the applicability table defined there, and skip documents whose category has no matching files.
+   Follow the exact same process as Steps 4 and 5 of the `/check-best-practices` skill (`$TARGET_REPO/.claude/skills/check-best-practices/SKILL.md`): classify changed files, determine applicable best practices documents using the applicability table defined there, and skip documents whose category has no matching files.
 
    **For filter-file-only changes** (`test/filters/*.filter` and nothing else): Only `testing-isolation.md` and `documentation.md` apply. Skip all other documents.
 
@@ -249,8 +249,8 @@
 
    For each applicable document, run the chunking script:
    ```bash
-   python3 $BOT_DIR/brave-core-tools/.claude/skills/check-best-practices/chunk-best-practices.py \
-     $BOT_DIR/brave-core-tools/docs/best-practices/<doc>.md
+   python3 $TARGET_REPO/.claude/skills/check-best-practices/chunk-best-practices.py \
+     $TARGET_REPO/docs/best-practices/<doc>.md
    ```
 
    This outputs JSON with chunks of ~20 rules each. Launch one Agent subagent (`subagent_type: "general-purpose"`) per chunk, **all in parallel**. Each subagent prompt MUST include:
@@ -285,7 +285,7 @@
 
 10. **If ALL tests pass:**
    - Commit ALL changes (must be in `[targetRepoPath from bot config]`)
-   - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../brave-core-tools/SECURITY.md#public-security-messaging) for guidance
+   - **IMPORTANT**: If fixing security-sensitive issues (XSS, CSRF, buffer overflows, sanitizer issues, etc.), use discretion in commit messages - see [SECURITY.md](../SECURITY.md#public-security-messaging) for guidance
    - **For Chromium test disables (filter file modifications)**: If you detected this is a Chromium test in step 7, include in commit message:
      - State clearly that it's a **Chromium test** (e.g., "Disable Chromium test..." or "This is an upstream Chromium test...")
      - If Chromium has also disabled it, mention that explicitly (e.g., "Chromium has also disabled this test" or "Already disabled upstream")
@@ -367,7 +367,7 @@ When multiple attempts have failed, consider whether the fundamental approach is
 
 **Last resort - disable with full documentation:**
 If no fix is viable after thorough investigation, you may create a PR to disable the test, but you MUST:
-- For Chromium tests (not Brave-specific tests): run `python3 $BOT_DIR/brave-core-tools/scripts/check-upstream-flake.py "<TestName>"` and include the results
+- For Chromium tests (not Brave-specific tests): run `python3 $TARGET_REPO/script/check-upstream-flake.py "<TestName>"` and include the results
 - Document all previous fix attempts (including PRs by others)
 - Explain why each approach failed
 - Describe the fundamental issue that makes the test unfixable

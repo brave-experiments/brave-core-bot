@@ -141,7 +141,7 @@ Or pipe via stdin. The input JSON format:
           "line": 42,
           "severity": "high",
           "rule": "Rule heading",
-          "rule_link": "https://github.com/brave-experiments/brave-core-tools/tree/master/docs/best-practices/coding-standards.md#CS-042",
+          "rule_link": "https://github.com/brave/brave-core/tree/master/docs/best-practices/coding-standards.md#CS-042",
           "issue": "Brief description",
           "draft_comment": "The comment text to post. [best practice](url)"
         }

@@ -197,9 +197,9 @@ Bot-only skills are available as slash commands in Claude Code. 8 bot-specific s
 |-------|-------------|
 | `/check-signal` | Check incoming Signal messages and execute commands |
 
-### Developer Skills (brave-core-tools)
+### Developer Skills (brave-core)
 
-14 additional developer-facing skills (commit, pr, review, preflight, etc.) are maintained in [brave-core-tools](https://github.com/brave-experiments/brave-core-tools). See that repo's README for the full list. These are included here as a git submodule for best-practices access but are not used by the bot directly.
+Developer-facing skills (commit, pr, review, preflight, etc.) are maintained in [brave-core](https://github.com/brave/brave-core). Best practices docs live in `../src/brave/docs/`.
 
 ## Run State Configuration
 
@@ -231,7 +231,7 @@ Project-specific configuration (gitignored, created by `make setup`). Keys:
 - `bot.claudeModel`: Claude model to use (`opus`, `sonnet`, etc.)
 - `labels.prLabels`: Labels applied to bot-created PRs
 - `labels.issueLabels`: Labels used for backlog issue fetching
-- `bestPractices.submodule`: Name of the best-practices submodule
+- `bestPractices.docsDir`: Path to the docs directory containing best practices (relative to bot dir)
 
 A `config.example.json` template and `config.brave-core.json` reference config are included.
 
@@ -271,7 +271,7 @@ The bot enforces a comprehensive set of best practices organized by category:
 - **Chromium src/ Overrides** — Override patterns, minimizing duplication
 - **Documentation** — Inline comments, method docs
 
-See [BEST-PRACTICES.md](brave-core-tools/BEST-PRACTICES.md) for the full index and quick checklist (available via the brave-core-tools submodule).
+See [BEST-PRACTICES.md](../src/brave/docs/BEST-PRACTICES.md) for the full index and quick checklist.
 
 ## Git Workflow
 
@@ -350,7 +350,7 @@ cp trusted-reviewers.txt.example trusted-reviewers.txt
 - **Bot permissions**: Uses `--dangerously-skip-permissions` for autonomous operation
 - **Review differentiation**: Review skill rejects fixes that aren't materially different from previous failed attempts
 
-See [SECURITY.md](brave-core-tools/SECURITY.md) for complete guidelines.
+See [SECURITY.md](SECURITY.md) for complete guidelines.
 
 ## Signal Notifications (Optional)
 
@@ -474,12 +474,7 @@ brave-dev-bot/                 # (or your clone name)
 ├── README.md                  # This file
 ├── config.json                # Project config (gitignored, created by setup)
 ├── config.example.json        # Config template
-├── brave-core-tools/          # Git submodule: best practices, dev skills, shared scripts
-│   ├── BEST-PRACTICES.md      # Index of all best practices
-│   ├── SECURITY.md            # Security guidelines
-│   ├── .claude/skills/        # 14 developer-facing skills
-│   ├── docs/best-practices/   # Best practices sub-documents
-│   └── scripts/               # Shared utility scripts
+├── SECURITY.md                # Security guidelines for GitHub data and prompt injection
 ├── LICENSE                    # MPL-2.0 license
 ├── Makefile                   # Dev commands: make test, lint, format, setup, schedules
 ├── run.sh                     # Main entry point (iterations, TUI mode)

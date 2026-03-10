@@ -7,7 +7,7 @@
 # Exports:
 #   BOT_PROJECT_NAME, BOT_ORG, BOT_PR_REPO, BOT_ISSUE_REPO,
 #   BOT_DEFAULT_BRANCH, BOT_USERNAME, BOT_EMAIL,
-#   BOT_CLAUDE_MODEL, BOT_CLAUDE_BIN, BOT_BP_SUBMODULE
+#   BOT_CLAUDE_MODEL, BOT_CLAUDE_BIN, BOT_BP_DOCS_DIR
 #
 # Also provides:
 #   bot_config '.some.jq.path'  — raw jq query against the config file
@@ -40,7 +40,7 @@ BOT_EMAIL=$(bot_config '.bot.email')
 BOT_CLAUDE_MODEL=$(bot_config '.bot.claudeModel')
 BOT_CLAUDE_BIN=$(bot_config '.bot.claudeBin')
 
-BOT_BP_SUBMODULE=$(bot_config '.bestPractices.submodule')
+BOT_BP_DOCS_DIR=$(bot_config '.bestPractices.docsDir')
 
 # Validate required fields
 _missing=""
@@ -63,4 +63,4 @@ fi
 export BOT_DIR BOT_CONFIG_FILE
 export BOT_PROJECT_NAME BOT_ORG BOT_PR_REPO BOT_ISSUE_REPO BOT_DEFAULT_BRANCH BOT_TARGET_REPO_PATH
 export BOT_USERNAME BOT_EMAIL BOT_CLAUDE_MODEL BOT_CLAUDE_BIN
-export BOT_BP_SUBMODULE
+export BOT_BP_DOCS_DIR

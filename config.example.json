@@ -19,7 +19,7 @@
     "disabledTestLabel": ""
   },
   "bestPractices": {
-    "submodule": "brave-core-tools",
+    "docsDir": "../my-project/docs",
     "indexFile": "BEST-PRACTICES.md",
     "securityFile": "SECURITY.md"
   },

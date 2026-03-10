@@ -195,7 +195,7 @@ If the `--username` value matches `$CURRENT_USER`, the analysis focus is **inver
 When a best practice needs adjustment based on pushback analysis:
 
 ```bash
-cd ./brave-core-tools
+cd $TARGET_REPO
 git fetch origin
 git checkout -b docs/adjust-<brief-description> origin/master
 
@@ -208,7 +208,7 @@ git commit -m "Adjust best practice: <brief description>
 Based on developer pushback across PRs: #<pr1>, #<pr2>, ..."
 
 git push -u origin docs/adjust-<brief-description>
-gh pr create --repo brave-experiments/brave-core-tools \
+gh pr create \
   --title "Adjust best practice: <brief description>" \
   --body "$(cat <<'EOF'
 ## Summary
@@ -293,18 +293,9 @@ Classify each discovered pattern into one of these categories:
 
 | Category | Target Document |
 |----------|----------------|
-| C++ testing patterns | `BEST-PRACTICES.md` |
-| Git workflow | `docs/git-repository.md` |
-| Test execution | `docs/testing-requirements.md` |
-| Problem-solving | `docs/workflow-pending.md` |
-| PR creation | `docs/workflow-committed.md` |
-| Review responses | `docs/workflow-pushed.md` |
-| Security | `SECURITY.md` |
-| Front-end (TS/React) | `docs/best-practices/frontend.md` |
-| General codebase | `BEST-PRACTICES.md` |
-| Chromium conventions | `BEST-PRACTICES.md` |
-| Code style/naming | `docs/best-practices/coding-standards.md` |
-| Architecture | `docs/best-practices/architecture.md` |
+| Bot workflow (git, PRs, reviews, test execution) | `$BOT_DIR/docs/` (appropriate workflow doc) |
+| Security | `$BOT_DIR/SECURITY.md` |
+| Best practices (testing, coding, architecture, etc.) | Appropriate file in `$TARGET_REPO/docs/best-practices/` — discover available docs dynamically via `python3 $BOT_DIR/.claude/skills/review-prs/discover-best-practices.py $TARGET_REPO/docs/best-practices/` |
 
 ---
 

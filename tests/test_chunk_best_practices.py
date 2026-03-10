@@ -20,11 +20,13 @@ SCRIPT_PATH = os.path.join(
     "chunk-best-practices.py",
 )
 
-# Path to real best-practices docs (if submodule is present).
+# Path to real best-practices docs (in brave-core repo).
 BP_DIR = os.path.join(
     os.path.dirname(__file__),
     os.pardir,
-    "brave-core-tools",
+    os.pardir,
+    "src",
+    "brave",
     "docs",
     "best-practices",
 )
@@ -279,7 +281,7 @@ class TestProcessDoc:
 HAS_REAL_DOCS = os.path.isdir(BP_DIR)
 
 
-@pytest.mark.skipif(not HAS_REAL_DOCS, reason="brave-core-tools submodule not present")
+@pytest.mark.skipif(not HAS_REAL_DOCS, reason="brave-core best-practices docs not present")
 class TestRealDocs:
     """Smoke tests against actual best-practice documents."""
 

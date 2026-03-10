@@ -74,13 +74,13 @@ After pushing review-requested changes, answer these questions:
 
 | Pattern Type | Document Location |
 |-------------|-------------------|
-| Async testing, RunUntil patterns | `$BOT_DIR/brave-core-tools/BEST-PRACTICES.md` |
+| Async testing, RunUntil patterns | `$TARGET_REPO/docs/BEST-PRACTICES.md` |
 | Git workflow, branch naming | `$BOT_DIR/docs/git-repository.md` |
 | Test execution requirements | `$BOT_DIR/docs/testing-requirements.md` |
 | Problem-solving approaches | `$BOT_DIR/docs/workflow-pending.md` (Problem-Solving Approach section) |
 | PR creation, commit messages | `$BOT_DIR/docs/workflow-committed.md` |
 | Review response patterns | `$BOT_DIR/docs/workflow-pushed.md` |
-| Security practices | `$BOT_DIR/brave-core-tools/SECURITY.md` |
+| Security practices | `$BOT_DIR/SECURITY.md` |
 | General codebase patterns | `$BOT_DIR/data/progress.txt` (Codebase Patterns section) |
 
 ### 2. Create a Separate Branch and PR for the Bot Repository

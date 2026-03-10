@@ -169,7 +169,7 @@ test_org_members_list_not_empty() {
 
 test_required_files_exist() {
   assert_file_exists "README.md exists" "$ROOT_DIR/README.md"
-  assert_file_exists "SECURITY.md exists" "$ROOT_DIR/SECURITY.md"
+  assert_file_exists "SECURITY.md exists at root" "$ROOT_DIR/SECURITY.md"
   assert_file_exists "CLAUDE.md exists" "$ROOT_DIR/.claude/CLAUDE.md"
   assert_file_exists "run.sh exists" "$ROOT_DIR/run.sh"
   assert_file_exists "setup.sh exists" "$ROOT_DIR/scripts/setup.sh"

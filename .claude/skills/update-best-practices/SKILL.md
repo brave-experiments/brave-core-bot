@@ -44,21 +44,15 @@ The user may also provide any other Chromium documentation URL.
 
 ## Step 1: Read All Existing Best Practices
 
-Read every file in `brave-core-tools/docs/best-practices/` to build a complete picture of current rules:
+Discover all `.md` files in `$TARGET_REPO/docs/best-practices/` dynamically:
 
-```
-brave-core-tools/docs/best-practices/architecture.md
-brave-core-tools/docs/best-practices/coding-standards.md
-brave-core-tools/docs/best-practices/testing-async.md
-brave-core-tools/docs/best-practices/testing-isolation.md
-brave-core-tools/docs/best-practices/testing-javascript.md
-brave-core-tools/docs/best-practices/testing-navigation.md
-brave-core-tools/docs/best-practices/frontend.md
-brave-core-tools/docs/best-practices/chromium-src-overrides.md
-brave-core-tools/docs/best-practices/build-system.md
+```bash
+python3 $BOT_DIR/.claude/skills/review-prs/discover-best-practices.py $TARGET_REPO/docs/best-practices/
 ```
 
-Also read `brave-core-tools/BEST-PRACTICES.md` (the index file).
+This returns a JSON array of all best-practice documents. Read every file listed to build a complete picture of current rules.
+
+Also read `$TARGET_REPO/docs/BEST-PRACTICES.md` (the index file).
 
 For each file, catalog every rule by its heading/title so you can check for duplicates and conflicts.
 
@@ -149,7 +143,7 @@ Scan ALL best practices files for internal contradictions. Common conflict patte
 
 ## Step 6: Update BEST-PRACTICES.md
 
-If new upstream reference URLs were processed, add them to the References section in `brave-core-tools/BEST-PRACTICES.md`.
+If new upstream reference URLs were processed, add them to the References section in `$TARGET_REPO/docs/BEST-PRACTICES.md`.
 
 ---
 
@@ -202,18 +196,20 @@ Output a summary to the user with:
 
 If changes were made to best practices files, commit them and create a PR so they persist:
 
-1. **Navigate to the brave-core-tools submodule** directory
+1. **Navigate to the target repo** directory:
+   ```bash
+   cd $TARGET_REPO
+   ```
 2. **Create a new branch** from the current HEAD:
    ```bash
-   cd $BOT_DIR/$BP_SUBMODULE
-   git checkout -b best-practices-update-$(date +%Y%m%d-%H%M%S)
+   git checkout -b docs/best-practices-update-$(date +%Y%m%d-%H%M%S)
    ```
 3. **Stage and commit** only the changed best practices files:
    ```bash
-   git add BEST-PRACTICES.md docs/best-practices/
+   git add docs/BEST-PRACTICES.md docs/best-practices/
    git commit -m "Update best practices from upstream Chromium docs"
    ```
-4. **Push and create a PR** to the brave-core-tools repo:
+4. **Push and create a PR**:
    ```bash
    git push -u origin HEAD
    gh pr create --title "Update best practices from upstream Chromium docs" --body "$(cat <<'EOF'
@@ -225,7 +221,7 @@ If changes were made to best practices files, commit them and create a PR so the
    EOF
    )"
    ```
-5. **Return to the bot directory** and update the submodule reference if needed:
+5. **Return to the bot directory**:
    ```bash
    cd $BOT_DIR
    ```
