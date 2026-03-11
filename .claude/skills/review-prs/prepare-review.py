@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Phase 1 pre-work for the review-prs skill.
 
-Produces a complete JSON blob with everything needed for the LLM to
-launch subagents. Zero prompt construction tokens required from the LLM.
+Produces a work directory with prompt files and a lightweight manifest.
+Zero prompt construction tokens required from the LLM — subagent prompts
+are written to files, not embedded in JSON.
 
 Usage:
     python3 prepare-review.py [days|page<N>|#<PR>] [open|closed|all] [--auto] [--reviewer-priority] [--max-prs N]
@@ -13,6 +14,8 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
@@ -64,6 +67,9 @@ CACHE_PATH = os.path.join(_BOT_DIR, ".ignore", "review-prs-cache.json")
 DEFAULT_BRANCH = require_config(_config, "project.defaultBranch")
 BP_DIR = os.path.join(_BOT_DIR, BP_DOCS_DIR, "best-practices")
 BP_LINK_BASE = f"https://github.com/{PR_REPO}/tree/{DEFAULT_BRANCH}/docs/best-practices"
+TARGET_REPO_PATH = os.path.normpath(
+    os.path.join(_BOT_DIR, require_config(_config, "project.targetRepoPath"))
+)
 
 
 def log(msg):
@@ -703,8 +709,44 @@ Severity guide:
 - low: Nits, style preferences, missing docs, naming suggestions, minor cleanup"""
 
 
+_VALIDATION_INSTRUCTIONS = """\
+Source Code Validation (REQUIRED):
+
+After identifying violations from the diff, you MUST validate each one by reading the actual source code.
+The target source tree is at: {target_repo_path}
+File paths in violations are relative to this directory.
+
+For each violation:
+- Use the Read tool to read the actual source file at {target_repo_path}/<file_path> around the flagged line.
+- Read surrounding context — functions, class definitions, includes, namespace scope.
+- Verify the claim is true. If the violation says "use X instead of Y", confirm X is available and appropriate.
+- If it claims something is missing, verify it's actually missing in the full file, not just absent from the diff.
+- Deprecation claims require header verification — read the actual header file to confirm.
+- Check surrounding context for justification — comments, TODOs, or patterns that explain the code.
+- If surrounding code uses the same pattern being flagged, the violation may be invalid.
+- Sanitize @mentions — validate against actual PR participants. Fix or strip hallucinated usernames.
+- Drop false positives. If reading the source reveals the violation is incorrect, drop it.
+- Log each result:
+  - VALIDATED: <file>:<line> — confirmed, <note>
+  - VALIDATED_ENHANCED: <file>:<line> — improved with <context>
+  - VALIDATED_DROP: <file>:<line> — <reason>
+
+After validation, write your final results as a JSON file to: {results_file}
+Use the Write tool to create this file with the following format:
+{{
+  "violations": [
+    {{"file": "path/to/file.cc", "line": 42, "severity": "high", "rule": "Rule heading", "rule_link": "https://...", "issue": "brief description", "draft_comment": "1-3 sentence comment to post"}}
+  ],
+  "validation_log": ["VALIDATED: file.cc:42 — confirmed", "VALIDATED_DROP: bar.cc:10 — false positive"]
+}}
+
+If there are no validated violations, write: {{"violations": [], "validation_log": []}}
+CRITICAL: You MUST write the results JSON file even if there are no violations."""
+
+
 def build_subagent_prompt(pr_number, pr_title, diff_text, images, prior_comments,
-                          bot_username, chunk, diff_line_ranges=None):
+                          bot_username, chunk, diff_line_ranges=None,
+                          results_file=None, target_repo_path=None):
     """Build a complete self-contained subagent prompt for a single chunk."""
     doc = chunk["doc"]
     chunk_index = chunk["chunk_index"]
@@ -787,15 +829,23 @@ def build_subagent_prompt(pr_number, pr_title, diff_text, images, prior_comments
     )
     parts.append(output_fmt)
 
+    # 11. Validation instructions (subagent validates its own findings)
+    if results_file and target_repo_path:
+        parts.append("")
+        parts.append(_VALIDATION_INSTRUCTIONS.format(
+            target_repo_path=target_repo_path,
+            results_file=results_file,
+        ))
+
     return "\n".join(parts)
 
 
 # ---------------------------------------------------------------------------
 # Process a single PR (for ThreadPoolExecutor)
 # ---------------------------------------------------------------------------
-def process_pr(pr, bot_username, org_members):
+def process_pr(pr, bot_username, org_members, work_dir):
     """Process a single PR: fetch diff, classify, comments, images, threads, chunks.
-    Returns a dict for the output JSON or an error dict."""
+    Writes prompt files to work_dir. Returns a dict for the manifest or an error dict."""
     pr_number = pr["number"]
     pr_title = pr["title"]
     head_sha = pr["headRefOid"]
@@ -852,29 +902,56 @@ def process_pr(pr, bot_username, org_members):
     # g. Parse diff line ranges for subagent prompts
     diff_line_ranges = parse_diff_line_ranges(diff_text)
 
-    # h+i. Chunk each doc and build subagent prompts
+    # h+i. Chunk each doc, build subagent prompts, write to files
+    pr_work_dir = os.path.join(work_dir, f"pr_{pr_number}")
+    os.makedirs(pr_work_dir, exist_ok=True)
+
     subagent_prompts = []
+    total_prompt_chars = 0
+    diff_chars = len(diff_text)
+    prior_comments_chars = len(prior_comments) if prior_comments else 0
+
     for doc_info in applicable_docs:
         try:
             chunks = chunk_doc(doc_info["path"])
             for chunk in chunks:
+                chunk_id = f"{doc_info['doc']}_{chunk['chunk_index']}"
+                prompt_file = os.path.join(pr_work_dir, f"{chunk_id}_prompt.txt")
+                results_file = os.path.join(pr_work_dir, f"{chunk_id}_results.json")
+
                 prompt = build_subagent_prompt(
                     pr_number, pr_title, diff_text, images,
                     prior_comments, bot_username, chunk,
                     diff_line_ranges=diff_line_ranges,
+                    results_file=results_file,
+                    target_repo_path=TARGET_REPO_PATH,
                 )
+
+                # Write prompt to file (not embedded in JSON)
+                with open(prompt_file, "w") as f:
+                    f.write(prompt)
+
+                prompt_chars = len(prompt)
+                total_prompt_chars += prompt_chars
+
                 subagent_prompts.append({
-                    "chunk_id": f"{doc_info['doc']}_{chunk['chunk_index']}",
+                    "chunk_id": chunk_id,
                     "doc": doc_info["doc"],
                     "chunk_index": chunk["chunk_index"],
                     "total_chunks": chunk["total_chunks"],
                     "rule_count": chunk["rule_count"],
                     "headings": chunk["headings"],
-                    "prompt": prompt,
+                    "prompt_file": prompt_file,
+                    "results_file": results_file,
+                    "cost_estimate": {
+                        "prompt_chars": prompt_chars,
+                        "prompt_tokens_approx": prompt_chars // 4,
+                    },
                 })
         except Exception as e:
             log(f"  WARNING: chunking failed for {doc_info['doc']}: {e}")
 
+    # Lightweight manifest entry — no diff or prior_comments
     pr_result = {
         "number": pr_number,
         "title": pr_title,
@@ -882,13 +959,18 @@ def process_pr(pr, bot_username, org_members):
         "author": author,
         "hasApproval": has_approval,
         "isExternalContributor": is_external,
-        "diff": diff_text,
-        "prior_comments": prior_comments,
         "has_bot_comments": has_bot_comments,
         "images": images,
         "thread_resolution": thread_resolution,
         "subagent_prompts": subagent_prompts,
     }
+
+    # Cost logging
+    log(f"  COST PR #{pr_number}: diff={diff_chars:,} chars, "
+        f"prior_comments={prior_comments_chars:,} chars, "
+        f"{len(subagent_prompts)} chunks, "
+        f"total_prompt={total_prompt_chars:,} chars "
+        f"(~{total_prompt_chars // 4:,} tokens)")
 
     log(f"  Done PR #{pr_number}: {len(subagent_prompts)} subagent prompts")
     return pr_result, None
@@ -1059,6 +1141,10 @@ def main():
 
     log("\n".join(progress_lines))
 
+    # Create work directory for prompt/result files
+    work_dir = tempfile.mkdtemp(prefix="review-prs-")
+    log(f"Work directory: {work_dir}")
+
     # 4. Process each PR in parallel
     errors = []
     processed_prs = []
@@ -1067,7 +1153,7 @@ def main():
         log(f"\nProcessing {len(prs_to_process)} PRs in parallel...")
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = {
-                executor.submit(process_pr, pr, bot_username, org_members): pr
+                executor.submit(process_pr, pr, bot_username, org_members, work_dir): pr
                 for pr in prs_to_process
             }
             for future in as_completed(futures):
@@ -1114,7 +1200,7 @@ def main():
     cached_order = {p["number"]: i for i, p in enumerate(cached_to_process)}
     processed_cached.sort(key=lambda p: cached_order.get(p["number"], 999999))
 
-    # 6. Output JSON
+    # 6. Write manifest.json (lightweight — no diffs, no prompts, just file paths)
     output = {
         "bot_username": bot_username,
         "pr_repo": PR_REPO,
@@ -1127,14 +1213,47 @@ def main():
         "errors": errors,
     }
 
+    manifest_path = os.path.join(work_dir, "manifest.json")
+    with open(manifest_path, "w") as f:
+        json.dump(output, f, indent=2)
+
     total_prompts = sum(len(p.get("subagent_prompts", [])) for p in processed_prs)
+    total_prompt_chars = sum(
+        sp.get("cost_estimate", {}).get("prompt_chars", 0)
+        for p in processed_prs
+        for sp in p.get("subagent_prompts", [])
+    )
+    total_prompt_tokens = total_prompt_chars // 4
+
+    # Cost summary
+    log(f"\n{'=' * 60}")
+    log(f"COST SUMMARY")
+    log(f"{'=' * 60}")
+    log(f"PRs to review: {len(processed_prs)}")
+    log(f"Total subagent prompts: {total_prompts}")
+    log(f"Total prompt size: {total_prompt_chars:,} chars (~{total_prompt_tokens:,} tokens)")
+    if total_prompts > 0:
+        avg_chars = total_prompt_chars // total_prompts
+        log(f"Average prompt size: {avg_chars:,} chars (~{avg_chars // 4:,} tokens)")
+    log(f"Cached PRs processed: {len(processed_cached)}")
+    log(f"Errors: {len(errors)}")
+    # Per-PR breakdown
+    for pr in processed_prs:
+        pr_chars = sum(
+            sp.get("cost_estimate", {}).get("prompt_chars", 0)
+            for sp in pr.get("subagent_prompts", [])
+        )
+        log(f"  PR #{pr['number']}: {len(pr.get('subagent_prompts', []))} chunks, "
+            f"{pr_chars:,} chars (~{pr_chars // 4:,} tokens)")
+    log(f"{'=' * 60}")
+
     log(f"\nDone. {len(processed_prs)} PRs processed, "
         f"{total_prompts} total subagent prompts, "
         f"{len(processed_cached)} cached PRs processed, "
         f"{len(errors)} errors.")
 
-    json.dump(output, sys.stdout, indent=2)
-    print()
+    # Output just the work_dir path to stdout (tiny — the LLM only needs this)
+    print(json.dumps({"work_dir": work_dir, "manifest": manifest_path}))
 
 
 if __name__ == "__main__":
