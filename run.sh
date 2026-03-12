@@ -218,11 +218,12 @@ Additional context: $EXTRA_PROMPT"
       '{"type":"prompt","storyId":$storyId,"status":$status,"tier":$tier,"prompt":$prompt}' >> "$ITERATION_LOG"
   fi
 
+  # Run Claude from the bot directory so it picks up .claude/CLAUDE.md as project settings
   if [ "$USE_TUI" = true ]; then
     # TUI mode: let Claude own the terminal directly (no piping)
-    "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --project-dir "$SCRIPT_DIR" --model "$BOT_CLAUDE_MODEL" --session-id "$SESSION_ID" "$CLAUDE_PROMPT" || true
+    (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --model "$BOT_CLAUDE_MODEL" --session-id "$SESSION_ID" "$CLAUDE_PROMPT") || true
   else
-    "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --print --project-dir "$SCRIPT_DIR" --model "$BOT_CLAUDE_MODEL" --verbose --output-format stream-json --session-id "$SESSION_ID" "$CLAUDE_PROMPT" 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+    (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --print --model "$BOT_CLAUDE_MODEL" --verbose --output-format stream-json --session-id "$SESSION_ID" "$CLAUDE_PROMPT") 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
   fi
 
   echo "To continue this session: claude --resume $SESSION_ID"
