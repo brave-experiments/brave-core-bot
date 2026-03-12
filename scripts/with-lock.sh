@@ -53,6 +53,14 @@ LOCKFILE="$LOCK_DIR/.${LOCK_NAME}.lock"
 exec 200>"$LOCKFILE"
 flock -n 200 || { echo "Another $LOCK_NAME job is already running. Exiting."; exit 0; }
 
+# Log the model being used (extract --model value from command args)
+_model=""
+for _arg in "$@"; do
+  if [ "$_prev" = "--model" ]; then _model="$_arg"; break; fi
+  _prev="$_arg"
+done
+echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $LOCK_NAME starting (model=${_model:-unset})"
+
 # Run the command with a timeout (use timeout-tree to kill entire process tree)
 SCRIPT_DIR_LOCK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 "$SCRIPT_DIR_LOCK/timeout-tree.sh" "$TIMEOUT" "$@"
