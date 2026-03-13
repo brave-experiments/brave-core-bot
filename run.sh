@@ -223,7 +223,7 @@ Additional context: $EXTRA_PROMPT"
     # TUI mode: let Claude own the terminal directly (no piping)
     (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --model "$BOT_CLAUDE_MODEL" --session-id "$SESSION_ID" "$CLAUDE_PROMPT") 200>&- || true
   else
-    (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --print --model "$BOT_CLAUDE_MODEL" --verbose --output-format stream-json --session-id "$SESSION_ID" "$CLAUDE_PROMPT") 200>&- 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
+    (cd "$SCRIPT_DIR" && "$SCRIPT_DIR/scripts/timeout-tree.sh" 7200 $BOT_CLAUDE_BIN --dangerously-skip-permissions --print --model "$BOT_CLAUDE_MODEL" --verbose --output-format stream-json --session-id "$SESSION_ID" "$CLAUDE_PROMPT") 200>&- </dev/null 2>&1 | tee -a "$ITERATION_LOG" > "$TEMP_OUTPUT" || true
   fi
 
   echo "To continue this session: claude --resume $SESSION_ID"
