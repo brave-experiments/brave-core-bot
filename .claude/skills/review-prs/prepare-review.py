@@ -17,6 +17,7 @@ import sys
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -756,6 +757,11 @@ def build_subagent_prompt(pr_number, pr_title, diff_text, images, prior_comments
     chunk_content = chunk["content"]
 
     parts = []
+
+    # 0. Current date context (so the model knows the actual year)
+    current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    parts.append(f"Today's date is {current_date}.")
+    parts.append("")
 
     # 1. PR number and repo
     parts.append(f"Review PR #{pr_number} in {PR_REPO}.")
