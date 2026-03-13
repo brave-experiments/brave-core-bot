@@ -7,8 +7,9 @@
 # spawns subprocesses in new process groups (e.g., Claude's Bash tool), those
 # survive and become zombie orphans reparented to init.
 #
-# Solution: Run the command in a new session (setsid) and kill the entire session
-# on timeout.
+# Solution: Recursively kill all descendant processes by walking the process tree.
+# We avoid setsid because it creates a new session with no controlling terminal,
+# which breaks Ink's raw mode check even in --print mode.
 
 set -e
 
@@ -20,18 +21,29 @@ fi
 TIMEOUT_SECS="$1"
 shift
 
-# Run command in a new session so all descendants share one SID
-setsid "$@" &
+# Recursively kill a process and all its descendants (leaf-first)
+kill_tree() {
+  local sig="${1:-TERM}"
+  local pid="$2"
+  # Get children before killing the parent
+  local children
+  children=$(pgrep -P "$pid" 2>/dev/null) || true
+  for child in $children; do
+    kill_tree "$sig" "$child"
+  done
+  kill -"$sig" "$pid" 2>/dev/null || true
+}
+
+# Run command in background (inherits the current session/TTY)
+"$@" &
 CMD_PID=$!
 
-# Background watchdog: kill the entire process group after timeout
+# Background watchdog: kill the process tree after timeout
 (
   sleep "$TIMEOUT_SECS"
-  # Kill the process group (negative PID = process group)
-  kill -- -"$CMD_PID" 2>/dev/null
+  kill_tree TERM "$CMD_PID"
   sleep 5
-  # Force kill if still alive
-  kill -9 -- -"$CMD_PID" 2>/dev/null
+  kill_tree KILL "$CMD_PID"
 ) &
 WATCHDOG_PID=$!
 
